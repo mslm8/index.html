@@ -15,7 +15,7 @@ button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 
 <header><h1>AI Animator Studio</h1><p>تبدیل توضیح متنی به تصویر با هوش مصنوعی</p></header>
 <section class="card">
 <label for="prompt">توضیح صحنه</label><textarea id="prompt" maxlength="1000" placeholder="مثلاً: یک شهر خیالی در غروب، نورپردازی سینمایی، جزئیات بالا..."></textarea>
-<button id="generate">تولید تصویر</button>
+<button id="generate" type="button" onclick="generateImage()">تولید تصویر</button>
 <div id="status">متن صحنه را بنویس و دکمه تولید را بزن.</div>
 <img id="result" hidden alt="تصویر تولیدشده"><p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر برای ذخیره</a></p>
 </section>
@@ -24,7 +24,7 @@ button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 
 </main>
 <script>
 const $=id=>document.getElementById(id);
-$('generate').onclick=()=>{
+function generateImage(){
  const button=$('generate');
  const prompt=$('prompt').value.trim();
  if(!prompt){$('status').textContent='اول توضیح صحنه را بنویس.';return;}
@@ -47,5 +47,6 @@ $('generate').onclick=()=>{
  };
  image.src=url;
  image.hidden=false;
-};
+}
+window.addEventListener('error',()=>{const s=document.getElementById('status');if(s)s.textContent='خطای اجرای صفحه رخ داد. صفحه را در Chrome باز کن و دوباره امتحان کن.';});
 </script></body></html>
