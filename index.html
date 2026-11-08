@@ -19,7 +19,7 @@ button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 
 <div id="status">متن صحنه را بنویس و دکمه تولید را بزن.</div>
 <img id="result" hidden alt="تصویر تولیدشده"><p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر برای ذخیره</a></p>
 </section>
-<section class="card"><h2>درباره موتور</h2><p>موتور تصویرسازی جدید با مدل GPT Image از طریق Puter فعال شده است.</p><small>برای استفاده باید با حساب رایگان Puter وارد شوی. هر حساب سهمیه رایگان ماهانه دارد؛ مقدار آن محدود است. اگر سهمیه تمام شد، ارتقا یا خرید اعتبار لازم نیست و نباید آن را انتخاب کنی.</small></section>
+<section class="card"><h2>درباره موتور</h2><p>موتور تصویرسازی جدید با مدل GPT Image از طریق Puter فعال شده است.</p><small>سایت ابتدا تلاش می‌کند نشست موقت Puter را بدون ثبت‌نام بسازد. اگر سرویس این گزینه را نپذیرد، متوقف می‌شود؛ شماره تلفن یا پرداخت وارد نکن.</small></section>
 <footer><small>AI Animator Studio • نسخه موبایل</small></footer>
 </main>
 <script>
@@ -46,6 +46,10 @@ async function generateImage(){
  const detailedPrompt='Create a literal, faithful image of this exact scene: '+imagePrompt+'. The main subjects and their actions must match the description exactly. Do not replace or omit any named animal, person, or object.';
  try{
    if(!window.puter || !puter.ai || !puter.ai.txt2img) throw new Error('Puter SDK unavailable');
+   if(puter.auth && !puter.auth.isSignedIn()){
+     $('status').textContent='در حال ایجاد نشست موقت؛ نیازی به ثبت‌نام با شماره نیست...';
+     await puter.auth.signIn({attempt_temp_user_creation:true});
+   }
    const generated=await puter.ai.txt2img(detailedPrompt,{model:'gpt-image-2.6-flare',quality:'low'});
    const image=$('result');
    image.src=generated.src;
