@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101323"><title>AI Animator Studio</title>
+<meta name="theme-color" content="#101323"><script src="https://js.puter.com/v2/"></script><title>AI Animator Studio</title>
 <style>
 :root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
@@ -19,7 +19,7 @@ button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 
 <div id="status">متن صحنه را بنویس و دکمه تولید را بزن.</div>
 <img id="result" hidden alt="تصویر تولیدشده"><p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر برای ذخیره</a></p>
 </section>
-<section class="card"><h2>درباره موتور</h2><p>این نسخه مستقیماً از یک سرویس تولید تصویر در مرورگر استفاده می‌کند؛ نیازی به Worker، توکن یا ورود به داشبورد نیست.</p><small>این اتصال آزمایشی و رایگانِ بدون کلید است و ممکن است محدودیت تعداد درخواست یا تغییر سرویس داشته باشد. برای جلوگیری از محدودیت، پشت سر هم درخواست نزن.</small></section>
+<section class="card"><h2>درباره موتور</h2><p>موتور تصویرسازی جدید با مدل GPT Image از طریق Puter فعال شده است.</p><small>برای استفاده باید با حساب رایگان Puter وارد شوی. هر حساب سهمیه رایگان ماهانه دارد؛ مقدار آن محدود است. اگر سهمیه تمام شد، ارتقا یا خرید اعتبار لازم نیست و نباید آن را انتخاب کنی.</small></section>
 <footer><small>AI Animator Studio • نسخه موبایل</small></footer>
 </main>
 <script>
@@ -43,8 +43,24 @@ async function generateImage(){
      if(Number(data.responseStatus)!==200 || !imagePrompt || /[\u0600-\u06FF]/.test(imagePrompt)) throw new Error('translation failed');
    }catch(e){$('status').textContent='ترجمه متن فارسی انجام نشد؛ اتصال اینترنت یا سرویس ترجمه در دسترس نیست.';button.disabled=false;return;}
  }
- const detailedPrompt='Literal, faithful depiction of this exact scene: '+imagePrompt+'. Show the named subjects clearly and accurately. Do not substitute different animals, people, or objects. Follow the prompt literally.';
- const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(detailedPrompt)+'?width=768&height=768&model=flux&enhance=true&seed='+Math.floor(Math.random()*1000000000);
+ const detailedPrompt='Create a literal, faithful image of this exact scene: '+imagePrompt+'. The main subjects and their actions must match the description exactly. Do not replace or omit any named animal, person, or object.';
+ try{
+   if(!window.puter || !puter.ai || !puter.ai.txt2img) throw new Error('Puter SDK unavailable');
+   const generated=await puter.ai.txt2img(detailedPrompt,{model:'gpt-image-2.6-flare',quality:'low'});
+   const image=$('result');
+   image.src=generated.src;
+   image.onload=()=>{};
+   $('status').textContent='تصویر آماده شد.';
+   $('openImage').href=generated.src;
+   $('openImage').hidden=false;
+   image.hidden=false;
+   button.disabled=false;
+ }catch(error){
+   const msg=String(error && (error.message||error.code) || error);
+   $('status').textContent=/insufficient_funds|402|credit|allowance/i.test(msg)?'سهمیه رایگان این ماه تمام شده است. برای جلوگیری از هزینه، ارتقا یا خرید اعتبار را انتخاب نکن.':'اتصال به موتور جدید ناموفق بود. اگر درخواست ورود آمد، با حساب رایگان Puter وارد شو.';
+   button.disabled=false;
+ }
+
  const image=$('result');
  image.onload=()=>{
    $('status').textContent='تصویر آماده شد.';
