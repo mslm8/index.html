@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101323"><title>AI Animator Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
+main{max-width:760px;margin:auto;padding:22px 14px}header{padding:20px 4px}h1{font-size:25px;margin:0 0 6px}p{color:var(--muted);line-height:1.8}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}textarea,input,select{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit}
+textarea{min-height:130px;resize:vertical}.row{display:flex;gap:9px;flex-wrap:wrap}button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;margin-top:12px}button:disabled{opacity:.5}
+#status{font-size:13px;color:var(--b);margin-top:12px;white-space:pre-wrap}img{display:block;max-width:100%;border-radius:12px;margin-top:14px}a{color:var(--b)}small{color:var(--muted)}
+</style></head>
+<body><main>
+<header><h1>AI Animator Studio</h1><p>تبدیل توضیح متنی به تصویر صحنه با موتور هوش مصنوعی</p></header>
+<section class="card">
+<label for="worker">آدرس Worker امن</label><input id="worker" type="url" placeholder="https://your-worker.workers.dev">
+<label for="model">مدل تصویر</label><select id="model"><option value="black-forest-labs/FLUX.1-dev">FLUX.1-dev</option><option value="Qwen/Qwen-Image">Qwen Image</option><option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option></select>
+<label for="prompt">توضیح صحنه</label><textarea id="prompt" placeholder="مثلاً: یک شهر خیالی در غروب، نورپردازی سینمایی، جزئیات بالا..."></textarea>
+<div class="row"><button id="health">بررسی اتصال</button><button id="generate">تولید تصویر</button></div>
+<div id="status">ابتدا آدرس Worker خودت را وارد کن. برای تولید تصویر، Worker باید جداگانه راه‌اندازی شده باشد.</div>
+<img id="result" hidden alt="تصویر تولیدشده"><p><a id="download" hidden download="ai-animator-image.png">ذخیره تصویر</a></p>
+</section>
+<section class="card"><h2>راهنمای کوتاه</h2><p>۱. Worker را با فایل worker.js منتشر کن و Secret با نام HF_TOKEN را در تنظیمات آن قرار بده.<br>۲. آدرس Worker را در کادر بالا وارد کن.<br>۳. متن صحنه را بنویس و «تولید تصویر» را بزن.</p><small>استفاده از مدل ممکن است اعتبار یا هزینه داشته باشد. برای محافظت از سرویس، روی مسیر /generate محدودیت درخواست تنظیم کن. کلید Hugging Face را هرگز در این صفحه وارد نکن.</small></section>
+<footer><small>نسخه آزمایشی موبایل • موتور تصویر نیازمند Worker و اعتبار سرویس مدل است.</small></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);const base=()=>{let s=$('worker').value.trim();if(!s)throw Error('آدرس Worker را وارد کن.');let u=new URL(s);if(u.protocol!=='https:')throw Error('آدرس باید HTTPS باشد.');return u.href.replace(/\/+$/,'')};
+$('health').onclick=async()=>{try{$('status').textContent='در حال بررسی...';let r=await fetch(base()+'/health');if(!r.ok)throw Error('HTTP '+r.status);let j=await r.json();$('status').textContent=j.ok?'اتصال Worker برقرار است.':'پاسخ نامعتبر از Worker.'}catch(e){$('status').textContent='خطا: '+e.message}};
+$('generate').onclick=async()=>{let b=$('generate');try{let prompt=$('prompt').value.trim();if(!prompt)throw Error('توضیح صحنه را بنویس.');if(prompt.length>2000)throw Error('متن باید حداکثر ۲۰۰۰ نویسه باشد.');b.disabled=true;$('status').textContent='در حال تولید تصویر؛ ممکن است کمی طول بکشد...';let r=await fetch(base()+'/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,model:$('model').value})});if(!r.ok){let j=await r.json().catch(()=>({}));throw Error((j.error||'خطای سرویس')+' ('+r.status+') '+(j.detail||''))}let blob=await r.blob();if(!blob.type.startsWith('image/'))throw Error('پاسخ سرویس تصویر نیست.');let url=URL.createObjectURL(blob);$('result').src=url;$('result').hidden=false;$('download').href=url;$('download').hidden=false;$('status').textContent='تصویر آماده شد.'}catch(e){$('status').textContent='تولید ناموفق: '+e.message}finally{b.disabled=false}};
+</script></body></html>
