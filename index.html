@@ -43,7 +43,8 @@ async function generateImage(){
      if(Number(data.responseStatus)!==200 || !imagePrompt || /[\u0600-\u06FF]/.test(imagePrompt)) throw new Error('translation failed');
    }catch(e){$('status').textContent='ترجمه متن فارسی انجام نشد؛ اتصال اینترنت یا سرویس ترجمه در دسترس نیست.';button.disabled=false;return;}
  }
- const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(imagePrompt)+'?width=768&height=768&seed='+Math.floor(Math.random()*1000000000);
+ const detailedPrompt='Literal, faithful depiction of this exact scene: '+imagePrompt+'. Show the named subjects clearly and accurately. Do not substitute different animals, people, or objects. Follow the prompt literally.';
+ const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(detailedPrompt)+'?width=768&height=768&model=flux&enhance=true&seed='+Math.floor(Math.random()*1000000000);
  const image=$('result');
  image.onload=()=>{
    $('status').textContent='تصویر آماده شد.';
