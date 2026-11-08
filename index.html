@@ -7,25 +7,45 @@
 :root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
 main{max-width:760px;margin:auto;padding:22px 14px}header{padding:20px 4px}h1{font-size:25px;margin:0 0 6px}p{color:var(--muted);line-height:1.8}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
-label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}textarea,input{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit}
-textarea{min-height:130px;resize:vertical}.row{display:flex;gap:9px;flex-wrap:wrap}button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;margin-top:12px}button:disabled{opacity:.5}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}textarea{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;min-height:130px;resize:vertical}
+button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;margin-top:12px;width:100%}button:disabled{opacity:.5}
 #status{font-size:13px;color:var(--b);margin-top:12px;white-space:pre-wrap}img{display:block;max-width:100%;border-radius:12px;margin-top:14px}a{color:var(--b)}small{color:var(--muted)}
 </style></head>
 <body><main>
-<header><h1>AI Animator Studio</h1><p>تبدیل توضیح متنی به تصویر با موتور هوش مصنوعی</p></header>
+<header><h1>AI Animator Studio</h1><p>تبدیل توضیح متنی به تصویر با هوش مصنوعی</p></header>
 <section class="card">
-<label for="worker">آدرس موتور تصویر</label><input id="worker" type="url" value="https://shiny-field-9b69.mslmadelt8.workers.dev" autocomplete="url">
-<label for="prompt">توضیح صحنه</label><textarea id="prompt" maxlength="2000" placeholder="مثلاً: یک شهر خیالی در غروب، نورپردازی سینمایی، جزئیات بالا..."></textarea>
-<div class="row"><button id="health">بررسی اتصال</button><button id="generate">تولید تصویر</button></div>
-<div id="status">برای شروع، اتصال موتور را بررسی کن.</div>
-<img id="result" hidden alt="تصویر تولیدشده"><p><a id="download" hidden download="ai-animator-image.jpg">ذخیره تصویر</a></p>
+<label for="prompt">توضیح صحنه</label><textarea id="prompt" maxlength="1000" placeholder="مثلاً: یک شهر خیالی در غروب، نورپردازی سینمایی، جزئیات بالا..."></textarea>
+<button id="generate">تولید تصویر</button>
+<div id="status">متن صحنه را بنویس و دکمه تولید را بزن.</div>
+<img id="result" hidden alt="تصویر تولیدشده"><p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر برای ذخیره</a></p>
 </section>
-<section class="card"><h2>وضعیت موتور</h2><p>این نسخه از Cloudflare Workers AI و مدل FLUX.1 Schnell استفاده می‌کند. برای کارکرد موتور، Worker باید با AI binding منتشر شده باشد.</p><small>کلیدها و رمزهای سرویس را در این صفحه وارد نکن. تولید تصویر ممکن است مشمول محدودیت مصرف یا هزینه سرویس میزبان باشد.</small></section>
+<section class="card"><h2>درباره موتور</h2><p>این نسخه مستقیماً از یک سرویس تولید تصویر در مرورگر استفاده می‌کند؛ نیازی به Worker، توکن یا ورود به داشبورد نیست.</p><small>این اتصال آزمایشی و رایگانِ بدون کلید است و ممکن است محدودیت تعداد درخواست یا تغییر سرویس داشته باشد. برای جلوگیری از محدودیت، پشت سر هم درخواست نزن.</small></section>
 <footer><small>AI Animator Studio • نسخه موبایل</small></footer>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-const base=()=>{const s=$('worker').value.trim();if(!s)throw Error('آدرس موتور وارد نشده است.');const u=new URL(s);if(u.protocol!=='https:')throw Error('آدرس باید HTTPS باشد.');return u.href.replace(/\\/+$/,'')};
-$('health').onclick=async()=>{try{$('status').textContent='در حال بررسی اتصال...';const r=await fetch(base()+'/health');const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'HTTP '+r.status);$('status').textContent=j.ok?'اتصال برقرار است. موتور: '+(j.engine||'نامشخص')+' | مدل: '+(j.model||'نامشخص'):'پاسخ موتور معتبر نیست.'}catch(e){$('status').textContent='خطا در اتصال: '+e.message}};
-$('generate').onclick=async()=>{const b=$('generate');try{const prompt=$('prompt').value.trim();if(!prompt)throw Error('توضیح صحنه را بنویس.');if(prompt.length>2000)throw Error('متن باید حداکثر ۲۰۰۰ نویسه باشد.');b.disabled=true;$('status').textContent='در حال تولید تصویر؛ ممکن است کمی طول بکشد...';const r=await fetch(base()+'/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});if(!r.ok){const j=await r.json().catch(()=>({}));throw Error((j.error||'خطای سرویس')+' ('+r.status+') '+(j.detail||''))}const blob=await r.blob();if(!blob.type.startsWith('image/'))throw Error('پاسخ موتور تصویر نیست.');const old=$('result').src;if(old.startsWith('blob:'))URL.revokeObjectURL(old);const url=URL.createObjectURL(blob);$('result').src=url;$('result').hidden=false;$('download').href=url;$('download').hidden=false;$('status').textContent='تصویر آماده شد.'}catch(e){$('status').textContent='تولید ناموفق: '+e.message}finally{b.disabled=false}};
+$('generate').onclick=()=>{
+ const button=$('generate');
+ const prompt=$('prompt').value.trim();
+ if(!prompt){$('status').textContent='اول توضیح صحنه را بنویس.';return;}
+ if(prompt.length>1000){$('status').textContent='متن باید حداکثر ۱۰۰۰ نویسه باشد.';return;}
+ button.disabled=true;
+ $('result').hidden=true;
+ $('openImage').hidden=true;
+ $('status').textContent='در حال ساخت تصویر؛ لطفاً صبر کن...';
+ const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=768&height=768&seed='+Math.floor(Math.random()*1000000000);
+ const image=$('result');
+ image.onload=()=>{
+   $('status').textContent='تصویر آماده شد.';
+   $('openImage').href=url;
+   $('openImage').hidden=false;
+   button.disabled=false;
+ };
+ image.onerror=()=>{
+   $('status').textContent='ساخت تصویر ناموفق بود. ممکن است سرویس موقتاً در دسترس نباشد یا محدودیت درخواست فعال شده باشد. کمی بعد دوباره امتحان کن.';
+   button.disabled=false;
+ };
+ image.src=url;
+ image.hidden=false;
+};
 </script></body></html>
