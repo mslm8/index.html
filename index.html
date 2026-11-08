@@ -24,7 +24,7 @@ button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 
 </main>
 <script>
 const $=id=>document.getElementById(id);
-function generateImage(){
+async function generateImage(){
  const button=$('generate');
  const prompt=$('prompt').value.trim();
  if(!prompt){$('status').textContent='اول توضیح صحنه را بنویس.';return;}
@@ -32,8 +32,18 @@ function generateImage(){
  button.disabled=true;
  $('result').hidden=true;
  $('openImage').hidden=true;
- $('status').textContent='در حال ساخت تصویر؛ لطفاً صبر کن...';
- const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=768&height=768&seed='+Math.floor(Math.random()*1000000000);
+ $('status').textContent='در حال آماده‌سازی تصویر...';
+ let imagePrompt=prompt;
+ if(/[\u0600-\u06FF]/.test(prompt)){
+   try{
+     const params=new URLSearchParams({q:prompt,langpair:'fa|en'});
+     const tr=await fetch('https://api.mymemory.translated.net/get?'+params.toString());
+     const data=await tr.json();
+     imagePrompt=data && data.responseData && data.responseData.translatedText ? data.responseData.translatedText.trim() : '';
+     if(Number(data.responseStatus)!==200 || !imagePrompt || /[\u0600-\u06FF]/.test(imagePrompt)) throw new Error('translation failed');
+   }catch(e){$('status').textContent='ترجمه متن فارسی انجام نشد؛ اتصال اینترنت یا سرویس ترجمه در دسترس نیست.';button.disabled=false;return;}
+ }
+ const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(imagePrompt)+'?width=768&height=768&seed='+Math.floor(Math.random()*1000000000);
  const image=$('result');
  image.onload=()=>{
    $('status').textContent='تصویر آماده شد.';
