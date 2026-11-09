@@ -2569,6 +2569,7 @@ function autoScheduleSceneDialogues(scene){
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
+  if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;
   const saved={prompt:$('prompt').value,style:$('style').value,framing:$('framing').value};
@@ -2581,7 +2582,7 @@ async function autoBuildEpisodeFromStory(){
       const count=Math.min(6,Math.max(1,paragraphs.length));
       const groups=Array.from({length:count},()=>[]);
       paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
-      plans=groups.map(parts=>({visual:parts.join(' '),dialogues:[],action:'idle',emotion:'none',gesture:'neutral',camera:'zoom-in'}));
+      plans=groups.map((parts,index)=>{const visual=parts.join(' ');const direction=inferSceneDirection({storyText:visual,dialogues:[]},index);return {visual,dialogues:[],action:direction.action,emotion:direction.emotion,gesture:direction.gesture,camera:direction.camera};});
     }
     const nextScenes=plans.map((plan,index)=>({
       name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>({text:String(item.text).slice(0,180),speaker:String(item.speaker||'شخصیت اصلی').slice(0,40),speakerId:'auto-main-character',startAt:0,endAt:100,voiceName:''})),
@@ -2593,6 +2594,7 @@ async function autoBuildEpisodeFromStory(){
     $('createProceduralCharacter').click();
     for(let wait=0;wait<60&&motionLayers.length<6;wait++)await new Promise(resolve=>setTimeout(resolve,100));
     const characterBase=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+    if(characterBase.length<6)throw new Error('شخصیت کارتونی کامل ساخته نشد؛ لطفاً دوباره تلاش کن.');
     const head=characterBase.find(layer=>layer.rigRole==='head');
     if(head){head.characterName='شخصیت اصلی';head.characterId='auto-main-character';}
     for(let index=0;index<nextScenes.length;index++){
@@ -2611,10 +2613,11 @@ async function autoBuildEpisodeFromStory(){
     $('style').value='anime';$('framing').value='medium';
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];$('prompt').value=sceneStyle+scene.storyText;
+      const previousImageUrl=$('result')?.src||'';
       status.textContent='ساخت خودکار قسمت: تولید پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+'؛ شخصیت و حرکت‌ها از قبل چیده شده‌اند.';
       await generateImageUnlocked();
       const source=$('result');
-      if(!source||!source.src||!source.complete||!source.naturalWidth)throw new Error('تصویر صحنه '+(index+1)+' تولید نشد.');
+      if(!source||!source.src||!source.complete||!source.naturalWidth||source.src===previousImageUrl)throw new Error('تصویر تازهٔ صحنه '+(index+1)+' تولید نشد؛ خروجی قبلی جایگزین تصویر جدید نشد.');
       const frame=new Image();frame.src=source.src;
       if(typeof frame.decode==='function')await frame.decode();
       else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
@@ -3066,7 +3069,7 @@ function renderMotionPreview() {
     const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
     const fit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
     if(background&&background.naturalWidth){
-      drawSceneBackground(ctx,background,progress,cameraMotion);
+      drawSceneBackground(ctx,background,progress,scene?.cameraMotion||'zoom-in');
     }else if(baseIsSprite){
       const w=source.naturalWidth*fit,h=source.naturalHeight*fit;
       let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
@@ -3077,7 +3080,7 @@ function renderMotionPreview() {
       if(baseMotion==='fade')alpha=Math.abs(Math.sin(progress*Math.PI));
       ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(source,-w/2,-h/2,w,h);ctx.restore();
     }else{
-      drawSceneBackground(ctx,source,progress,cameraMotion);
+      drawSceneBackground(ctx,source,progress,scene?.cameraMotion||'zoom-in');
     }
   }
   motionLayers.forEach(layer=>{
