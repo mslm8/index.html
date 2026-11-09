@@ -2673,6 +2673,72 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   renderMotionDialogueEditor();renderMotionPreview();
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
+async function requestAutomaticScreenplay(story,status,models){
+  const available=Array.isArray(models)?models.filter(Boolean).slice(0,12):[];
+  if(!available.length)throw new Error('مدل متن رایگان فعالی پیدا نشد.');
+  const prompt=[
+    'You are an expert screenplay writer and storyboard artist for an original family-friendly 2D science-fiction comedy.',
+    'Convert the supplied story into a compact, production-ready storyboard.',
+    'Return ONLY valid JSON with this schema:',
+    '{"characters":[{"name":"...","description":"..."}],"scenes":[{"visual":"...","dialogues":[{"speaker":"...","text":"..."}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}',
+    'Create 4 to 6 scenes in chronological order. Preserve the original plot and named characters. Do not invent extra characters or events.',
+    'Write all descriptions and dialogue in Persian. Each visual should be a concise, drawable background/action description. Keep dialogue short. Use no more than 4 speaking characters.',
+    'STORY:\n'+String(story||'').slice(0,12000)
+  ].join('\n\n');
+  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
+    prompt,
+    params:{max_length:1100,temperature:0.55,top_p:0.9,top_k:40,rep_pen:1.08},
+    models:available,
+    trusted_workers:false,
+    slow_workers:false,
+    extra_slow_workers:false,
+    allow_downgrade:true
+  })});
+  if(!submitted?.id)throw new Error('موتور متن شناسهٔ درخواست برنگرداند.');
+  liveBuildLog('درخواست فیلمنامه ثبت شد؛ در حال انتظار برای پاسخ مدل متن.');
+  const started=Date.now(),deadline=90000;
+  let result=null;
+  while(Date.now()-started<deadline){
+    await new Promise(resolve=>setTimeout(resolve,5000));
+    const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),2);
+    if(check?.faulted)throw new Error('پردازشگر متن درخواست فیلمنامه را ناموفق اعلام کرد.');
+    if(check?.done){result=check;break;}
+    const elapsed=Math.floor((Date.now()-started)/1000);
+    if(status)status.textContent='در حال تحلیل و تقسیم داستان؛ '+elapsed+' ثانیه سپری شد...';
+  }
+  if(!result)throw new Error('پاسخ مدل متن در ۹۰ ثانیه نرسید؛ تقسیم‌بندی سریع داخلی فعال می‌شود.');
+  const generations=Array.isArray(result.generations)?result.generations:[];
+  const generated=generations.find(item=>item&&[item.text,item.content,item.output,item.response].some(value=>typeof value==='string'&&value.trim()));
+  if(!generated)throw new Error('مدل متن پاسخ قابل استفاده‌ای برنگرداند.');
+  const rawText=String(generated.text||generated.content||generated.output||generated.response||'').trim();
+  let parsed=extractScreenplayObject(rawText);
+  if(!parsed)throw new Error('ساختار فیلمنامه از پاسخ مدل استخراج نشد.');
+  const sceneSource=parsed.scenes||parsed.shots||parsed.segments||parsed.storyboard||parsed.صحنه‌ها||parsed['صحنه ها'];
+  const characterSource=parsed.characters||parsed.cast||parsed.شخصیت‌ها||parsed['شخصیت ها'];
+  const scenes=(Array.isArray(sceneSource)?sceneSource:[]).map((item,index)=>{
+    if(typeof item==='string')return {visual:item,dialogues:[],action:'walk',emotion:'none',gesture:'talk',camera:index%2?'pan-right':'zoom-in'};
+    if(!item||typeof item!=='object')return null;
+    const visual=String(item.visual||item.description||item.scene||item.environment||item.action_description||item.شرح||item.تصویر||'').trim();
+    const rawDialogue=item.dialogues||item.dialogue||item.lines||item.دیالوگ||[];
+    const dialogues=(Array.isArray(rawDialogue)?rawDialogue:[rawDialogue]).map(line=>{
+      if(typeof line==='string')return {speaker:String(item.speaker||'شخصیت اصلی'),text:line.trim()};
+      if(!line||typeof line!=='object')return null;
+      return {speaker:String(line.speaker||line.character||line.name||'شخصیت اصلی').trim(),text:String(line.text||line.line||line.dialogue||line.متن||'').trim()};
+    }).filter(line=>line&&line.text).slice(0,6);
+    return {visual:visual||String(item.storyText||item.text||('رویداد داستان در صحنه '+(index+1))),dialogues,
+      action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
+      emotion:['none','happy','sad','angry','surprised'].includes(item.emotion)?item.emotion:'none',
+      gesture:['neutral','wave','talk'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
+      camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(item.camera)?item.camera:'zoom-in'};
+  }).filter(Boolean).slice(0,8);
+  if(!scenes.length)throw new Error('مدل متن صحنهٔ معتبر تولید نکرد؛ تقسیم‌بندی داخلی فعال می‌شود.');
+  const characters=(Array.isArray(characterSource)?characterSource:[]).map((item,index)=>typeof item==='string'?{name:item,description:''}:{name:String(item?.name||item?.character||'').trim(),description:String(item?.description||item?.visual||'').trim()}).filter(item=>item.name).slice(0,4);
+  const inferred=Array.from(new Set(scenes.flatMap(scene=>scene.dialogues.map(line=>line.speaker)).filter(Boolean))).slice(0,4);
+  for(const name of inferred)if(!characters.some(item=>item.name===name))characters.push({name,description:''});
+  if(!characters.length)characters.push({name:'شخصیت اصلی',description:'شخصیت اصلی داستان با طراحی ثابت در تمام صحنه‌ها'});
+  liveBuildLog('فیلمنامه ساختاریافته دریافت شد؛ '+scenes.length+' صحنه و '+characters.length+' شخصیت شناسایی شد.');
+  return {characters,scenes,model:generated.model||'AI Horde text'};
+}
 function buildLocalFallbackScreenplay(seed){
   const story=String(seed||'').trim();
   const sentences=story.split(/(?<=[.!؟?])\\s+|\\n+/u).map(part=>part.trim()).filter(Boolean);
