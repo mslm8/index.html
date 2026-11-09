@@ -2404,7 +2404,7 @@ $('addMotionScene').addEventListener('click',()=>{
 $('duplicateMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
   saveActiveMotionScene();const original=motionScenes[activeMotionScene];
-  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer})),dialogues:(original.dialogues||[]).map(item=>({...item})),selectedIndex:original.selectedIndex};
+  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})),dialogues:(original.dialogues||[]).map(item=>({...item})),selectedIndex:original.selectedIndex};
   motionScenes.splice(activeMotionScene+1,0,copy);switchMotionScene(activeMotionScene+1);
 });
 $('deleteMotionScene').addEventListener('click',()=>{
@@ -2697,7 +2697,7 @@ function renderMotionLayerList() {
     const moveDown=document.createElement('button');moveDown.type='button';moveDown.className='secondary';moveDown.textContent='↓';moveDown.title='انتقال به عقب';moveDown.disabled=index===0;
     moveDown.addEventListener('click',event=>{event.stopPropagation();if(index>0){[motionLayers[index],motionLayers[index-1]]=[motionLayers[index-1],motionLayers[index]];renderMotionLayerList();}});
     const duplicate=document.createElement('button');duplicate.type='button';duplicate.className='secondary';duplicate.textContent='کپی';
-    duplicate.addEventListener('click',event=>{event.stopPropagation();if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه پر است.','var(--warn)');return;}const copy={...layer,name:layer.name+' (کپی)',url:'',scale:Number(layer.scale)||1,rotation:Number(layer.rotation)||0};motionLayers.splice(index+1,0,copy);selectedMotionLayer=copy;renderMotionLayerList();});
+    duplicate.addEventListener('click',event=>{event.stopPropagation();if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه پر است.','var(--warn)');return;}const copy={...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined,name:layer.name+' (کپی)',url:'',scale:Number(layer.scale)||1,rotation:Number(layer.rotation)||0};motionLayers.splice(index+1,0,copy);selectedMotionLayer=copy;renderMotionLayerList();});
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
     remove.addEventListener('click',event=>{event.stopPropagation();if(layer.url)URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
     actions.append(moveUp,moveDown,duplicate,remove);head.append(name,select,actions);
