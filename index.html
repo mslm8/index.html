@@ -152,6 +152,16 @@ body.authenticated .card{margin:5px 0 12px;padding:15px}
  body.authenticated #studioNav button{font-size:10px;min-height:36px}
 }
 
+/* Keep the document itself immobile; scroll is confined to the selected view */
+html,body{overscroll-behavior:none}
+body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
+body.authenticated>main{min-height:0}
+body.authenticated #generationCard,
+body.authenticated #toolsPanel,
+body.authenticated #projectsPanel,
+body.authenticated #historyPanel,
+body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
+
 </style>
 </head>
 <body>
@@ -1777,7 +1787,8 @@ $('cancel').addEventListener('click', cancelRequest);
   const selected=button.dataset.view;
   Object.entries(views).forEach(([name,panel])=>{if(panel) panel.hidden=name!==selected;});
   nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item===button;item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
-  window.scrollTo({top:0,behavior:"smooth"});
+  const activePanel=views[selected];
+  if(activePanel) activePanel.scrollTop=0;
  });
  nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="generation")));
 })();
