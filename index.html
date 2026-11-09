@@ -1165,7 +1165,7 @@ function setStatus(message, color) {
 }
 async function apiFetch(path, options = {}) {
   const base = new URL(API.endsWith('/') ? API : API + '/');
-  const target = new URL(String(path || '').replace(/^\/+/, ''), base);
+  const target = new URL(String(path || '').split('/').filter(Boolean).join('/'), base) base);
   if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) {
     throw Object.assign(new Error('مسیر درخواست سرویس معتبر نیست.'), {code:'INVALID_API_PATH'});
   }
