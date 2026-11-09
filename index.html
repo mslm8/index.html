@@ -2864,6 +2864,17 @@ async function generateFalBackground(prompt,status){
   throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
 }
 
+async function generateCloudflareBackground(prompt,status){
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw new Error('اتصال Supabase برای موتور Cloudflare در دسترس نیست.');
+  status.textContent='در حال تولید تصویر با Cloudflare Workers AI · FLUX.1 Schnell...';
+  const response=await client.functions.invoke('fal-gateway',{body:{action:'cloudflare-image',prompt:String(prompt||'').slice(0,2048)}});
+  if(response.error)throw new Error(response.error.message||'درخواست Cloudflare ناموفق بود.');
+  const imageUrl=response.data?.image_data_url;
+  if(typeof imageUrl!=='string'||!imageUrl.startsWith('data:image/'))throw new Error('Cloudflare تصویر معتبر برنگرداند.');
+  return imageUrl;
+}
+
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
@@ -2879,7 +2890,17 @@ async function autoBuildEpisodeFromStory(){
     status.textContent='در حال بررسی پردازشگرهای رایگان متن و تصویر...';
     const [textModels,imageModels]=await Promise.all([loadTextModels(),loadModels(true)]);
     freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=imageModels.length>0;
-    if(!imageModels.length)liveBuildLog('هیچ پردازشگر رایگان تصویری در این لحظه پاسخ‌گو نیست؛ ساخت صحنه‌ها با پس‌زمینه جایگزین ادامه می‌یابد و تلاش مجدد ثبت می‌شود.');
+    let cloudflareImageReady=false;
+    try{
+      const client=window.__aiAnimatorSupabaseClient;
+      if(client){
+        const health=await client.functions.invoke('fal-gateway',{body:{action:'health'}});
+        cloudflareImageReady=!health.error&&health.data?.cloudflareImageConfigured===true;
+      }
+    }catch(error){liveBuildLog('بررسی موتور Cloudflare انجام نشد: '+String(error?.message||error).slice(0,160));}
+    if(cloudflareImageReady)liveBuildLog('موتور دوم تصویر فعال است: Cloudflare Workers AI · FLUX.1 Schnell؛ موتور رایگان AI Horde نیز حفظ شده است.');
+    else liveBuildLog('موتور Cloudflare هنوز تنظیم نشده؛ AI Horde با حداکثر ۵۰۰ مدل فعال، موتور تصویر اصلی و جایگزین باقی می‌ماند.');
+    if(!imageModels.length)liveBuildLog('هیچ پردازشگر رایگان AI Horde در این لحظه پاسخ‌گو نیست؛ موتور Cloudflare در صورت پیکربندی استفاده می‌شود و در غیر این صورت پس‌زمینه جایگزین ساخته خواهد شد.');
     liveBuildLog('موتور fal.ai اختیاری است و در ساخت خودکار استفاده نمی‌شود؛ هیچ اعتبار پولی مصرف نخواهد شد.');
     liveBuildUpdate(0,'موتورهای متن و تصویر فعال شدند؛ فیلمنامه در حال تولید است.',8);
     let screenplay;
@@ -2978,7 +2999,18 @@ async function autoBuildEpisodeFromStory(){
       $('prompt').value=scenePrompt;
       let generatedUrl='';
       let lastSceneError=null;
-      if(imageModels.length){
+      // Rotate the preferred provider by scene so both independent image engines are exercised.
+      if(cloudflareImageReady&&index%2===0){
+        try{
+          status.textContent='موتور تصویر دوم: Cloudflare FLUX.1 Schnell · صحنه '+(index+1);
+          generatedUrl=await generateCloudflareBackground(scenePrompt,status);
+          liveBuildLog('تصویر صحنه '+(index+1)+' با Cloudflare FLUX.1 Schnell تولید شد.');
+        }catch(error){
+          lastSceneError=error;
+          liveBuildLog('موتور Cloudflare برای صحنه '+(index+1)+' ناموفق بود؛ AI Horde امتحان می‌شود: '+String(error?.message||error).slice(0,180));
+        }
+      }
+      if(!generatedUrl&&imageModels.length){
         for(let sceneAttempt=0;sceneAttempt<3;sceneAttempt++){
           try{
             if(sceneAttempt>0){
@@ -3004,6 +3036,16 @@ async function autoBuildEpisodeFromStory(){
             lastSceneError=sceneError;
             liveBuildLog('تلاش تصویر صحنه '+(index+1)+' ناموفق بود: '+String(sceneError?.message||sceneError).slice(0,220));
           }
+        }
+      }
+      if(!generatedUrl&&cloudflareImageReady){
+        try{
+          status.textContent='موتور جایگزین Cloudflare برای صحنه '+(index+1)+' در حال اجراست...';
+          generatedUrl=await generateCloudflareBackground(scenePrompt,status);
+          liveBuildLog('تصویر صحنه '+(index+1)+' با موتور جایگزین Cloudflare تولید شد.');
+        }catch(error){
+          lastSceneError=error;
+          liveBuildLog('هر دو موتور تصویر برای صحنه '+(index+1)+' ناموفق بودند: '+String(error?.message||error).slice(0,180));
         }
       }
       if(!generatedUrl){
