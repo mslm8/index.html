@@ -2159,7 +2159,14 @@ applyAppLanguage(currentLanguage);
 // Translate UI elements added later (history, projects, status messages, and dynamic options).
 const languageObserver=new MutationObserver(records=>{
  if(currentLanguage!=='en')return;
- if(records.some(record=>record.addedNodes&&record.addedNodes.length))applyAppLanguage(currentLanguage);
+ const hasNewContent=records.some(record=>{
+  if(!record.addedNodes||!record.addedNodes.length)return false;
+  const target=record.target;
+  // updatePromptCounter replaces its own text node; ignore it to avoid observer loops.
+  if(target&&target.nodeType===1&&target.closest&&target.closest('#promptCount'))return false;
+  return true;
+ });
+ if(hasNewContent)applyAppLanguage(currentLanguage);
 });
 languageObserver.observe(document.body,{childList:true,subtree:true});
 $('prompt').addEventListener('input',updatePromptCounter);
