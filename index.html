@@ -2700,98 +2700,51 @@ function buildLocalFallbackScreenplay(seed){
   };
 }
 function extractScreenplayObject(rawText){
-  const text=String(rawText||'').replace(/^\s*`{3}(?:json)?\s*/i,'').replace(/\s*`{3}\s*$/,'').trim();
-  const candidates=[];
-  const fenced=text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if(fenced)candidates.push(fenced[1].trim());
-  candidates.push(text);
+  const source=String(rawText??'').replace(/\u0000/g,'').trim();
+  if(!source)return null;
+  const clean=value=>String(value).replace(/^\s*(?:json|javascript|output|response)\s*[:：]?\s*/i,'').trim();
+  const balanced=(value,open,close)=>{
+    const out=[];let start=-1,depth=0,inString=false,quote='',escaped=false;
+    for(let i=0;i<value.length;i++){
+      const c=value[i];
+      if(inString){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c===quote)inString=false;continue;}
+      if(c==='"'||c==="'"){inString=true;quote=c;continue;}
+      if(c===open){if(depth===0)start=i;depth++;}
+      else if(c===close&&depth>0&&--depth===0)out.push(value.slice(start,i+1));
+    }
+    return out;
+  };
+  const normalize=value=>{
+    if(value==null)return '';
+    if(typeof value==='string')return value.trim();
+    if(typeof value==='number'||typeof value==='boolean')return String(value);
+    if(Array.isArray(value))return value.map(normalize).filter(Boolean).join('، ');
+    if(typeof value==='object'){
+      for(const key of ['text','content','message','value','description','visual','scene','line','dialogue','output','response'])if(value[key]!=null)return normalize(value[key]);
+      return Object.entries(value).map(([k,v])=>k+': '+normalize(v)).filter(x=>x.length>2).join('؛ ');
+    }
+    return '';
+  };
+  const candidates=[clean(source)];
+  const fenced=source.match(/(?:^|\n)\s*[\x60]{3}[^\n]*\n([\s\S]*?)\n\s*[\x60]{3}/);
+  if(fenced)candidates.unshift(fenced[1].trim());
   for(const candidate of candidates){
-    try{const value=JSON.parse(candidate);if(value&&typeof value==='object')return value;}catch(_){}
-    // Find balanced JSON objects, ignoring braces inside quoted strings.
-    for(let i=0;i<candidate.length;i++){
-      if(candidate[i]!=='{')continue;
-      let depth=0,inString=false,escaped=false;
-      for(let j=i;j<candidate.length;j++){
-        const ch=candidate[j];
-        if(inString){
-          if(escaped)escaped=false;
-          else if(ch==='\\')escaped=true;
-          else if(ch==='"')inString=false;
-          continue;
-        }
-        if(ch==='"'){inString=true;continue;}
-        if(ch==='{')depth++;
-        else if(ch==='}'&&--depth===0){
-          try{const value=JSON.parse(candidate.slice(i,j+1));if(value&&typeof value==='object')return value;}catch(_){}
-          break;
-        }
-      }
+    const attempts=[candidate,candidate.replace(/^\uFEFF/,'').replace(/,\s*([}\]])/g,'$1')];
+    attempts.push(attempts[1].replace(/([{,]\s*)([A-Za-z_$][\w$-]*)\s*:/g,'$1"$2":').replace(/'((?:\\.|[^'\\])*)'/g,(_,v)=>JSON.stringify(v.replace(/\\'/g,"'"))));
+    for(const attempt of attempts){try{const parsed=JSON.parse(attempt);if(parsed&&typeof parsed==='object')return parsed;}catch(_){}}
+    for(const fragment of [...balanced(candidate,'{','}'),...balanced(candidate,'[',']')]){
+      try{const parsed=JSON.parse(fragment.replace(/,\s*([}\]])/g,'$1'));if(parsed&&typeof parsed==='object')return parsed;}catch(_){}
     }
   }
-  return null;
-}
-async function requestAutomaticScreenplay(seed,status,knownModels){
-  if(!document.body.classList.contains('authenticated'))throw new Error('برای استفاده از موتور داستان، ابتدا وارد حساب شو.');
-  const models=Array.isArray(knownModels)?knownModels:await loadTextModels();
-  if(!models.length){
-    liveBuildLog('موتور متن رایگان در دسترس نیست؛ تقسیم‌بندی داخلی داستان فعال شد.');
-    return buildLocalFallbackScreenplay(seed);
+  for(const candidate of candidates){
+    const match=candidate.match(/(?:scenes|shots|segments|storyboard|صحنه‌ها|صحنه ها)\s*[:=]\s*(\[[\s\S]*?\])/i);
+    if(match){for(const fragment of balanced(match[1],'[',']')){try{return {scenes:JSON.parse(fragment.replace(/,\s*([}\]])/g,'$1'))};}catch(_){}}}
   }
-  const candidates=models.slice(0,2);
-  const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY compact valid JSON. No markdown, no preface, no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\n\nSTORY:\n'+String(seed||'').trim();
-  let lastFailure='پاسخ خالی بود';
-  for(let attempt=0;attempt<candidates.length;attempt++){
-    const modelName=candidates[attempt];
-    status.textContent='تحلیل سریع داستان با مدل '+(attempt+1)+' از '+candidates.length+'؛ در صورت خطا تقسیم‌بندی داخلی فعال می‌شود.';
-    liveBuildLog('ارسال فیلمنامه به مدل مستقل: '+modelName);
-    const prompt=basePrompt+(attempt>0?'\n\nSTRICT: Output JSON only. Exactly four scenes. No markdown or comments.':'');
-    let requestId='';
-    try{
-      const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
-        prompt,params:{max_length:1600,temperature:0.25,top_p:0.8,top_k:40,rep_pen:1.08},
-        models:[modelName],trusted_workers:false,slow_workers:false,extra_slow_workers:false,allow_downgrade:true
-      })});
-      requestId=submitted.id;
-      if(!requestId)throw new Error('شناسه درخواست فیلمنامه دریافت نشد.');
-      const started=Date.now();let raw='';
-      while(Date.now()-started<14000){
-        await new Promise(resolve=>setTimeout(resolve,1800));
-        const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(requestId),3);
-        if(check.faulted)throw new Error('پردازشگر درخواست را ناموفق اعلام کرد.');
-        if(check.is_possible===false)throw new Error('پردازشگر سازگار برای این مدل پیدا نشد.');
-        raw=(Array.isArray(check.generations)?check.generations:[]).map(item=>String(item&&item.text||'').trim()).find(Boolean)||'';
-        if(raw)break;
-        if(check.done)throw new Error('مدل بدون متن قابل‌استفاده تمام شد.');
-        status.textContent='در انتظار پاسخ مدل '+modelName+'؛ حداکثر ۱۴ ثانیه.';
-      }
-      if(!raw)throw new Error('مدل در مهلت کوتاه پاسخ نداد.');
-      const data=extractScreenplayObject(raw);
-      if(!data)throw new Error('قالب پاسخ قابل‌خواندن نبود؛ تقسیم‌بندی داخلی جایگزین می‌شود.');
-      if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('پاسخ JSON فاقد آرایه صحنه‌ها بود.');
-      const scenes=data.scenes.filter(scene=>scene&&typeof scene==='object').slice(0,4).map(scene=>({
-        visual:String(scene.visual||scene.description||scene.scene||'نمایش بخش بعدی داستان با حفظ پیوستگی رویدادها.').slice(0,700),
-        dialogues:Array.isArray(scene.dialogues)?scene.dialogues.filter(d=>d&&typeof d==='object').slice(0,4).map(d=>({speaker:String(d.speaker||d.character||'راوی').slice(0,80),text:String(d.text||d.line||'').slice(0,220)})) : [],
-        action:['idle','walk','run','jump','sway'].includes(scene.action)?scene.action:'walk',
-        emotion:['none','happy','sad','angry','surprised'].includes(scene.emotion)?scene.emotion:'none',
-        gesture:['neutral','wave','talk'].includes(scene.gesture)?scene.gesture:'talk',
-        camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(scene.camera)?scene.camera:'zoom-in'
-      }));
-      if(scenes.length<4){
-        const local=buildLocalFallbackScreenplay(seed);
-        const missing=local.scenes.slice(scenes.length);
-        scenes.push(...missing);
-      }
-      liveBuildLog('فیلمنامه آماده شد؛ '+scenes.length+' صحنه برای تولید تصویر آماده است.');
-      return {characters:Array.isArray(data.characters)?data.characters.filter(c=>c&&typeof c==='object').slice(0,3):[],scenes:scenes.slice(0,4)};
-    }catch(error){
-      lastFailure=error&&error.message||String(error);
-      liveBuildLog('مدل '+modelName+' قابل استفاده نبود: '+lastFailure);
-      if(requestId){try{await apiFetch('/generate/text/status/'+encodeURIComponent(requestId),{method:'DELETE'});}catch(_){}}
-    }
-  }
-  liveBuildLog('مدل‌های مستقل خروجی معتبر ندادند؛ تقسیم‌بندی سریع داخلی داستان جایگزین شد.');
-  status.textContent='تحلیل هوشمند در دسترس نبود؛ داستان بدون انتظار اضافی به چهار صحنه تقسیم شد.';
-  return buildLocalFallbackScreenplay(seed);
+  const plain=source.replace(/^[\s\x60]+|[\s\x60]+$/g,'').trim();
+  const chunks=plain.split(/\n+|(?<=[.!?؟])\s+(?=[^\s])/).map(x=>x.replace(/^\s*(?:[-*•]|\d+[.)-]|scene\s*\d+[:.)-]|صحنه\s*\d+[:.)-])\s*/i,'').trim()).filter(x=>x.length>18);
+  if(chunks.length)return {characters:[],scenes:chunks.slice(0,8).map(line=>({visual:line,dialogues:[],action:'walk',emotion:'none',gesture:'talk',camera:'zoom-in'}))};
+  const normalized=normalize(source);
+  return normalized.length>18?{characters:[],scenes:[{visual:normalized,dialogues:[],action:'walk',emotion:'none',gesture:'talk',camera:'zoom-in'}]}:null;
 }
 function autoScheduleSceneDialogues(scene){
   const items=scene.dialogues||[];if(!items.length)return;
