@@ -691,7 +691,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <textarea id="backgroundPrompt" rows="3" maxlength="1200" placeholder="مثلاً: خیابان بارانی یک شهر آینده‌نگر، ساختمان‌های بلند، تابلوهای نئونی بدون نوشته، انعکاس نور روی آسفالت..."></textarea>
   <div class="note">
     <strong>تصویر مرجع برای هماهنگی سبک</strong>
-    <small>یک تصویر نمونه بده تا موتور، رنگ‌بندی و زبان بصری آن را در پس‌زمینه‌های جدید دنبال کند. این حالت بازسازی موضعی با ماسک نیست؛ تولید تصویر تازه با مرجع بصری است.</small>
+    <small>یک تصویر نمونه بده تا موتور، رنگ‌بندی و زبان بصری آن را در پس‌زمینه‌های جدید دنبال کند. این حالت بازسازی موضعی با ماسک نیست؛ تولید تصویر تازه با مرجع بصری است. مصرف آن از سهمیه Workers AI حساب Cloudflare کم می‌شود.</small>
     <input id="backgroundReferenceFile" type="file" accept="image/png,image/jpeg,image/webp">
     <label><input id="backgroundUseReference" type="checkbox"> استفاده از تصویر مرجع در تولید این پس‌زمینه‌ها</label>
     <small id="backgroundReferenceStatus" aria-live="polite">تصویر مرجعی انتخاب نشده است.</small>
@@ -3566,7 +3566,7 @@ $('backgroundReferenceFile').addEventListener('change',async event=>{
   const url=URL.createObjectURL(file),image=new Image();image.src=url;
   try{
     await image.decode();
-    const scale=Math.min(1,512/Math.max(image.naturalWidth,image.naturalHeight));
+    const scale=Math.min(1,510/Math.max(image.naturalWidth,image.naturalHeight));
     const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
     const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,canvas.width,canvas.height);
     backgroundReferenceDataUrl=canvas.toDataURL('image/jpeg',0.84);
