@@ -3037,13 +3037,23 @@ function createMotionClip() {
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
   const cameraScale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
   const baseFit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
-  const start=performance.now();recorder.start(200);
-  if(audioContext){
-    audioContext.resume().then(()=>{
-      const audioStart=audioContext.currentTime+0.12;
+  let start=0;
+  function beginRecording(){
+    start=performance.now();
+    recorder.start(200);
+    if(audioContext){
+      const audioStart=audioContext.currentTime+0.04;
       dialogueAudio.forEach(clip=>{try{clip.node.start(audioStart+clip.when);}catch(_){}});
-    }).catch(()=>setStatus('فعال‌سازی صدای خروجی ناموفق بود؛ ویدئو بدون صدای دیالوگ ساخته می‌شود.','var(--warn)'));
+    }
+    requestAnimationFrame(draw);
   }
+  if(audioContext){
+    audioContext.resume().then(beginRecording).catch(()=>{
+      setStatus('فعال‌سازی صدای خروجی ناموفق بود؛ ویدئو بدون صدای دیالوگ ساخته می‌شود.','var(--warn)');
+      audioContext.close().catch(()=>{});audioContext=null;
+      beginRecording();
+    });
+  }else beginRecording();
   function drawSprite(image,motion,progress,scale){
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
@@ -3088,7 +3098,6 @@ function createMotionClip() {
     drawMotionDialogues(ctx,scene.dialogues,sceneProgress);
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
   }
-  requestAnimationFrame(draw);
 }
 $('loadLocalImage').addEventListener('click', importLocalImage);
 $('undoImage').addEventListener('click', restorePreviousImage);
