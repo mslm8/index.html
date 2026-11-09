@@ -113,6 +113,18 @@ small{font-size:12px}
 #status{width:100%;min-height:42px;display:flex;align-items:center;line-height:1.8}
 @media(max-width:520px){#resultFrame{min-height:190px;padding:7px}#outputEmpty{min-height:175px}}
 
+
+/* Compact app-like tab navigation: avoid long page scrolling */
+#studioNav{position:sticky;top:6px;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;overflow:visible;padding:8px;margin:0 0 14px;border:1px solid rgba(142,160,210,.2);border-radius:16px;background:rgba(9,15,29,.94);backdrop-filter:blur(18px);box-shadow:0 8px 28px rgba(0,0,0,.25)}
+#studioNav button{min-width:0;padding:10px 5px;background:rgba(120,135,175,.09);border:1px solid transparent;box-shadow:none;color:#b9c4df;font-size:13px;white-space:nowrap}
+#studioNav button.active{background:linear-gradient(135deg,rgba(136,117,255,.32),rgba(66,224,193,.13));border-color:rgba(157,143,255,.42);color:#fff;box-shadow:inset 0 0 0 1px rgba(157,143,255,.08)}
+.viewPanel[hidden]{display:none!important}
+.viewPanel{animation:panelIn .18s ease-out}
+@keyframes panelIn{from{opacity:.65;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+#generationCard,#projectCard,#historyCard{scroll-margin-top:12px}
+@media(max-width:520px){#studioNav{top:4px;gap:5px;padding:6px}#studioNav button{font-size:11px;padding:10px 2px;min-height:42px}}
+@media(prefers-reduced-motion:reduce){.viewPanel{animation:none}}
+
 </style>
 </head>
 <body>
@@ -136,7 +148,7 @@ small{font-size:12px}
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 <div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
-<nav id="studioNav" aria-label="میانبرهای استودیو"><a href="#generationCard">تولید تصویر</a><a href="#projectCard">پروژه‌ها</a><a href="#historyCard">تاریخچه</a></nav>
+<nav id="studioNav" aria-label="بخش‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ابزارهای ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button></nav>
 
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
@@ -304,6 +316,7 @@ small{font-size:12px}
 
 </section>
 
+<div id="toolsPanel" class="viewPanel" hidden>
 <section class="card" id="cropCard" hidden>
   <h2>برش و چرخش تصویر</h2>
   <p><small>تصویر را ۹۰ درجه بچرخان یا نسبت برش را انتخاب کن. نسخه اصلی در تاریخچه باقی می‌ماند.</small></p>
@@ -367,35 +380,6 @@ small{font-size:12px}
   <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
 </section>
 
-<section class="card" id="projectCard">
-  <h2>ذخیره و بازیابی پروژه</h2>
-  <p><small>تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.</small></p>
-  <label for="projectName">نام پروژه</label>
-  <input id="projectName" maxlength="60" placeholder="مثلاً: انیمیشن اژدها">
-  <div class="row">
-    <button id="saveNamedProject" class="primary" type="button">ذخیره پروژه در این مرورگر</button>
-    <button id="exportProject" class="secondary" type="button">خروجی فایل JSON</button>
-  </div>
-  <label for="savedProjects">پروژه‌های ذخیره‌شده</label>
-  <select id="savedProjects"><option value="">پروژه‌ای انتخاب نشده</option></select>
-  <div class="row">
-    <button id="loadNamedProject" class="primary" type="button">باز کردن پروژه</button>
-    <button id="deleteNamedProject" class="danger" type="button">حذف پروژه</button>
-    <button id="importProjectButton" class="secondary" type="button">ورود فایل JSON</button>
-    <input id="importProjectFile" type="file" accept=".json,application/json" hidden>
-  </div>
-  <small id="projectStatus" aria-live="polite"></small>
-</section>
-
-<section class="card" id="historyCard">
-  <div class="row" style="justify-content:space-between">
-    <h2>تاریخچه تصاویر</h2>
-    <button id="clearHistory" class="secondary" type="button">پاک کردن تاریخچه</button>
-  </div>
-  <p><small>تصاویر فقط در حافظه همین مرورگر ذخیره می‌شوند و به حساب کاربری یا سرور دیگری ارسال نمی‌شوند.</small></p>
-  <div id="historyList" class="historyGrid"><small>هنوز تصویری ذخیره نشده است.</small></div>
-</section>
-
 <section class="card" id="motionCard" hidden>
   <h2>ساخت کلیپ حرکتی از تصویر</h2>
   <p>این ابزار فقط حرکت دوربین روی تصویر ثابت ایجاد می‌کند؛ حرکت تازه‌ای با هوش مصنوعی تولید نمی‌کند.</p>
@@ -422,6 +406,42 @@ small{font-size:12px}
   <video id="videoPreview" controls playsinline hidden style="width:100%;margin-top:14px;border-radius:12px"></video>
   <p><a id="downloadVideo" hidden download="ai-animator-motion.webm">ذخیره ویدئو (WebM)</a></p>
 </section>
+</div>
+
+<div id="projectsPanel" class="viewPanel" hidden>
+<section class="card" id="projectCard">
+  <h2>ذخیره و بازیابی پروژه</h2>
+  <p><small>تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.</small></p>
+  <label for="projectName">نام پروژه</label>
+  <input id="projectName" maxlength="60" placeholder="مثلاً: انیمیشن اژدها">
+  <div class="row">
+    <button id="saveNamedProject" class="primary" type="button">ذخیره پروژه در این مرورگر</button>
+    <button id="exportProject" class="secondary" type="button">خروجی فایل JSON</button>
+  </div>
+  <label for="savedProjects">پروژه‌های ذخیره‌شده</label>
+  <select id="savedProjects"><option value="">پروژه‌ای انتخاب نشده</option></select>
+  <div class="row">
+    <button id="loadNamedProject" class="primary" type="button">باز کردن پروژه</button>
+    <button id="deleteNamedProject" class="danger" type="button">حذف پروژه</button>
+    <button id="importProjectButton" class="secondary" type="button">ورود فایل JSON</button>
+    <input id="importProjectFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <small id="projectStatus" aria-live="polite"></small>
+</section>
+</div>
+
+<div id="historyPanel" class="viewPanel" hidden>
+<section class="card" id="historyCard">
+  <div class="row" style="justify-content:space-between">
+    <h2>تاریخچه تصاویر</h2>
+    <button id="clearHistory" class="secondary" type="button">پاک کردن تاریخچه</button>
+  </div>
+  <p><small>تصاویر فقط در حافظه همین مرورگر ذخیره می‌شوند و به حساب کاربری یا سرور دیگری ارسال نمی‌شوند.</small></p>
+  <div id="historyList" class="historyGrid"><small>هنوز تصویری ذخیره نشده است.</small></div>
+</section>
+</div>
+
+
 
 <section class="card">
   <h2>وضعیت ساخت ویدئو</h2>
@@ -1713,6 +1733,24 @@ $('cancel').addEventListener('click', cancelRequest);
   refreshSession();
   renderHistory();
   window.addEventListener('pageshow', refreshSession);
+})();
+</script>
+
+<script>
+(() => {
+ const nav=document.getElementById("studioNav");
+ if(!nav || nav.dataset.ready) return;
+ nav.dataset.ready="1";
+ const views={generation:document.getElementById("generationCard"),tools:document.getElementById("toolsPanel"),projects:document.getElementById("projectsPanel"),history:document.getElementById("historyPanel")};
+ nav.addEventListener("click",event=>{
+  const button=event.target.closest("button[data-view]");
+  if(!button) return;
+  const selected=button.dataset.view;
+  Object.entries(views).forEach(([name,panel])=>{if(panel) panel.hidden=name!==selected;});
+  nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item===button;item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
+  window.scrollTo({top:0,behavior:"smooth"});
+ });
+ nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="generation")));
 })();
 </script>
 </body>
