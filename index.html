@@ -385,7 +385,7 @@ body.authenticated .viewPanel select,
 body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 .filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
-.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}@media(max-width:420px){.motion-transform-controls{grid-template-columns:1fr}}</style>
+.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -2585,6 +2585,40 @@ $('addMotionDialogue').addEventListener('click',()=>{
   scene.dialogues.push({text:text.slice(0,180),startAt:0,endAt:100,speakerId:'',speaker:'',voiceName:''});$('motionDialogueText').value='';
   renderMotionDialogueEditor();renderMotionPreview();
 });
+function getLayerMotionState(layer, progress){
+  const p=Math.max(0,Math.min(1,progress));
+  const keys=Array.isArray(layer.motionKeys)?layer.motionKeys.filter(key=>key&&Number.isFinite(Number(key.at))).slice().sort((a,b)=>a.at-b.at):[];
+  if(keys.length){
+    if(p*100<=keys[0].at)return {x:Number(keys[0].x??50),y:Number(keys[0].y??50),rotation:Number(keys[0].rotation??0)};
+    if(p*100>=keys[keys.length-1].at){const k=keys[keys.length-1];return {x:Number(k.x??50),y:Number(k.y??50),rotation:Number(k.rotation??0)};}
+    for(let i=0;i<keys.length-1;i++){
+      const a=keys[i],b=keys[i+1],span=Math.max(.0001,(Number(b.at)-Number(a.at))/100);
+      if(p>=Number(a.at)/100&&p<=Number(b.at)/100){
+        const t=(p-Number(a.at)/100)/span;
+        return {x:Number(a.x??50)+(Number(b.x??50)-Number(a.x??50))*t,y:Number(a.y??50)+(Number(b.y??50)-Number(a.y??50))*t,rotation:Number(a.rotation??0)+(Number(b.rotation??0)-Number(a.rotation??0))*t};
+      }
+    }
+  }
+  const eased=p*p*(3-2*p);
+  return {x:(layer.startX??50)+((layer.endX??50)-(layer.startX??50))*eased,y:(layer.startY??50)+((layer.endY??50)-(layer.startY??50))*eased,rotation:(Number(layer.rotationStart)||0)+((Number(layer.rotationEnd)||0)-(Number(layer.rotationStart)||0))*p};
+}
+function addLayerMotionKey(layer, globalProgress){
+  if(!Array.isArray(layer.motionKeys)||!layer.motionKeys.length){
+    layer.motionKeys=[
+      {at:0,x:Number(layer.startX??50),y:Number(layer.startY??50),rotation:Number(layer.rotationStart)||0},
+      {at:100,x:Number(layer.endX??50),y:Number(layer.endY??50),rotation:Number(layer.rotationEnd)||0}
+    ];
+  }
+  if(layer.motionKeys.length>=12)return false;
+  const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
+  const local=to<=from?0:Math.max(0,Math.min(100,(globalProgress-from)/(to-from)*100));
+  const state=getLayerMotionState(layer,local/100);
+  const existing=layer.motionKeys.find(key=>Math.abs(Number(key.at)-local)<1);
+  if(existing){existing.x=state.x;existing.y=state.y;existing.rotation=state.rotation;return true;}
+  layer.motionKeys.push({at:Math.round(local),x:state.x,y:state.y,rotation:state.rotation});
+  layer.motionKeys.sort((a,b)=>a.at-b.at);
+  return true;
+}
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
@@ -2618,9 +2652,10 @@ function renderMotionPreview() {
     const scale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
     const layerScale=Math.max(.4,Math.min(2,Number(layer.scale)||1));
     const w=layer.image.naturalWidth*scale*layerScale,h=layer.image.naturalHeight*scale*layerScale;
-    let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*e)*canvas.width/100;
-    let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*e)*canvas.height/100;
-    let angle=((Number(layer.rotation)||0)+((Number(layer.rotationStart)||0)+((Number(layer.rotationEnd)||0)-(Number(layer.rotationStart)||0))*p))*Math.PI/180,alpha=1,dynamicScale=1;
+    const motionState=getLayerMotionState(layer,p);
+    let x=motionState.x*canvas.width/100;
+    let y=motionState.y*canvas.height/100;
+    let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=1,dynamicScale=1;
     if(layer.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
@@ -2688,6 +2723,43 @@ function renderMotionLayerList() {
     const track=document.createElement('div');track.className='motion-timeline-track';
     const segment=document.createElement('div');segment.className='motion-timeline-segment';segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
     track.appendChild(segment);
+    const keyEditor=document.createElement('div');keyEditor.className='motion-keyframe-editor';
+    const keyHeader=document.createElement('div');keyHeader.className='motion-keyframe-header';
+    const keyTitle=document.createElement('strong');keyTitle.textContent='فریم‌های حرکتی ('+(Array.isArray(layer.motionKeys)?layer.motionKeys.length:0)+'/۱۲)';
+    const addKey=document.createElement('button');addKey.type='button';addKey.className='secondary';addKey.textContent='ثبت وضعیت در زمان فعلی';
+    addKey.addEventListener('click',event=>{
+      event.stopPropagation();
+      const globalProgress=Number($('motionPlayhead').value)/100;
+      if(!addLayerMotionKey(layer,globalProgress)){setStatus('حداکثر ۱۲ فریم کلیدی برای هر لایه مجاز است.','var(--warn)');return;}
+      renderMotionLayerList();
+    });
+    keyHeader.append(keyTitle,addKey);keyEditor.appendChild(keyHeader);
+    if(Array.isArray(layer.motionKeys)&&layer.motionKeys.length){
+      layer.motionKeys.forEach((key,keyIndex)=>{
+        const keyCard=document.createElement('div');keyCard.className='motion-keyframe-item';
+        const keyLabel=document.createElement('span');keyLabel.textContent='فریم '+(keyIndex+1);
+        const removeKey=document.createElement('button');removeKey.type='button';removeKey.className='secondary';removeKey.textContent='حذف';
+        removeKey.disabled=layer.motionKeys.length<=2;
+        removeKey.addEventListener('click',event=>{event.stopPropagation();layer.motionKeys.splice(keyIndex,1);renderMotionLayerList();});
+        const keyTop=document.createElement('div');keyTop.className='motion-keyframe-header';keyTop.append(keyLabel,removeKey);keyCard.appendChild(keyTop);
+        [['at','زمان',0,100,'%'],['x','افقی',0,100,'%'],['y','عمودی',0,100,'%'],['rotation','چرخش',-180,180,'°']].forEach(([prop,label,min,max,unit])=>{
+          const wrap=document.createElement('label');wrap.className='motion-keyframe-control';wrap.textContent=label;
+          const line=document.createElement('div');line.className='motion-range-line';
+          const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=1;input.value=Number(key[prop]??0);input.style.width='100%';
+          const output=document.createElement('output');output.textContent=input.value+unit;
+          input.addEventListener('click',event=>event.stopPropagation());
+          input.addEventListener('input',event=>{
+            event.stopPropagation();key[prop]=Number(input.value);output.textContent=input.value+unit;
+            if(prop==='at'){layer.motionKeys.sort((a,b)=>a.at-b.at);keyTitle.textContent='فریم‌های حرکتی ('+layer.motionKeys.length+'/۱۲)';}
+            renderMotionPreview();
+          });
+          line.append(input,output);wrap.appendChild(line);keyCard.appendChild(wrap);
+        });
+        keyEditor.appendChild(keyCard);
+      });
+    }else{
+      const hint=document.createElement('small');hint.textContent='برای ساخت اولین فریم، نشانگر زمان را جابه‌جا کن و «ثبت وضعیت در زمان فعلی» را بزن.';keyEditor.appendChild(hint);
+    }
     const transform=document.createElement('div');transform.className='motion-transform-controls';
     [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°'],['rotationStart','زاویه شروع حرکت',-180,180,'°'],['rotationEnd','زاویه پایان حرکت',-180,180,'°'],['pivotX','محور چرخش افقی',0,100,'%'],['pivotY','محور چرخش عمودی',0,100,'%']].forEach(([key,label,min,max,unit])=>{
       if(typeof layer[key]!=='number')layer[key]=key==='scale'?1:(key==='pivotX'||key==='pivotY'?50:0);
@@ -2700,7 +2772,7 @@ function renderMotionLayerList() {
       input.addEventListener('input',event=>{event.stopPropagation();layer[key]=key==='scale'?Number(input.value)/100:Number(input.value);value.textContent=input.value+unit;renderMotionPreview();});
       line.append(input,value);wrap.append(caption,line);transform.append(wrap);
     });
-    details.append(controls,transform,track);row.append(head,details);host.appendChild(row);
+    details.append(controls,transform,track,keyEditor);row.append(head,details);host.appendChild(row);
   });
   renderMotionPreview();
 }
@@ -2846,9 +2918,10 @@ function createMotionClip() {
       const baseScale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
       const layerScale=Math.max(.4,Math.min(2,Number(layer.scale)||1));
       const width=layer.image.naturalWidth*baseScale*layerScale,height=layer.image.naturalHeight*baseScale*layerScale;
-      let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*eased)*canvas.width/100;
-      let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*eased)*canvas.height/100;
-      let angle=((Number(layer.rotation)||0)+((Number(layer.rotationStart)||0)+((Number(layer.rotationEnd)||0)-(Number(layer.rotationStart)||0))*localProgress))*Math.PI/180,alpha=1,dynamicScale=1;
+      const motionState=getLayerMotionState(layer,localProgress);
+      let x=motionState.x*canvas.width/100;
+      let y=motionState.y*canvas.height/100;
+      let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=1,dynamicScale=1;
       if(layer.motion==='move-right')x+=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='move-left')x-=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='bounce')y-=Math.sin(localProgress*Math.PI*2)*58;
