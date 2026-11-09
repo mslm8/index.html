@@ -2585,7 +2585,7 @@ async function requestAutomaticScreenplay(seed,status){
     try{
       const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
         prompt,
-        params:{max_length:700,temperature:0.45,top_p:0.9,top_k:40,rep_pen:1.08},
+        params:{max_length:1400,temperature:0.35,top_p:0.85,top_k:40,rep_pen:1.08},
         models:[modelName],
         trusted_workers:false,
         slow_workers:true,
@@ -2620,9 +2620,32 @@ async function requestAutomaticScreenplay(seed,status){
       let data;
       try{data=JSON.parse(cleaned.slice(first,last+1));}
       catch(error){throw new Error('JSON مدل '+modelName+' معتبر نبود: '+(error.message||String(error)));}
-      if(!Array.isArray(data.scenes)||data.scenes.length<3)throw new Error('مدل '+modelName+' کمتر از سه صحنه معتبر برگرداند.');
-      liveBuildLog('فیلمنامه معتبر از '+modelName+' دریافت شد؛ '+data.scenes.length+' صحنه.');
-      return {characters:Array.isArray(data.characters)?data.characters.slice(0,3):[],scenes:data.scenes.slice(0,4)};
+      if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('مدل '+modelName+' هیچ صحنه‌ای برنگرداند.');
+      let scenes=data.scenes.filter(scene=>scene&&typeof scene==='object');
+      if(scenes.length<3){
+        liveBuildLog('مدل '+modelName+' فقط '+scenes.length+' صحنه ساخت؛ صحنه‌های باقی‌مانده از خود داستان تکمیل می‌شوند.');
+        const sentences=String(seed||'').split(/(?<=[.!؟?])\\s+|\\n+/u).map(part=>part.trim()).filter(Boolean);
+        const source=sentences.length>=3?sentences:String(seed||'').split(/،|؛|,/u).map(part=>part.trim()).filter(Boolean);
+        const beats=Array.from({length:4},(_,index)=>{
+          const from=Math.floor(index*source.length/4),to=Math.max(from+1,Math.floor((index+1)*source.length/4));
+          return source.slice(from,to).join('؛ ')||String(seed||'').trim();
+        });
+        const template=scenes[0]||{};
+        scenes=beats.map((beat,index)=>{
+          const original=scenes[index]||template;
+          const dialogue=Array.isArray(original.dialogues)?original.dialogues:[];
+          return {
+            visual:(index<scenes.length?String(original.visual||''):('بخش '+(index+1)+' داستان: '+beat+'؛ نمایش تصویری واضح و پیوسته از همین اتفاق.')),
+            dialogues:index<scenes.length?dialogue:[],
+            action:original.action||'walk',
+            emotion:original.emotion||'surprised',
+            gesture:original.gesture||'talk',
+            camera:original.camera||'zoom-in'
+          };
+        });
+      }
+      liveBuildLog('فیلمنامه آماده شد؛ '+scenes.length+' صحنه برای تولید تصویر آماده است.');
+      return {characters:Array.isArray(data.characters)?data.characters.slice(0,3):[],scenes:scenes.slice(0,4)};
     }catch(error){
       lastFailure=error.message||String(error);
       liveBuildLog('مدل '+modelName+' قابل استفاده نبود: '+lastFailure);
