@@ -1141,15 +1141,27 @@ async function translateToEnglish(text) {
 
 function buildSemanticRoleConstraints(sourceText) {
   const source = String(sourceText || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').trim();
-  // Resolve an explicitly stated donkey-on-horse relation before relying on machine translation.
-  const donkeyRidingHorse = /(?:الاغ|الاف|خر)[\\s\\S]{0,45}(?:سوار|روی)\\s*(?:(?:یک|یه)\\s*)?اسب/.test(source);
-  if (donkeyRidingHorse) {
-    return {
-      prompt: 'CRITICAL SUBJECT-ROLE CONSTRAINT: The donkey is the rider and is riding ON TOP OF the horse. The horse is the mount carrying the donkey. Show exactly these two animals in this relationship. The rider must be a donkey, not a human. Do not replace the donkey with a person, man, woman, or human horseback rider.',
-      negative: 'human rider, person riding a horse, man riding a horse, woman riding a horse, human, person'
-    };
-  }
-  return {prompt:'', negative:''};
+  const subjects = {
+    'الاغ':'donkey', 'الاف':'donkey', 'خر':'donkey',
+    'اسب':'horse', 'گورخر':'zebra', 'شتر':'camel',
+    'فیل':'elephant', 'میمون':'monkey', 'بوزینه':'monkey',
+    'سگ':'dog', 'گربه':'cat', 'خرگوش':'rabbit',
+    'خرس':'bear', 'شیر':'lion', 'ببر':'tiger',
+    'انسان':'human', 'آدم':'person', 'مرد':'man',
+    'زن':'woman', 'کودک':'child', 'بچه':'child',
+    'پسر':'boy', 'دختر':'girl'
+  };
+  const terms = Object.keys(subjects).sort((a,b) => b.length-a.length).join('|');
+  const relation = new RegExp('(?:^|[\\\\s،])(?:یک\\\\s*|یه\\\\s*)?(' + terms + ')[^،؛.!؟]{0,35}?سوار\\\\s*(?:بر\\\\s*)?(?:یک\\\\s*|یه\\\\s*)?(' + terms + ')');
+  const match = source.match(relation);
+  if (!match) return {prompt:'', negative:''};
+  const rider = subjects[match[1]];
+  const mount = subjects[match[2]];
+  const animalRiders = new Set(['donkey','horse','zebra','camel','elephant','monkey','dog','cat','rabbit','bear','lion','tiger']);
+  const prompt = 'CRITICAL SUBJECT-ROLE CONSTRAINT: The ' + rider + ' is the rider and is riding ON TOP OF the ' + mount + '. The ' + mount + ' is carrying the ' + rider + '. Preserve these exact subject identities and this direction of the riding relationship. Show both subjects clearly; do not swap their roles or replace either subject with a different one.' +
+    (animalRiders.has(rider) ? ' The rider must be an animal: a ' + rider + ', not a human, person, man, or woman.' : ' The rider must remain a ' + rider + '.');
+  const negative = animalRiders.has(rider) ? 'human rider, person riding, man riding, woman riding, human, person' : '';
+  return {prompt, negative};
 }
 
 async function runWithGenerationLock(task) {
