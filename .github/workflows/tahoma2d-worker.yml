@@ -115,13 +115,15 @@ jobs:
           EOF
           set +e
           cd "$TAHOMA_APPDIR"
-          timeout --signal=TERM 35s xvfb-run -a ./AppRun "$SCRIPT" > "$LOG" 2>&1
+          timeout --signal=TERM 35s xvfb-run -a ./AppRun -TAHOMA2DROOT "$TAHOMA_ROOT" "$SCRIPT" > "$LOG" 2>&1
           code=$?
           set -e
           cat "$LOG"
           if [ ! -s "$OUTPUT" ]; then
             echo "ToonzScript did not create a non-empty .tnz scene inside the default sandbox project."
-            echo "Tahoma2D script runner exit code: $code"
+            echo "Sandbox project files:"
+  find "$PROJECT" -maxdepth 3 -type f -print | sort | head -80
+  echo "Tahoma2D script runner exit code: $code"
             exit 1
           fi
           echo "Verified scene file: $OUTPUT ($(stat -c%s "$OUTPUT") bytes)"
@@ -156,6 +158,6 @@ jobs:
             ${{ runner.temp }}/tahoma2d-startup.log
             ${{ runner.temp }}/tahoma2d-cli-probe.log
             ${{ runner.temp }}/tahoma2d-script.log
-            ${{ runner.temp }}/tahoma2d-smoke.tnz
+            $HOME/.config/Tahoma2D/stuff/sandbox/+scenes/tahoma2d-smoke.tnz
           if-no-files-found: ignore
           retention-days: 3
