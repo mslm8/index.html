@@ -117,6 +117,13 @@ body:not(.authenticated)>main{display:none!important}
   <div class="row">
     <button id="cancel" class="danger" type="button" disabled>لغو درخواست</button>
   </div>
+  <div class="card" style="margin:12px 0;background:#151b2d">
+    <h2>یا تصویر خودت را بارگذاری کن</h2>
+    <label for="localImage">انتخاب تصویر از گوشی یا رایانه</label>
+    <input id="localImage" type="file" accept="image/jpeg,image/png,image/webp">
+    <button id="loadLocalImage" class="secondary primary" type="button">بارگذاری تصویر برای ویرایش</button>
+    <small>فرمت‌های JPG، PNG و WebP؛ حداکثر حجم فایل ۱۲ مگابایت. تصویر در مرورگر کوچک‌سازی و در تاریخچه محلی ذخیره می‌شود.</small>
+  </div>
   <div id="status" role="status" aria-live="polite">در حال بررسی سرویس رایگان...</div>
   <img id="result" hidden alt="تصویر تولیدشده">
   <p><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a></p>
@@ -625,6 +632,54 @@ function displayImage(imageValue, seed, model) {
   saveHistory(url, seed, model);
 }
 
+
+async function importLocalImage() {
+  const file = $('localImage').files && $('localImage').files[0];
+  if (!file) {
+    setStatus('ابتدا یک تصویر از گوشی یا رایانه انتخاب کن.', 'var(--warn)');
+    return;
+  }
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    setStatus('فقط فایل‌های JPG، PNG و WebP پشتیبانی می‌شوند.', 'var(--warn)');
+    return;
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    setStatus('حجم تصویر بیشتر از ۱۲ مگابایت است. یک فایل کوچک‌تر انتخاب کن.', 'var(--warn)');
+    return;
+  }
+  if (generationInProgress) {
+    setStatus('تا پایان پردازش فعلی صبر کن.', 'var(--warn)');
+    return;
+  }
+  const button = $('loadLocalImage');
+  button.disabled = true;
+  setStatus('در حال آماده‌سازی تصویر انتخاب‌شده...');
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxEdge = 1536;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('آماده‌سازی تصویر در این مرورگر ممکن نشد.');
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const dataUrl = canvas.toDataURL('image/webp', 0.9);
+    if (!dataUrl.startsWith('data:image/webp;base64,')) {
+      throw new Error('تبدیل تصویر به فرمت WebP ناموفق بود.');
+    }
+    displayImage(dataUrl, '', 'تصویر بارگذاری‌شده');
+    $('editHint').textContent = 'تصویر از دستگاهت بارگذاری شد. دستور ویرایش را بنویس یا با قلم ناحیه‌ای را انتخاب کن.';
+    setStatus('تصویر بارگذاری شد و برای ویرایش آماده است.');
+  } catch (error) {
+    setStatus('بارگذاری تصویر ناموفق بود: ' + error.message, 'var(--warn)');
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function imageToWebpBase64(imageUrl) {
   const response = await fetch(imageUrl);
   if (!response.ok) throw new Error('دریافت تصویر اصلی برای ویرایش ناموفق بود.');
@@ -937,6 +992,7 @@ function createMotionClip() {
   requestAnimationFrame(draw);
 }
 
+$('loadLocalImage').addEventListener('click', importLocalImage);
 $('editImage').addEventListener('click', editCurrentImage);
 $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
