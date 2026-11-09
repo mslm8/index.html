@@ -317,6 +317,16 @@ body.authenticated #guidePanel>footer{padding:8px 4px 16px;text-align:center;opa
  body.authenticated #guidePanel>section.card h2{font-size:14px}
 }
 
+
+/* Prompt starter templates */
+body.authenticated .promptPresetBox{margin:0 0 14px;padding:12px;border:1px solid rgba(139,124,255,.22);border-radius:14px;background:linear-gradient(130deg,rgba(119,102,240,.10),rgba(53,212,189,.06))}
+body.authenticated .promptPresetBox label{margin:0 0 7px;font-size:12px}
+body.authenticated .promptPresetBox .row{align-items:stretch;gap:7px}
+body.authenticated #promptPreset{min-width:0;flex:1;font-size:12px}
+body.authenticated #applyPromptPreset{flex:0 0 auto;padding:9px 12px;font-size:11px}
+body.authenticated #promptPresetHint{display:block;margin-top:8px;font-size:10px;line-height:1.8}
+@media(max-width:390px){body.authenticated .promptPresetBox .row{flex-direction:column}body.authenticated #applyPromptPreset{width:100%}}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
@@ -340,6 +350,24 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 <div class="viewPanel" id="accountPanel" hidden><div class="viewHeading"><h1>حساب کاربری</h1><p>اطلاعات حساب متصل‌شده به برنامه</p></div><section class="card"><div class="note" style="margin:0 0 16px"><strong>وضعیت حساب: متصل</strong><p style="margin:6px 0 0">حساب گوگل شما برای ورود به برنامه استفاده می‌شود.</p></div><label>نام نمایشی</label><p id="accountName">—</p><label>ایمیل حساب</label><p id="accountEmail">در حال دریافت اطلاعات…</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section><div class="note" style="margin-top:16px;text-align:center"><span class="pill">نسخه آزمایشی · بدون کلید API</span></div></div>
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
+  <div class="promptPresetBox">
+    <label for="promptPreset">قالب‌های آماده برای شروع</label>
+    <div class="row">
+      <select id="promptPreset">
+        <option value="">انتخاب یک قالب...</option>
+        <option value="portrait">پرتره حرفه‌ای</option>
+        <option value="cinematic">صحنه سینمایی</option>
+        <option value="fantasy">دنیای فانتزی</option>
+        <option value="product">عکاسی محصول</option>
+        <option value="nature">طبیعت و منظره</option>
+        <option value="anime">شخصیت انیمه</option>
+        <option value="architecture">معماری و فضای داخلی</option>
+        <option value="food">عکاسی غذا</option>
+      </select>
+      <button id="applyPromptPreset" class="secondary" type="button">استفاده از قالب</button>
+    </div>
+    <small id="promptPresetHint">قالب فقط متن و چند تنظیم مرتبط را پیشنهاد می‌دهد؛ قبل از تولید می‌توانی همه‌چیز را تغییر بدهی.</small>
+  </div>
   <label for="prompt">توضیح صحنه</label>
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
   <div class="row" style="margin-top:8px">
@@ -757,6 +785,31 @@ async function loadModels(silent = false) {
 
 
 let originalPromptBeforeEnhance = null;
+
+const promptPresets = {
+  portrait: {text:'یک پرتره حرفه‌ای از [سوژه]، با حالت چهره طبیعی، پس‌زمینه ساده و هماهنگ، جزئیات دقیق و نور نرم استودیویی.',style:'photorealistic',framing:'close',lighting:'soft',depth:'shallow',focusTarget:'eyes'},
+  cinematic: {text:'یک صحنه سینمایی از [شرح صحنه]، ترکیب‌بندی چشمگیر، نورپردازی دراماتیک، عمق بصری و جزئیات محیطی غنی.',style:'cinematic',framing:'wide',lighting:'dramatic',palette:'vivid',depth:'shallow'},
+  fantasy: {text:'یک دنیای فانتزی از [شرح سوژه یا مکان]، معماری و عناصر خیال‌انگیز، نور جادویی، جزئیات ظریف و فضای حماسی.',style:'fantasy',framing:'wide',lighting:'golden',palette:'vivid',depth:'deep'},
+  product: {text:'عکاسی تبلیغاتی حرفه‌ای از [نام محصول]، محصول کاملاً واضح و در مرکز توجه، پس‌زمینه تمیز، نورپردازی کنترل‌شده و سایه طبیعی.',style:'photorealistic',framing:'medium',lighting:'soft',depth:'shallow',focusTarget:'subject'},
+  nature: {text:'منظره طبیعی از [مکان یا فصل]، جزئیات گیاهان و محیط، نور طبیعی، ترکیب‌بندی متعادل و عمق میدان گسترده.',style:'photorealistic',framing:'wide',lighting:'natural',palette:'natural',depth:'deep'},
+  anime: {text:'یک شخصیت انیمه با ویژگی‌های [توضیح شخصیت]، طراحی تمیز، رنگ‌های هماهنگ، پس‌زمینه متناسب و حالت چهره واضح.',style:'anime',framing:'medium',lighting:'soft',palette:'vivid',focusTarget:'eyes'},
+  architecture: {text:'نمایی دقیق از [نوع ساختمان یا فضای داخلی]، خطوط معماری منظم، پرسپکتیو طبیعی، نور متعادل و جزئیات مصالح.',style:'photorealistic',framing:'wide',lighting:'natural',palette:'natural',depth:'deep'},
+  food: {text:'عکاسی حرفه‌ای از [نام غذا]، بافت و جزئیات اشتهابرانگیز، نور نرم، پس‌زمینه خلوت و فوکوس دقیق روی غذا.',style:'photorealistic',framing:'close',lighting:'soft',depth:'shallow',focusTarget:'subject'}
+};
+$('applyPromptPreset').addEventListener('click', () => {
+  const key = $('promptPreset').value;
+  const preset = promptPresets[key];
+  const hint = $('promptPresetHint');
+  if (!preset) { hint.textContent = 'ابتدا یک قالب انتخاب کن.'; return; }
+  const field = $('prompt');
+  const next = field.value.trim() ? field.value.trim() + '\n\n' + preset.text : preset.text;
+  if (next.length > Number(field.maxLength)) { hint.textContent = 'متن فعلی طولانی است؛ ابتدا کمی آن را کوتاه کن.'; return; }
+  field.value = next;
+  for (const [id,value] of Object.entries(preset)) if (id !== 'text' && $(id)) $(id).value = value;
+  hint.textContent = 'قالب اضافه شد. عبارت‌های داخل [کروشه] را با جزئیات دلخواه جایگزین کن.';
+  field.focus();
+});
+
 $('enhancePrompt').addEventListener('click', () => {
   const field = $('prompt');
   const button = $('enhancePrompt');
