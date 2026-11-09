@@ -47,6 +47,23 @@ jobs:
           "$APPIMAGE" --appimage-extract
           echo "TAHOMA_APPDIR=$(dirname "$APPIMAGE")/squashfs-root" >> "$GITHUB_ENV"
 
+      - name: Attach official portable resource folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          APPDIR="$(dirname "$(find "$RUNNER_TEMP/tahoma2d" -type f -name 'Tahoma2D.AppImage' -print -quit)")/squashfs-root"
+          STUFF="$(find "$RUNNER_TEMP/tahoma2d" -type d -name 'tahomastuff' -print -quit)"
+          if [ -z "$STUFF" ]; then
+            echo "Official portable archive is missing tahomastuff."
+            find "$RUNNER_TEMP/tahoma2d" -maxdepth 4 -type d -print
+            exit 1
+          fi
+          mkdir -p "$APPDIR/usr/share/tahoma2d"
+          ln -sfn "$STUFF" "$APPDIR/usr/share/tahoma2d/stuff"
+          test -d "$APPDIR/usr/share/tahoma2d/stuff"
+          echo "Linked official resources: $STUFF"
+          echo "Expected runtime resource path: $APPDIR/usr/share/tahoma2d/stuff"
+
       - name: Inspect supported CLI flags and package resources
         shell: bash
         run: |
