@@ -39,6 +39,8 @@ small{color:var(--muted);line-height:1.8}
 #authError{color:var(--bad);white-space:pre-wrap;font-size:13px;line-height:1.8}
 #accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;background:#171d30;border:1px solid var(--line);border-radius:12px}#accountEmail{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 body:not(.authenticated)>main{display:none!important}
+
+#compareStage{position:relative;width:100%;overflow:hidden;border-radius:12px;background:#0b1020;line-height:0}#compareStage img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain}#compareAfter{position:absolute;inset:0;width:100%;height:100%;clip-path:inset(0 50% 0 0)}#compareRange{width:100%;margin:12px 0}#compareLabels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -127,6 +129,18 @@ body:not(.authenticated)>main{display:none!important}
   <div id="status" role="status" aria-live="polite">در حال بررسی سرویس رایگان...</div>
   <img id="result" hidden alt="تصویر تولیدشده">
   <p class="row"><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a><button id="undoImage" class="secondary" type="button" hidden>بازگشت به تصویر قبلی</button></p>
+
+<section class="card" id="compareCard" hidden>
+  <h2>مقایسه قبل و بعد</h2>
+  <p><small>نوار را جابه‌جا کن تا تصویر قبلی و نسخه جدید را کنار هم مقایسه کنی.</small></p>
+  <div id="compareStage">
+    <img id="compareBefore" alt="تصویر قبلی">
+    <img id="compareAfter" alt="تصویر جدید">
+  </div>
+  <input id="compareRange" type="range" min="0" max="100" value="50" aria-label="میزان نمایش تصویر جدید">
+  <div id="compareLabels"><span>نسخه جدید</span><span>نسخه قبلی</span></div>
+</section>
+
 </section>
 
 <section class="card" id="editCard" hidden>
@@ -612,6 +626,24 @@ $('clearHistory').addEventListener('click', async () => {
   }
 });
 
+
+function updateComparison() {
+  const card = $('compareCard');
+  const before = previousImages.length ? previousImages[previousImages.length - 1].url : '';
+  if (!before || !currentImageUrl || before === currentImageUrl) {
+    card.hidden = true;
+    return;
+  }
+  $('compareBefore').src = before;
+  $('compareAfter').src = currentImageUrl;
+  $('compareRange').value = 50;
+  $('compareAfter').style.clipPath = 'inset(0 50% 0 0)';
+  card.hidden = false;
+}
+$('compareRange').addEventListener('input', event => {
+  $('compareAfter').style.clipPath = 'inset(0 ' + (100 - Number(event.target.value)) + '% 0 0)';
+});
+
 function displayImage(imageValue, seed, model) {
   const url = imageSource(imageValue);
   if (currentImageUrl && currentImageUrl !== url) {
@@ -619,6 +651,7 @@ function displayImage(imageValue, seed, model) {
     if (previousImages.length > 5) previousImages.shift();
   }
   $('undoImage').hidden = previousImages.length === 0;
+  updateComparison();
   if (currentImageUrl && currentImageUrl.startsWith('blob:')) URL.revokeObjectURL(currentImageUrl);
   currentImageUrl = url;
   const img = $('result');
@@ -697,6 +730,7 @@ function restorePreviousImage() {
     $('download').hidden = false;
     resetMaskCanvas();
     $('undoImage').hidden = previousImages.length === 0;
+    updateComparison();
     $('motionCard').hidden = false;
     $('editCard').hidden = false;
     $('animate').disabled = false;
