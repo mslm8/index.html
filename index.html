@@ -703,9 +703,114 @@ const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
 const currentLanguageKey='aiAnimatorLanguageV1';
 let currentLanguage=localStorage.getItem(currentLanguageKey)==='en'?'en':'fa';
-const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.":"Sign in with your Google account to use the site.","ورود با گوگل":"Sign in with Google","حساب کاربری":"Account","اطلاعات حساب متصل‌شده به برنامه":"Connected account information","وضعیت حساب: متصل":"Account status: Connected","حساب گوگل شما برای ورود به برنامه استفاده می‌شود.":"Your Google account is used to sign in.","نام نمایشی":"Display name","ایمیل حساب":"Account email","در حال دریافت اطلاعات…":"Loading account information…","خروج از حساب":"Sign out","نسخه آزمایشی · بدون کلید API":"Experimental · No API key","تولید تصویر":"Generate image","قالب‌های آماده برای شروع":"Starter templates","انتخاب یک قالب...":"Choose a template...","پرتره حرفه‌ای":"Professional portrait","صحنه سینمایی":"Cinematic scene","دنیای فانتزی":"Fantasy world","عکاسی محصول":"Product photography","طبیعت و منظره":"Nature and landscape","شخصیت انیمه":"Anime character","معماری و فضای داخلی":"Architecture and interior","عکاسی غذا":"Food photography","استفاده از قالب":"Apply template","توضیح صحنه":"Describe your scene","کپی متن درخواست":"Copy prompt","قالب‌های شخصی من":"My saved prompts","قالب ذخیره‌شده‌ای انتخاب نشده":"No saved template selected","ذخیره متن فعلی":"Save current text","بارگذاری انتخاب‌شده":"Load selected","حذف انتخاب‌شده":"Delete selected","بهینه‌سازی ساختاری متن":"Improve prompt structure","مواردی که نباید در تصویر باشند (اختیاری)":"Things to exclude (optional)","بررسی دوباره مدل‌های سریع":"Refresh available models","اندازه تصویر":"Image size","نسبت تصویر":"Aspect ratio","مربع · ۱:۱":"Square · 1:1","افقی · ۴:۳":"Landscape · 4:3","عمودی · ۳:۴":"Portrait · 3:4","عریض · ۱۶:۹":"Wide · 16:9","بلند · ۹:۱۶":"Tall · 9:16","تعادل سرعت و جزئیات":"Speed and detail","سریع‌تر · ۱۵ مرحله":"Faster · 15 steps","متعادل · ۲۰ مرحله":"Balanced · 20 steps","جزئیات بیشتر · ۲۶ مرحله":"More detail · 26 steps","کادربندی دوربین":"Camera framing","خودکار و متناسب با صحنه":"Automatic","نمای نزدیک · جزئیات سوژه":"Close-up · Subject details","نمای متوسط · سوژه و محیط":"Medium · Subject and surroundings","نمای کامل · تمام سوژه‌ها":"Full shot · Entire subjects","نمای باز · محیط گسترده":"Wide shot · Broad environment","نمای از بالا":"Top-down view","نورپردازی":"Lighting","نور طبیعی روز":"Natural daylight","نور گرم غروب":"Warm sunset light","نور نرم استودیویی":"Soft studio light","نورپردازی دراماتیک":"Dramatic lighting","نور نئونی رنگی":"Colorful neon","نور مهتابی شب":"Cool moonlight","فضای رنگی":"Color palette","رنگ‌های طبیعی":"Natural colors","رنگ‌های گرم":"Warm colors","رنگ‌های سرد":"Cool colors","رنگ‌های پاستلی":"Pastel colors","رنگ‌های زنده و اشباع":"Vivid saturated colors","سیاه‌وسفید":"Black and white","عمق میدان و وضوح پس‌زمینه":"Depth of field","پس‌زمینه واضح · عمق میدان زیاد":"Sharp background · Deep focus","پس‌زمینه محو · عمق میدان کم":"Blurred background · Shallow focus","بوکه نرم و هنری":"Soft artistic bokeh","نمای ماکرو با پس‌زمینه محو":"Macro with blurred background","نقطه فوکوس دوربین":"Focus target","فوکوس روی سوژه اصلی":"Focus on main subject","فوکوس دقیق روی چشم‌ها":"Focus on eyes","فوکوس روی پیش‌زمینه":"Focus on foreground","فوکوس روی پس‌زمینه":"Focus on background","فوکوس در مرکز کادر":"Focus on image center","زاویه دوربین":"Camera angle","هم‌سطح چشم · روبه‌رو":"Eye-level · Front view","زاویه پایین · نمای قدرتمند":"Low angle","زاویه بالا · نگاه از بالا":"High angle","سه‌ربع · پرسپکتیو طبیعی":"Three-quarter · Natural perspective","نمای جانبی · نیم‌رخ":"Side profile","نمای کاملاً از بالا":"Directly overhead","فاصله دوربین از سوژه":"Camera distance","سبک هنری":"Art style","بدون تغییر سبک":"No style change","واقع‌گرایانه و عکاسی":"Photorealistic","سینمایی":"Cinematic","انیمه":"Anime","سه‌بعدی و کارتونی":"3D cartoon","آبرنگ":"Watercolor","نقاشی رنگ‌روغن":"Oil painting","پیکسل‌آرت":"Pixel art","فانتزی":"Fantasy","Seed اختیاری (برای تکرارپذیری)":"Optional seed (for reproducible results)","ساخت نسخه متفاوت با همین تنظیمات":"Generate another variation","لغو درخواست":"Cancel request","یا تصویر خودت را بارگذاری کن":"Or upload your own image","انتخاب تصویر از گوشی یا رایانه":"Choose an image from your device","بارگذاری تصویر برای ویرایش":"Load image for editing","پیش‌نمایش خروجی":"Output preview","نتیجه زنده":"Live result","ذخیره تصویر":"Save image","بازگشت به تصویر قبلی":"Undo image","مقایسه قبل و بعد":"Before and after","نسخه جدید":"New version","نسخه قبلی":"Previous version","ویرایش تصویر":"Image editing","ابزارهای برش، اصلاح و ساخت حرکت از تصویر":"Crop, refine, and create motion from an image","برش و چرخش تصویر":"Crop and rotate","نسبت برش":"Crop ratio","بدون برش · اندازه اصلی":"No crop · Original size","چرخش چپ ۹۰°":"Rotate left 90°","چرخش راست ۹۰°":"Rotate right 90°","اعمال برش و چرخش":"Apply crop and rotation","بازنشانی پیش‌نمایش":"Reset preview","ویرایش هوشمند تصویر":"AI image editing","چه چیزی تغییر کند؟":"What should change?","شدت تغییر":"Edit strength","کم · حفظ بیشتر تصویر":"Low · Preserve more","متوسط · تعادل تغییر و حفظ":"Medium · Balanced","زیاد · تغییر محسوس‌تر":"High · More change","ساخت نسخه ویرایش‌شده":"Create edited version","ویرایش موضعی":"Inpainting","اندازه قلم انتخاب":"Brush size","پاک‌کن: خاموش":"Eraser: Off","پاک‌کردن انتخاب":"Clear selection","ساخت کلیپ حرکتی از تصویر":"Create a motion clip","نوع حرکت":"Motion type","نزدیک شدن آرام":"Slow zoom in","دور شدن آرام":"Slow zoom out","حرکت به راست":"Pan right","حرکت به چپ":"Pan left","مدت کلیپ":"Clip duration","۴ ثانیه":"4 seconds","۶ ثانیه":"6 seconds","۸ ثانیه":"8 seconds","ساخت کلیپ حرکتی":"Create motion clip","ذخیره ویدئو (WebM)":"Save video (WebM)","پروژه‌ها":"Projects","ذخیره و بازیابی پروژه":"Save and restore project","نام پروژه":"Project name","ذخیره پروژه در این مرورگر":"Save project in this browser","خروجی فایل JSON":"Export JSON file","پروژه‌های ذخیره‌شده":"Saved projects","پروژه‌ای انتخاب نشده":"No project selected","باز کردن پروژه":"Open project","حذف پروژه":"Delete project","ورود فایل JSON":"Import JSON file","تاریخچه تصاویر":"Image history","پاک کردن تاریخچه":"Clear history","هنوز تصویری ذخیره نشده است.":"No images saved yet.","راهنما و اطلاعات":"Help and information","آشنایی با امکانات و محدودیت‌های برنامه":"Learn about app features and limitations","وضعیت ساخت ویدئو":"Video generation status","محدودیت‌های سرویس رایگان تصویر":"Free image service limitations","راهنما":"Help","تاریخچه":"History","ویرایش":"Edit","حساب":"Account","زبان برنامه / App language":"App language","زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.":"Your language choice is saved in this browser."};
+const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.":"Sign in with your Google account to use the site.","ورود با گوگل":"Sign in with Google","حساب کاربری":"Account","اطلاعات حساب متصل‌شده به برنامه":"Connected account information","وضعیت حساب: متصل":"Account status: Connected","حساب گوگل شما برای ورود به برنامه استفاده می‌شود.":"Your Google account is used to sign in.","نام نمایشی":"Display name","ایمیل حساب":"Account email","در حال دریافت اطلاعات…":"Loading account information…","خروج از حساب":"Sign out","نسخه آزمایشی · بدون کلید API":"Experimental · No API key","تولید تصویر":"Generate image","قالب‌های آماده برای شروع":"Starter templates","انتخاب یک قالب...":"Choose a template...","پرتره حرفه‌ای":"Professional portrait","صحنه سینمایی":"Cinematic scene","دنیای فانتزی":"Fantasy world","عکاسی محصول":"Product photography","طبیعت و منظره":"Nature and landscape","شخصیت انیمه":"Anime character","معماری و فضای داخلی":"Architecture and interior","عکاسی غذا":"Food photography","استفاده از قالب":"Apply template","توضیح صحنه":"Describe your scene","کپی متن درخواست":"Copy prompt","قالب‌های شخصی من":"My saved prompts","قالب ذخیره‌شده‌ای انتخاب نشده":"No saved template selected","ذخیره متن فعلی":"Save current text","بارگذاری انتخاب‌شده":"Load selected","حذف انتخاب‌شده":"Delete selected","بهینه‌سازی ساختاری متن":"Improve prompt structure","مواردی که نباید در تصویر باشند (اختیاری)":"Things to exclude (optional)","بررسی دوباره مدل‌های سریع":"Refresh available models","اندازه تصویر":"Image size","نسبت تصویر":"Aspect ratio","مربع · ۱:۱":"Square · 1:1","افقی · ۴:۳":"Landscape · 4:3","عمودی · ۳:۴":"Portrait · 3:4","عریض · ۱۶:۹":"Wide · 16:9","بلند · ۹:۱۶":"Tall · 9:16","تعادل سرعت و جزئیات":"Speed and detail","سریع‌تر · ۱۵ مرحله":"Faster · 15 steps","متعادل · ۲۰ مرحله":"Balanced · 20 steps","جزئیات بیشتر · ۲۶ مرحله":"More detail · 26 steps","کادربندی دوربین":"Camera framing","خودکار و متناسب با صحنه":"Automatic","نمای نزدیک · جزئیات سوژه":"Close-up · Subject details","نمای متوسط · سوژه و محیط":"Medium · Subject and surroundings","نمای کامل · تمام سوژه‌ها":"Full shot · Entire subjects","نمای باز · محیط گسترده":"Wide shot · Broad environment","نمای از بالا":"Top-down view","نورپردازی":"Lighting","نور طبیعی روز":"Natural daylight","نور گرم غروب":"Warm sunset light","نور نرم استودیویی":"Soft studio light","نورپردازی دراماتیک":"Dramatic lighting","نور نئونی رنگی":"Colorful neon","نور مهتابی شب":"Cool moonlight","فضای رنگی":"Color palette","رنگ‌های طبیعی":"Natural colors","رنگ‌های گرم":"Warm colors","رنگ‌های سرد":"Cool colors","رنگ‌های پاستلی":"Pastel colors","رنگ‌های زنده و اشباع":"Vivid saturated colors","سیاه‌وسفید":"Black and white","عمق میدان و وضوح پس‌زمینه":"Depth of field","پس‌زمینه واضح · عمق میدان زیاد":"Sharp background · Deep focus","پس‌زمینه محو · عمق میدان کم":"Blurred background · Shallow focus","بوکه نرم و هنری":"Soft artistic bokeh","نمای ماکرو با پس‌زمینه محو":"Macro with blurred background","نقطه فوکوس دوربین":"Focus target","فوکوس روی سوژه اصلی":"Focus on main subject","فوکوس دقیق روی چشم‌ها":"Focus on eyes","فوکوس روی پیش‌زمینه":"Focus on foreground","فوکوس روی پس‌زمینه":"Focus on background","فوکوس در مرکز کادر":"Focus on image center","زاویه دوربین":"Camera angle","هم‌سطح چشم · روبه‌رو":"Eye-level · Front view","زاویه پایین · نمای قدرتمند":"Low angle","زاویه بالا · نگاه از بالا":"High angle","سه‌ربع · پرسپکتیو طبیعی":"Three-quarter · Natural perspective","نمای جانبی · نیم‌رخ":"Side profile","نمای کاملاً از بالا":"Directly overhead","فاصله دوربین از سوژه":"Camera distance","سبک هنری":"Art style","بدون تغییر سبک":"No style change","واقع‌گرایانه و عکاسی":"Photorealistic","سینمایی":"Cinematic","انیمه":"Anime","سه‌بعدی و کارتونی":"3D cartoon","آبرنگ":"Watercolor","نقاشی رنگ‌روغن":"Oil painting","پیکسل‌آرت":"Pixel art","فانتزی":"Fantasy","Seed اختیاری (برای تکرارپذیری)":"Optional seed (for reproducible results)","ساخت نسخه متفاوت با همین تنظیمات":"Generate another variation","لغو درخواست":"Cancel request","یا تصویر خودت را بارگذاری کن":"Or upload your own image","انتخاب تصویر از گوشی یا رایانه":"Choose an image from your device","بارگذاری تصویر برای ویرایش":"Load image for editing","پیش‌نمایش خروجی":"Output preview","نتیجه زنده":"Live result","ذخیره تصویر":"Save image","بازگشت به تصویر قبلی":"Undo image","مقایسه قبل و بعد":"Before and after","نسخه جدید":"New version","نسخه قبلی":"Previous version","ویرایش تصویر":"Image editing","ابزارهای برش، اصلاح و ساخت حرکت از تصویر":"Crop, refine, and create motion from an image","برش و چرخش تصویر":"Crop and rotate","نسبت برش":"Crop ratio","بدون برش · اندازه اصلی":"No crop · Original size","چرخش چپ ۹۰°":"Rotate left 90°","چرخش راست ۹۰°":"Rotate right 90°","اعمال برش و چرخش":"Apply crop and rotation","بازنشانی پیش‌نمایش":"Reset preview","ویرایش هوشمند تصویر":"AI image editing","چه چیزی تغییر کند؟":"What should change?","شدت تغییر":"Edit strength","کم · حفظ بیشتر تصویر":"Low · Preserve more","متوسط · تعادل تغییر و حفظ":"Medium · Balanced","زیاد · تغییر محسوس‌تر":"High · More change","ساخت نسخه ویرایش‌شده":"Create edited version","ویرایش موضعی":"Inpainting","اندازه قلم انتخاب":"Brush size","پاک‌کن: خاموش":"Eraser: Off","پاک‌کردن انتخاب":"Clear selection","ساخت کلیپ حرکتی از تصویر":"Create a motion clip","نوع حرکت":"Motion type","نزدیک شدن آرام":"Slow zoom in","دور شدن آرام":"Slow zoom out","حرکت به راست":"Pan right","حرکت به چپ":"Pan left","مدت کلیپ":"Clip duration","۴ ثانیه":"4 seconds","۶ ثانیه":"6 seconds","۸ ثانیه":"8 seconds","ساخت کلیپ حرکتی":"Create motion clip","ذخیره ویدئو (WebM)":"Save video (WebM)","پروژه‌ها":"Projects","ذخیره و بازیابی پروژه":"Save and restore project","نام پروژه":"Project name","ذخیره پروژه در این مرورگر":"Save project in this browser","خروجی فایل JSON":"Export JSON file","پروژه‌های ذخیره‌شده":"Saved projects","پروژه‌ای انتخاب نشده":"No project selected","باز کردن پروژه":"Open project","حذف پروژه":"Delete project","ورود فایل JSON":"Import JSON file","تاریخچه تصاویر":"Image history","پاک کردن تاریخچه":"Clear history","هنوز تصویری ذخیره نشده است.":"No images saved yet.","راهنما و اطلاعات":"Help and information","آشنایی با امکانات و محدودیت‌های برنامه":"Learn about app features and limitations","وضعیت ساخت ویدئو":"Video generation status","محدودیت‌های سرویس رایگان تصویر":"Free image service limitations","راهنما":"Help","تاریخچه":"History","ویرایش":"Edit","حساب":"Account","زبان برنامه / App language":"App language","زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.":"Your language choice is saved in this browser.",
+"هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.":"No active models found. Please try again in a moment.",
+"Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.":"Seed must be an integer between 0 and 4294967295.",
+"متن ترجمه شد. مدل: ":"Prompt translated. Model: ",
+"درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.":"Request submitted. Only normal and fast workers are allowed; slow workers are excluded. Fewer models may be available when capacity is limited.",
+"ارسال درخواست ناموفق بود: ":"Failed to submit request: ",
+"ارتباط موقتاً ناپایدار است؛ تلاش دوباره ":"Connection is temporarily unstable; retry ",
+" از ۳...":" of 3...",
+"تصویر آماده شد؛ در حال دریافت نتیجه...":"Image is ready; retrieving the result...",
+"تصویر ساخته شد، اما ذخیره آن در تاریخچه مرورگر ممکن نشد: ":"Image generated, but could not be saved to browser history: ",
+"پروژه‌ای انتخاب نشده":"No project selected",
+"ابتدا برای پروژه یک نام وارد کن.":"Enter a project name first.",
+" در همین مرورگر ذخیره شد.":" saved in this browser.",
+"پروژه «":"Project “",
+"»":"”",
+"ذخیره پروژه ناموفق بود؛ فضای ذخیره‌سازی مرورگر را بررسی کن. ":"Could not save project; check browser storage. ",
+"ابتدا یک پروژه از فهرست انتخاب کن.":"Select a project from the list first.",
+" بارگذاری شد. تصویر باید جداگانه انتخاب شود.":" loaded. The image must be selected separately.",
+"برای حذف، ابتدا یک پروژه انتخاب کن.":"Select a project before deleting.",
+"پروژه حذف شد.":"Project deleted.",
+"حذف پروژه ناموفق بود: ":"Could not delete project: ",
+"فایل تنظیمات پروژه ذخیره شد.":"Project settings file saved.",
+"ذخیره پروژه ناموفق بود: ":"Could not save project: ",
+"تنظیمات پروژه با موفقیت بازیابی شد. تصویر باید جداگانه از تاریخچه یا دستگاه انتخاب شود.":"Project settings restored. Select the image separately from history or your device.",
+"بارگذاری پروژه ناموفق بود: ":"Could not load project: ",
+"هنوز تصویری ذخیره نشده است.":"No images saved yet.",
+"مدل: ":"Model: ",
+"Seed: ":"Seed: ",
+"تا پایان پردازش فعلی صبر کن.":"Wait until the current process finishes.",
+"تصویر از تاریخچه بارگذاری شد؛ حالا می‌توانی آن را ویرایش کنی.":"Image loaded from history; you can now edit it.",
+"حذف از تاریخچه ناموفق بود: ":"Could not remove item from history: ",
+"خواندن تاریخچه ممکن نشد: ":"Could not read history: ",
+"پاک کردن تاریخچه ناموفق بود: ":"Could not clear history: ",
+"تغییر اعمال شد؛ نسخه قبلی با دکمه بازگشت قابل بازیابی است.":"Changes applied; the previous version can be restored with Undo.",
+"اعمال تغییر ناموفق بود: ":"Could not apply changes: ",
+"داده تصویر از سرویس خالی یا نامعتبر است؛ نتیجه قابل نمایش نیست.":"The image data from the service is empty or invalid; the result cannot be displayed.",
+"تصویر آماده شد و لینک ذخیره فعال است.":"Image is ready and the save link is active.",
+"تصویر دریافت شد اما پیش‌نمایش مرورگر نتوانست آن را باز کند. لینک «ذخیره تصویر» همچنان فعال است؛ اگر آن هم کار نکرد، درخواست را دوباره بساز.":"The image was received, but the browser could not display the preview. The “Save image” link is still active; if it also fails, generate the image again.",
+"ابتدا یک تصویر از گوشی یا رایانه انتخاب کن.":"Choose an image from your phone or computer first.",
+"فقط فایل‌های JPG، PNG و WebP پشتیبانی می‌شوند.":"Only JPG, PNG, and WebP files are supported.",
+"حجم تصویر بیشتر از ۱۲ مگابایت است. یک فایل کوچک‌تر انتخاب کن.":"The image is larger than 12 MB. Choose a smaller file.",
+"در حال آماده‌سازی تصویر انتخاب‌شده...":"Preparing the selected image...",
+"تصویر از دستگاهت بارگذاری شد. دستور ویرایش را بنویس یا با قلم ناحیه‌ای را انتخاب کن.":"Image loaded from your device. Enter an editing instruction or select an area with the brush.",
+"تصویر بارگذاری شد و برای ویرایش آماده است.":"Image loaded and ready for editing.",
+"بارگذاری تصویر ناموفق بود: ":"Could not load image: ",
+"تصویر قبلی بازیابی شد. انتخاب ناحیه قبلی پاک شده است.":"Previous image restored. The previous area selection was cleared.",
+"به نسخه قبلی تصویر برگشتی.":"Restored the previous image version.",
+"بازیابی تصویر قبلی ممکن نشد.":"Could not restore the previous image.",
+"مرورگر امکان آماده‌سازی قلم انتخاب را فراهم نکرد.":"This browser could not prepare the selection brush.",
+"پاک‌کن: روشن":"Eraser: On",
+"پاک‌کن: خاموش":"Eraser: Off",
+"انتخاب پاک شد؛ می‌توانی دوباره روی تصویر نقاشی کنی.":"Selection cleared; you can paint on the image again.",
+"اول توضیح بده چه چیزی باید تغییر کند.":"Describe what should change first.",
+"ابتدا یک تصویر تولید کن.":"Generate an image first.",
+"در حال آماده‌سازی تصویر اصلی برای ویرایش...":"Preparing the source image for editing...",
+"تصویر آماده شد؛ درخواست ویرایش با مدل ":"Image ready; submitting edit request to model ",
+"ارسال می‌شود...":"...",
+"درخواست ویرایش ناحیه انتخابی ثبت شد؛ نتیجه ممکن است فقط در بخش ماسک‌شده تغییر کند.":"Area-edit request submitted; the result may change only the masked area.",
+"درخواست ویرایش تصویر ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.":"Image-edit request submitted. You may need to wait for a compatible worker.",
+"نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس یا انتخاب را پاک کن.":"Edited version is ready. Enter a new instruction or clear the selection to make another change.",
+"ویرایش تصویر انجام نشد: ":"Image editing failed: ",
+"اگر پردازشگر از inpainting یا img2img پشتیبانی نکند، یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود. برای تغییر کل تصویر، انتخاب قرمز را پاک کن.":"Editing may fail if the worker does not support inpainting or img2img, or if the image cannot be retrieved. Clear the red selection to change the whole image.",
+"در حال لغو درخواست...":"Cancelling request...",
+"درخواست لغو شد.":"Request cancelled.",
+"درخواست لغو ارسال شد؛ وضعیت نهایی ممکن است با کمی تأخیر به‌روزرسانی شود: ":"Cancellation was requested; the final status may update after a short delay: ",
+"اول یک تصویر تولید کن.":"Generate an image first.",
+"ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.":"Video recording is not supported in this browser.",
+"در حال ساخت کلیپ حرکتی از تصویر...":"Creating a motion clip from the image...",
+"ساخت بوم ویدئو ناموفق بود.":"Could not create the video canvas.",
+"مرورگر نتوانست ضبط ویدئو را آغاز کند: ":"The browser could not start video recording: ",
+"هنگام ساخت کلیپ خطای ضبط رخ داد.":"A recording error occurred while creating the clip.",
+"فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.":"The video file is empty; please try again.",
+"کلیپ حرکتی آماده شد. فرمت خروجی WebM است.":"Motion clip is ready. Output format: WebM.",
+"ابتدا متن درخواست را بنویس.":"Enter a prompt first.",
+"متن درخواست کپی شد.":"Prompt copied.",
+"کپی خودکار در این مرورگر در دسترس نیست؛ متن را انتخاب و دستی کپی کن.":"Automatic copying is unavailable in this browser; select and copy the text manually.",
+"ابتدا متنی برای ذخیره بنویس.":"Enter text to save first.",
+"ظرفیت ۳۰ قالب ذخیره‌شده پر شده است؛ ابتدا یکی را حذف کن.":"The 30 saved-prompt limit has been reached; delete one first.",
+"این متن قبلاً ذخیره شده است.":"This text has already been saved.",
+"قالب شخصی ذخیره شد.":"Personal prompt saved.",
+"فضای ذخیره‌سازی مرورگر در دسترس نیست.":"Browser storage is unavailable.",
+"قالب انتخاب‌شده در کادر متن بارگذاری شد.":"Selected prompt loaded into the text box.",
+"قالب انتخاب‌شده حذف شد.":"Selected prompt deleted.",
+"حذف قالب انجام نشد.":"Could not delete prompt.",
+"بارگذاری سرویس ورود ناموفق بود. صفحه را دوباره بارگذاری کن.":"Could not load the sign-in service. Reload the page.",
+"نامی برای حساب ثبت نشده":"No account name is available",
+"ایمیل در دسترس نیست":"Email is unavailable",
+"گوگل خطا برگرداند: ":"Google returned an error: ",
+"کد بازگشت از گوگل دریافت شد، اما نشست ورود ساخته نشد. احتمالاً مرورگر، اطلاعات شروع ورود را نگه نداشته است؛ ورود را در Chrome و همان تب انجام بده.":"A callback code was received from Google, but no session was created. The browser may not have retained the sign-in state; try signing in using the same tab in Chrome.",
+"توکن بازگشت دریافت شد اما نشست ذخیره نشد. مرورگر را در حالت عادی باز کن و دوباره تلاش کن.":"A callback token was received, but the session was not saved. Open the browser normally and try again.",
+"هنوز وارد نشده‌ای. اگر پس از انتخاب حساب گوگل دوباره به این صفحه برگشتی، ورود را در Chrome و در همان تب انجام بده.":"You are not signed in yet. If you return to this page after choosing your Google account, try signing in using the same tab in Chrome.",
+"بررسی ورود ناموفق بود: ":"Could not verify sign-in: ",
+"خروج ناموفق بود: ":"Sign-out failed: ",
+"از حساب خارج شدی.":"You have signed out.",
+"ورود ناموفق بود: ":"Sign-in failed: "
+};
 const uiPersian=Object.fromEntries(Object.entries(uiEnglish).map(([fa,en])=>[en,fa]));
-function translateUIText(value,language){return language==='en'?(uiEnglish[value]||value):(uiPersian[value]||value);}
+function translateUIText(value,language){
+ if(typeof value!=='string')return value;
+ const dictionary=language==='en'?uiEnglish:uiPersian;
+ if(dictionary[value])return dictionary[value];
+ const entries=Object.entries(dictionary).sort((a,b)=>b[0].length-a[0].length);
+ let translated=value;
+ for(const [source,target] of entries){
+  if(translated.includes(source))translated=translated.split(source).join(target);
+ }
+ return translated;
+}
 const originalTextNodes = new WeakMap();
 const originalAttributes = new WeakMap();
 function applyAppLanguage(language){
