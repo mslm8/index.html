@@ -2694,6 +2694,26 @@ function getRigWorldTransform(layer,layers,progress,canvas){
   };
   return resolve(layer,new Set(layer.rigId?[layer.rigId]:[]));
 }
+function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
+  const active=(dialogues||[]).some(item=>item.speaker===layer.name&&item.text&&progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100);
+  const mode=active?'talk':(layer.mouthMode||'off');
+  if(mode==='off')return;
+  const x=(Number(layer.mouthX??50)/100-.5)*width;
+  const y=(Number(layer.mouthY??72)/100-.5)*height;
+  const talkOpen=mode==='talk'&&(Math.sin(progress*Math.PI*24)>-.15);
+  const open=mode==='open'||talkOpen;
+  ctx.save();ctx.lineWidth=Math.max(1,width*.008);ctx.strokeStyle=layer.mouthColor||'#30202a';ctx.fillStyle=layer.mouthFill||'#6e2638';
+  ctx.beginPath();
+  if(mode==='smile'||mode==='frown'){
+    ctx.ellipse(x,y,width*.075,height*.025,0,mode==='smile'?0:Math.PI,mode==='smile'?Math.PI:Math.PI*2);
+  }else if(open){
+    ctx.ellipse(x,y,width*.055,height*.045,0,0,Math.PI*2);
+  }else{
+    ctx.moveTo(x-width*.07,y);ctx.quadraticCurveTo(x,y+(mode==='frown'?-height*.035:height*.035),x+width*.07,y);
+  }
+  if(open){ctx.fill();ctx.stroke();}else ctx.stroke();
+  ctx.restore();
+}
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
@@ -2740,6 +2760,7 @@ function renderMotionPreview() {
     const pivotY=(Math.max(0,Math.min(100,Number(layer.pivotY??50))/100)-.5)*h*dynamicScale;
     ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.translate(pivotX,pivotY);ctx.rotate(angle);
     ctx.drawImage(layer.image,-w*dynamicScale/2-pivotX,-h*dynamicScale/2-pivotY,w*dynamicScale,h*dynamicScale);
+    drawAnimatedMouth(ctx,layer,w*dynamicScale,h*dynamicScale,progress,motionScenes[activeMotionScene]?.dialogues);
     if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2-pivotX,-h/2-pivotY,w,h);}
     ctx.restore();
   });
@@ -2817,6 +2838,27 @@ function renderMotionLayerList() {
     const resetJoint=document.createElement('button');resetJoint.type='button';resetJoint.className='secondary';resetJoint.textContent='بازنشانی تنظیمات مفصل';
     resetJoint.addEventListener('click',event=>{event.stopPropagation();layer.jointX=50;layer.jointY=50;layer.jointOffsetX=0;layer.jointOffsetY=0;layer.jointRotation=0;renderMotionLayerList();renderMotionPreview();});
     controls.appendChild(resetJoint);
+    const mouthPanel=document.createElement('details');mouthPanel.className='motion-keyframes';
+    const mouthSummary=document.createElement('summary');mouthSummary.textContent='تنظیمات دهان و هماهنگی دیالوگ';mouthPanel.appendChild(mouthSummary);
+    const mouthControls=document.createElement('div');mouthControls.className='motion-keyframe-grid';
+    const mouthModeWrap=document.createElement('label');mouthModeWrap.className='motion-keyframe-control';
+    const mouthModeCaption=document.createElement('span');mouthModeCaption.textContent='حالت دهان';
+    const mouthMode=document.createElement('select');mouthMode.add(new Option('خاموش','off'));mouthMode.add(new Option('لبخند','smile'));mouthMode.add(new Option('اخمو','frown'));mouthMode.add(new Option('باز','open'));mouthMode.add(new Option('گفتار خودکار','talk'));
+    mouthMode.value=layer.mouthMode||'off';mouthMode.addEventListener('click',event=>event.stopPropagation());mouthMode.addEventListener('change',()=>{layer.mouthMode=mouthMode.value;renderMotionPreview();});
+    mouthModeWrap.append(mouthModeCaption,mouthMode);mouthControls.appendChild(mouthModeWrap);
+    [['mouthX','موقعیت افقی دهان'],['mouthY','موقعیت عمودی دهان']].forEach(([key,label])=>{
+      if(!Number.isFinite(Number(layer[key])))layer[key]=key==='mouthX'?50:72;
+      const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
+      const caption=document.createElement('span');caption.textContent=label;
+      const line=document.createElement('div');line.className='motion-range-line';
+      const input=document.createElement('input');input.type='range';input.min=0;input.max=100;input.step=1;input.value=layer[key];
+      const output=document.createElement('output');output.textContent=layer[key]+'%';
+      input.addEventListener('click',event=>event.stopPropagation());input.addEventListener('input',event=>{layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
+      line.append(input,output);wrap.append(caption,line);mouthControls.appendChild(wrap);
+    });
+    const mouthHint=document.createElement('small');mouthHint.textContent='این افکت روی تصویر همین لایه رسم می‌شود؛ برای نتیجه بهتر، یک لایه مخصوص صورت انتخاب کن. با فعال بودن دیالوگِ گوینده هم‌نام لایه، دهان به‌صورت خودکار حرکت می‌کند.';
+    mouthControls.appendChild(mouthHint);mouthPanel.appendChild(mouthControls);controls.appendChild(mouthPanel);
+
     const details=document.createElement('details');details.className='motion-keyframes';
     const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
     const controls=document.createElement('div');controls.className='motion-keyframe-grid';
@@ -3041,7 +3083,7 @@ function createMotionClip() {
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
       const pivotX=(Math.max(0,Math.min(100,Number(layer.pivotX??50))/100)-.5)*width*dynamicScale;
       const pivotY=(Math.max(0,Math.min(100,Number(layer.pivotY??50))/100)-.5)*height*dynamicScale;
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.translate(pivotX,pivotY);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2-pivotX,-height*dynamicScale/2-pivotY,width*dynamicScale,height*dynamicScale);ctx.restore();
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.translate(pivotX,pivotY);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2-pivotX,-height*dynamicScale/2-pivotY,width*dynamicScale,height*dynamicScale);drawAnimatedMouth(ctx,layer,width*dynamicScale,height*dynamicScale,sceneProgress,scene.dialogues);ctx.restore();
     });
     drawMotionDialogues(ctx,scene.dialogues,sceneProgress);
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
