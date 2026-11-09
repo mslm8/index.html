@@ -2344,6 +2344,7 @@ $('cancel').addEventListener('click', cancelRequest);
   const button=event.target.closest("button[data-view]");
   if(!button) return;
   const selected=button.dataset.view;
+  try{localStorage.setItem("aiAnimatorLastViewV1",selected);}catch(_){}
   Object.entries(views).forEach(([name,panel])=>{if(panel) panel.hidden=name!==selected;});
   nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item===button;item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
   const header=document.querySelector("body.authenticated>main>header");
@@ -2352,6 +2353,9 @@ $('cancel').addEventListener('click', cancelRequest);
   if(activePanel) activePanel.scrollTop=0;
  });
  nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="generation")));
+ let lastView="generation";
+ try{const saved=localStorage.getItem("aiAnimatorLastViewV1");if(saved&&Object.prototype.hasOwnProperty.call(views,saved)&&views[saved])lastView=saved;}catch(_){}
+ if(lastView!=="generation"){const savedButton=nav.querySelector('button[data-view="'+lastView+'"]');if(savedButton)savedButton.click();}
 })();
 </script>
 <script data-swipe-navigation>
