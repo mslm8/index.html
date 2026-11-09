@@ -63,13 +63,25 @@ body:not(.authenticated)>main{display:none!important}
   <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
   <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
   <div class="note" id="autoModelInfo">موتور هوشمند در حال پیدا کردن سریع‌ترین مدل فعال است؛ انتخاب مدل به‌صورت خودکار انجام می‌شود.</div>
-  <div>
-    <label for="size">اندازه تصویر</label>
-    <select id="size">
-      <option value="512">512 × 512 · سریع‌تر و سازگارتر</option>
-      <option value="768">768 × 768 · جزئیات بیشتر</option>
-      <option value="1024">1024 × 1024 · در صورت پشتیبانی کارگر</option>
-    </select>
+  <div class="grid">
+    <div>
+      <label for="size">اندازه تصویر</label>
+      <select id="size">
+        <option value="512">512 · سریع‌تر و سازگارتر</option>
+        <option value="768">768 · جزئیات بیشتر</option>
+        <option value="1024">1024 · در صورت پشتیبانی کارگر</option>
+      </select>
+    </div>
+    <div>
+      <label for="aspect">نسبت تصویر</label>
+      <select id="aspect">
+        <option value="square">مربع · ۱:۱</option>
+        <option value="landscape">افقی · ۴:۳</option>
+        <option value="portrait">عمودی · ۳:۴</option>
+        <option value="wide">عریض · ۱۶:۹</option>
+        <option value="tall">بلند · ۹:۱۶</option>
+      </select>
+    </div>
   </div>
   <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
   <div class="row">
@@ -275,6 +287,17 @@ async function generateImage() {
     ? translatedPrompt + ' ### ' + translatedNegative
     : translatedPrompt;
   const dimension = Number($('size').value);
+  const aspectDimensions = {
+    square: [1, 1],
+    landscape: [4, 3],
+    portrait: [3, 4],
+    wide: [16, 9],
+    tall: [9, 16]
+  };
+  const [ratioW, ratioH] = aspectDimensions[$('aspect').value] || [1, 1];
+  const unit = Math.max(1, Math.floor(dimension / Math.max(ratioW, ratioH) / 64));
+  const imageWidth = Math.max(256, Math.round((unit * ratioW * 64) / 64) * 64);
+  const imageHeight = Math.max(256, Math.round((unit * ratioH * 64) / 64) * 64);
   setStatus('متن به انگلیسی ترجمه شد. مدل سریع‌تر انتخاب شد: ' + candidates[0] +
     (candidates.length > 1 ? '\nگزینه‌های جایگزین هم به درخواست اضافه شدند.' : '') +
     '\nدر حال ارسال متن ترجمه‌شده به موتور رایگان...');
@@ -285,8 +308,8 @@ async function generateImage() {
       body: JSON.stringify({
         prompt: fullPrompt,
         params: {
-          width: dimension,
-          height: dimension,
+          width: imageWidth,
+          height: imageHeight,
           steps: 20,
           n: 1,
           cfg_scale: 7.5,
