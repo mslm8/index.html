@@ -133,7 +133,7 @@ body.authenticated main>header .pill{font-size:10px;padding:3px 8px}
 body.authenticated main>header h1{font-size:clamp(19px,4vw,26px);margin:5px 0 3px}
 body.authenticated main>header p{font-size:11px;line-height:1.45}
 body.authenticated #accountBar{flex:0 0 auto;margin:0 0 7px;padding:7px 10px}
-body.authenticated #studioNav{position:relative;top:auto;flex:0 0 auto;margin:0 0 7px;padding:5px;gap:4px}
+body.authenticated #studioNav{position:relative;top:auto;bottom:auto;order:10;flex:0 0 auto;margin:7px 0 0;padding:5px;gap:4px}
 body.authenticated #studioNav button{font-size:clamp(10px,2.5vw,12px);padding:8px 2px;min-height:38px}
 body.authenticated #generationCard,
 body.authenticated #toolsPanel,
@@ -148,7 +148,7 @@ body.authenticated .card{margin:5px 0 12px;padding:15px}
  body.authenticated main>header h1{font-size:20px}
  body.authenticated main>header p{font-size:10px}
  body.authenticated #accountBar{font-size:11px}
- body.authenticated #studioNav{margin-bottom:5px}
+ body.authenticated #studioNav{margin-top:5px}
  body.authenticated #studioNav button{font-size:10px;min-height:36px}
 }
 
@@ -185,8 +185,6 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 <div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
-<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button></nav>
-
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
   <label for="prompt">توضیح صحنه</label>
@@ -495,6 +493,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 </section>
 <footer><small>AI Animator Studio</small></footer>
 </div>
+<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button></nav>
 </main>
 
 <script>
