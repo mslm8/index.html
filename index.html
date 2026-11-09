@@ -695,6 +695,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
+    <button id="aiStoryEngineButton" type="button" class="secondary">ساخت فیلمنامه با موتور متن رایگان</button>
+    <small id="aiStoryEngineStatus" aria-live="polite">موتور متن AI Horde برای نوشتن فیلمنامه؛ موتور تصویر AI Horde برای ساخت تصویر؛ رندر نهایی با موتور داخلی Canvas.</small>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت خودکار قسمت از متن</button>
     <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
     <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
@@ -1058,6 +1060,7 @@ let preservePendingRequestOnError = false;
 let currentImageUrl = null;
 let previousImages = [];
 let smartModelChoices = [];
+let smartTextModelChoices = [];
 let lastGenerationSettings = null;
 
 function setStatus(message, color) {
@@ -2517,6 +2520,59 @@ async function autoBuildEpisodeFromStory(){
   }
 }
 $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
+
+async function loadTextModels(){
+  const models=await apiFetch('/status/models?type=text');
+  const available=Array.isArray(models)?models.filter(m=>m&&m.name&&Number(m.count||m.worker_count||0)>0):[];
+  available.sort((a,b)=>modelScore(a)-modelScore(b));
+  smartTextModelChoices=available.slice(0,3).map(m=>m.name);
+  return smartTextModelChoices;
+}
+async function generateStoryWithFreeTextEngine(){
+  const button=$('aiStoryEngineButton'),status=$('aiStoryEngineStatus');
+  const seed=$('storyToScenesInput').value.trim();
+  if(!seed){setStatus('اول ایده یا خلاصه داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
+  if(!document.body.classList.contains('authenticated')){setStatus('برای استفاده از موتور متن، ابتدا وارد حساب برنامه شو.','var(--warn)');return;}
+  button.disabled=true;status.textContent='در حال پیدا کردن مدل‌های متن رایگان و فعال...';
+  try{
+    const models=await loadTextModels();
+    if(!models.length)throw new Error('فعلاً هیچ پردازشگر متن فعالی در AI Horde پیدا نشد.');
+    const prompt='You are a screenwriter for an original family-friendly science-fiction comedy cartoon. Write a concise Persian screenplay for a 60-second episode based only on this idea. Return exactly 6 paragraphs, one scene per paragraph, in Persian. Each paragraph must include a clear visual action and, if suitable, one short spoken line. Keep character names consistent. Do not add headings, markdown, numbering, explanations, or extra paragraphs. Keep each paragraph under 45 Persian words.\n\nSTORY IDEA:\n'+seed;
+    status.textContent='موتور متن رایگان در حال نوشتن ۶ صحنه است. مدل‌های فعال: '+models.length+'؛ ممکن است صف انتظار داشته باشد...';
+    const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
+      prompt,
+      params:{max_length:700,temperature:0.75,top_p:0.9,top_k:40,rep_pen:1.08},
+      models,
+      trusted_workers:false,
+      slow_workers:false,
+      extra_slow_workers:false,
+      allow_downgrade:true
+    })});
+    if(!submitted.id)throw new Error('شناسه درخواست متن از سرویس دریافت نشد.');
+    const started=Date.now();let finalResult=null;
+    while(Date.now()-started<20*60*1000){
+      await new Promise(resolve=>setTimeout(resolve,6000));
+      const check=await apiFetch('/generate/text/status/'+encodeURIComponent(submitted.id));
+      if(check.faulted)throw new Error('پردازشگر متن نتوانست درخواست را کامل کند.');
+      if(check.done){finalResult=check;break;}
+      const elapsed=Math.floor((Date.now()-started)/60000);
+      status.textContent='فیلمنامه در صف موتور متن رایگان است... زمان سپری‌شده: '+elapsed+' دقیقه';
+    }
+    if(!finalResult)throw new Error('موتور متن بیش از ۲۰ دقیقه در صف ماند.');
+    const generation=finalResult.generations&&finalResult.generations.find(item=>item&&typeof item.text==='string'&&item.text.trim());
+    if(!generation)throw new Error('موتور متن پاسخ قابل استفاده‌ای برنگرداند.');
+    const screenplay=generation.text.trim().replace(/^\s*\x60{3}(?:[a-z]+)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
+    $('storyToScenesInput').value=screenplay;
+    $('storyToScenesButton').click();
+    status.textContent='فیلمنامه با موتور متن AI Horde ساخته شد و به صحنه‌های اولیه تبدیل شد. مدل: '+(generation.model||'AI Horde text');
+    setStatus('فیلمنامه آماده شد؛ صحنه‌های اولیه در تایم‌لاین قرار گرفتند. حالا می‌توانی متن و دیالوگ‌ها را بازبینی کنی.');
+  }catch(error){
+    status.textContent='موتور متن فعلاً در دسترس نیست: '+error.message;
+    setStatus('ساخت فیلمنامه با موتور متن انجام نشد: '+error.message,'var(--warn)');
+  }finally{button.disabled=false;}
+}
+$('aiStoryEngineButton').addEventListener('click',generateStoryWithFreeTextEngine);
+
 $('storyToScenesButton').addEventListener('click',()=>{
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
