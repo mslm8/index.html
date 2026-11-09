@@ -2359,6 +2359,7 @@ $('cancel').addEventListener('click', cancelRequest);
   );
 
   let modelsLoaded = false;
+  let sessionCheckVersion = 0;
   function cleanAuthCallbackUrl() {
     try {
       const url = new URL(window.location.href);
@@ -2433,8 +2434,10 @@ $('cancel').addEventListener('click', cancelRequest);
   }
 
   async function refreshSession() {
+    const checkVersion = ++sessionCheckVersion;
     try {
       const { data, error } = await client.auth.getSession();
+      if (checkVersion !== sessionCheckVersion) return;
       if (error) throw error;
       if (data.session) {
         showSignedIn(data.session);
@@ -2458,6 +2461,7 @@ $('cancel').addEventListener('click', cancelRequest);
         errorBox.textContent = 'هنوز وارد نشده‌ای. اگر پس از انتخاب حساب گوگل دوباره به این صفحه برگشتی، ورود را در Chrome و در همان تب انجام بده.';
       }
     } catch (error) {
+      if (checkVersion !== sessionCheckVersion) return;
       const message = 'بررسی وضعیت ورود موقتاً ناموفق بود: ' + (error.message || String(error));
       if (document.body.classList.contains('authenticated')) {
         if (accountMessage) accountMessage.textContent = message;
@@ -2513,6 +2517,7 @@ $('cancel').addEventListener('click', cancelRequest);
   });
 
   client.auth.onAuthStateChange((event, session) => {
+    sessionCheckVersion++;
     if (session) showSignedIn(session);
     else if (event === 'SIGNED_OUT') {
       clearPendingRequest('');
