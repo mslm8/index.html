@@ -91,7 +91,7 @@ jobs:
         run: |
           set +e
           timeout --signal=TERM 20s xvfb-run -a \
-            "$TAHOMA_ROOT/usr/bin/tahoma2d" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
+            "$TAHOMA_ROOT/usr/bin/tahoma2d" -TAHOMA2DROOT "$TAHOMA_ROOT/usr/share/tahoma2d" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
           code=$?
           set -e
           cat "$RUNNER_TEMP/tahoma2d-startup.log"
