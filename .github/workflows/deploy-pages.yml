@@ -59,6 +59,8 @@ jobs:
         run: node --check production-suite.js
       - name: Run network resilience regression tests
         run: node --test tests/reliability.test.mjs
+      - name: Run animation production suite regression tests
+        run: node --test tests/production-suite.test.mjs
       - name: Check Cloudflare Worker JavaScript
         run: node --input-type=module --check < worker.js
       - name: Set up Deno
