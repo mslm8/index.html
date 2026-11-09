@@ -871,10 +871,23 @@ function applyAppLanguage(language){
  document.documentElement.style.direction=layoutDirection;
  document.body.dir=layoutDirection;
  document.body.style.direction=layoutDirection;
+ const mainLayout=document.querySelector('body>main');
+ if(mainLayout){
+   mainLayout.dir=layoutDirection;
+   mainLayout.style.direction=layoutDirection;
+   mainLayout.querySelectorAll('.viewPanel, .viewHeading, .grid, .row, form').forEach(region=>{
+     region.dir=layoutDirection;
+     region.style.direction=layoutDirection;
+   });
+ }
  const studioNavigation=document.getElementById('studioNav');
  if(studioNavigation){
    studioNavigation.dir=layoutDirection;
    studioNavigation.style.direction=layoutDirection;
+   studioNavigation.querySelectorAll('button[data-view]').forEach(button=>{
+     button.dir=layoutDirection;
+     button.style.direction=layoutDirection;
+   });
  }
  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
  const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
