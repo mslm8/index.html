@@ -694,13 +694,13 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <h3>تبدیل داستان به صحنه‌های اولیه</h3>
     <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
-    <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
-    <button id="aiStoryEngineButton" type="button" class="secondary">ساخت فیلمنامه با موتور متن رایگان</button>
+    <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
+    <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">موتور متن و تصویر AI Horde با پردازشگرهای معمولی، کند و بسیار کند؛ رندر نهایی با موتور داخلی Canvas. صف انتظار ممکن است طولانی باشد.</small>
-    <button id="autoEpisodeButton" type="button" class="primary">ساخت خودکار قسمت از متن</button>
+    <button id="autoEpisodeButton" type="button" class="primary">ساخت کامل انیمیشن فقط از متن</button>
     <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
-    <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
-    <button id="autoSceneMotionButton" type="button" class="secondary">هوشمندسازی حرکت از روی داستان</button>
+    <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
+    <button id="autoSceneMotionButton" type="button" class="secondary" hidden>هوشمندسازی حرکت از روی داستان</button>
     <small>موتور متن داستان و دیالوگ هر صحنه را از نظر حرکت و احساس تحلیل می‌کند و حرکت بدن، ژست دست، حالت چهره و دوربین را به‌صورت قاعده‌محور پیشنهاد می‌دهد؛ نتیجه را می‌توانی دستی اصلاح کنی.</small>
   </section>
   <section class="motion-scene-panel">
@@ -2512,48 +2512,103 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   renderMotionDialogueEditor();renderMotionPreview();
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
+async function requestAutomaticScreenplay(seed,status){
+  if(!document.body.classList.contains('authenticated'))return null;
+  const models=await loadTextModels();
+  if(!models.length)return null;
+  status.textContent='هوش داستان در حال تبدیل متن به فیلمنامه، صحنه، دیالوگ و دستور حرکت است...';
+  const prompt='You are an animation director and screenwriter. Turn the supplied story into a complete original family-friendly 60-second 2D sci-fi comedy cartoon episode. Return ONLY valid JSON, no markdown, schema: {"scenes":[{"visual":"Persian visual action and setting","dialogues":[{"speaker":"short character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create 3 to 6 scenes, preserve character names and visual continuity, distribute events in story order, include dialogue only where appropriate, keep spoken lines short, and make each scene visually distinct. Infer every field yourself. User supplies only the story; do not ask questions.\n\nSTORY:\n'+seed;
+  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({prompt,params:{max_length:1100,temperature:0.65,top_p:0.9,top_k:40,rep_pen:1.08},models,trusted_workers:false,slow_workers:true,extra_slow_workers:true,allow_downgrade:true})});
+  if(!submitted.id)throw new Error('شناسه درخواست فیلمنامه دریافت نشد.');
+  const started=Date.now();let result=null;
+  while(Date.now()-started<2*60*60*1000){
+    await new Promise(resolve=>setTimeout(resolve,10000));
+    const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
+    if(check.faulted)throw new Error('پردازشگر متن درخواست را کامل نکرد.');
+    if(check.done){result=check;break;}
+    status.textContent='هوش داستان در صف پردازش رایگان است؛ زمان انتظار '+Math.floor((Date.now()-started)/60000)+' دقیقه';
+  }
+  if(!result)throw new Error('زمان انتظار موتور متن به دو ساعت رسید.');
+  const raw=(result.generations||[]).find(item=>item&&typeof item.text==='string'&&item.text.trim())?.text||'';
+  if(!raw)throw new Error('پاسخ متنی خالی بود.');
+  const cleaned=raw.replace(/^\s*\x60{3}(?:json)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
+  const first=cleaned.indexOf('{'),last=cleaned.lastIndexOf('}');
+  if(first<0||last<=first)throw new Error('فیلمنامه ساختار JSON معتبر نداشت.');
+  const data=JSON.parse(cleaned.slice(first,last+1));
+  if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('هیچ صحنه‌ای در فیلمنامه پیدا نشد.');
+  return data.scenes.slice(0,6);
+}
+function autoScheduleSceneDialogues(scene){
+  const items=scene.dialogues||[];if(!items.length)return;
+  const weights=items.map(item=>Math.max(1.5,Math.min(7,String(item.text||'').length/14)));
+  const total=weights.reduce((a,b)=>a+b,0);let cursor=0;
+  items.forEach((item,index)=>{item.startAt=Math.round(cursor/total*100);cursor+=weights[index];item.endAt=Math.max(item.startAt+1,Math.min(100,Math.round(cursor/total*100)));});
+}
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
-  if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
+  if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
-  const paragraphs=raw.split(/\\n+|(?<=[.!؟?])\\s+(?=\\S)/u).map(part=>part.trim()).filter(Boolean);
-  const count=Math.min(6,paragraphs.length);
-  if(!count){setStatus('متن داستان قابل تقسیم نیست.','var(--warn)');return;}
-  const groups=Array.from({length:count},()=>[]);
-  paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
-  const button=$('autoEpisodeButton');button.disabled=true;
-  const savedPrompt=$('prompt').value;
-  const savedStyle=$('style').value;
-  const sceneStyle='Create a clean 2D animated cartoon frame for a comedy science-fiction series. Maintain the same character designs, clothing, colors and proportions across all scenes. No captions, no speech bubbles, no lettering. Scene action: ';
-  const nextScenes=groups.map((parts,index)=>({name:'صحنه '+(index+1),layers:[],dialogues:[],backgroundImage:null,backgroundUrl:'',cameraMotion:['zoom-in','pan-right','zoom-out','pan-left','zoom-in','pan-right'][index%6],selectedIndex:-1,storyText:parts.join(' ')}));
-  saveActiveMotionScene();
-  motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
-  renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
+  const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;
+  const saved={prompt:$('prompt').value,style:$('style').value,framing:$('framing').value};
+  const sceneStyle='Create a clean, high-quality 2D animated cartoon background plate for an original science-fiction comedy. Environment only, no people, no characters, no text, no lettering, no speech bubbles. ';
   try{
+    let plans=null;
+    try{plans=await requestAutomaticScreenplay(raw,status);}catch(error){status.textContent='هوش متن فعلاً پاسخ نداد؛ تقسیم‌بندی داخلی داستان فعال شد. '+error.message;}
+    if(!plans){
+      const paragraphs=raw.split(/\n+|(?<=[.!؟?])\s+(?=\S)/u).map(part=>part.trim()).filter(Boolean);
+      const count=Math.min(6,Math.max(1,paragraphs.length));
+      const groups=Array.from({length:count},()=>[]);
+      paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
+      plans=groups.map(parts=>({visual:parts.join(' '),dialogues:[],action:'idle',emotion:'none',gesture:'neutral',camera:'zoom-in'}));
+    }
+    const nextScenes=plans.map((plan,index)=>({
+      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>({text:String(item.text).slice(0,180),speaker:String(item.speaker||'شخصیت اصلی').slice(0,40),speakerId:'',startAt:0,endAt:100,voiceName:''})),
+      backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),autoDirection:{action:plan.action||'idle',emotion:plan.emotion||'none',gesture:plan.gesture||'neutral',camera:plan.camera||'zoom-in'}
+    }));
+    nextScenes.forEach(autoScheduleSceneDialogues);
+    saveActiveMotionScene();motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
+    renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
+    $('createProceduralCharacter').click();
+    for(let wait=0;wait<60&&motionLayers.length<6;wait++)await new Promise(resolve=>setTimeout(resolve,100));
+    const characterBase=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+    const head=characterBase.find(layer=>layer.rigRole==='head');
+    if(head){head.characterName='شخصیت اصلی';head.characterId='auto-main-character';}
     for(let index=0;index<nextScenes.length;index++){
-      const scene=nextScenes[index];
-      $('prompt').value=sceneStyle+scene.storyText;
-      setStatus('ساخت خودکار قسمت: در حال تولید تصویر صحنه '+(index+1)+' از '+nextScenes.length+'؛ هر تصویر از صف رایگان تولید می‌شود.');
+      const scene=nextScenes[index],plan=scene.autoDirection;
+      scene.layers=characterBase.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+      scene.layers.forEach(layer=>{
+        if(layer.rigRole==='body'||String(layer.rigId||'').endsWith('-body'))layer.motion=plan.action;
+        if(layer.rigRole==='head'){layer.faceExpression=plan.emotion;if(scene.dialogues.length)layer.mouthMode='talk';}
+        if(layer.rigRole&&layer.rigRole.startsWith('arm-')&&plan.gesture!=='neutral'){
+          const sign=layer.rigRole.endsWith('left')?-1:1,swing=sign*(plan.gesture==='wave'?42:24);
+          layer.motionKeys=[{at:0,x:50,y:60,rotation:0},{at:35,x:50,y:60,rotation:swing},{at:65,x:50,y:60,rotation:-swing*.5},{at:100,x:50,y:60,rotation:0}];
+        }
+      });
+      scene.cameraMotion=plan.camera;
+    }
+    $('style').value='anime';$('framing').value='medium';
+    for(let index=0;index<nextScenes.length;index++){
+      const scene=nextScenes[index];$('prompt').value=sceneStyle+scene.storyText;
+      status.textContent='ساخت خودکار قسمت: تولید پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+'؛ شخصیت و حرکت‌ها از قبل چیده شده‌اند.';
       await generateImageUnlocked();
       const source=$('result');
-      if(!source||!source.src||!source.complete||!source.naturalWidth)throw new Error('تصویر صحنه '+(index+1)+' تولید نشد؛ ادامه متوقف شد.');
+      if(!source||!source.src||!source.complete||!source.naturalWidth)throw new Error('تصویر صحنه '+(index+1)+' تولید نشد.');
       const frame=new Image();frame.src=source.src;
       if(typeof frame.decode==='function')await frame.decode();
       else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
-      scene.backgroundImage=frame;
-      scene.backgroundUrl=source.src;
-      scene.backgroundName='تصویر تولیدشده برای '+scene.name;
-      setStatus('تصویر '+(index+1)+' از '+nextScenes.length+' آماده شد.');
+      scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='پس‌زمینه '+scene.name;
+      renderMotionSceneList();renderMotionPreview();
     }
-    $('motionDuration').value='60';
-    activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
+    $('motionDuration').value='60';activeMotionScene=0;
+    motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    setStatus('تصاویر همه '+nextScenes.length+' صحنه آماده شدند. پروژه برای پیش‌نمایش و خروجی ۶۰ ثانیه‌ای آماده است؛ حرکت فعلی شامل حرکت دوربین است.');
+    setStatus('چیدمان خودکار قسمت کامل شد: '+nextScenes.length+' صحنه، شخصیت ریگ‌شده، دیالوگ‌های زمان‌بندی‌شده، حرکت بدن و صورت و دوربین. برای خروجی ویدئو فقط دکمه خروجی را بزن.');
+    status.textContent='قسمت به‌صورت خودکار چیده شد. هیچ تنظیم دستی برای صحنه، حرکت، احساس یا دوربین لازم نبود.';
   }catch(error){
     renderMotionSceneList();renderMotionPreview();
-    setStatus('ساخت قسمت نیمه‌تمام ماند: '+(error.message||String(error))+'. صحنه‌های آماده‌شده حفظ شدند؛ می‌توانی دوباره تلاش کنی.','var(--warn)');
+    setStatus('ساخت خودکار قسمت کامل نشد: '+(error.message||String(error))+'؛ صحنه‌های آماده‌شده حفظ شدند.','var(--warn)');
   }finally{
-    $('prompt').value=savedPrompt;$('style').value=savedStyle;button.disabled=false;
+    $('prompt').value=saved.prompt;$('style').value=saved.style;$('framing').value=saved.framing;button.disabled=false;
   }
 }
 $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
