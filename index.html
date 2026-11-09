@@ -1621,9 +1621,11 @@ async function pollRequest(id, historySettings = null) {
   const started = Date.now();
   let consecutiveCheckErrors = 0;
   // Volunteer workers can take a long time to become available; poll less often and allow a longer wait.
-  while (Date.now() - started < 2 * 60 * 60 * 1000) {
+  while (Date.now() - started < 30 * 60 * 1000) {
     if (activeRequestId !== id) return;
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    const elapsedMs = Date.now() - started;
+    const pollDelay = elapsedMs < 60_000 ? 5000 : elapsedMs < 5 * 60_000 ? 10000 : 15000;
+    await new Promise(resolve => setTimeout(resolve, pollDelay));
     if (activeRequestId !== id) return;
     let check;
     try {
@@ -3124,7 +3126,7 @@ async function generateStoryWithFreeTextEngine(){
   if(!document.body.classList.contains('authenticated')){setStatus('برای استفاده از موتور متن، ابتدا وارد حساب برنامه شو.','var(--warn)');return;}
   button.disabled=true;status.textContent='در حال پیدا کردن مدل‌های متن رایگان و فعال...';
   try{
-    const models=await loadTextModels();
+    const models=(await loadTextModels()).slice(0,8);
     if(!models.length)throw new Error('فعلاً هیچ پردازشگر متن فعالی در AI Horde پیدا نشد.');
     const prompt='You are a screenwriter for an original family-friendly science-fiction comedy cartoon. Write a concise Persian screenplay for a 60-second episode based only on this idea. Return exactly 6 paragraphs, one scene per paragraph, in Persian. Each paragraph must include a clear visual action and, if suitable, one short spoken line. Keep character names consistent. Do not add headings, markdown, numbering, explanations, or extra paragraphs. Keep each paragraph under 45 Persian words.\n\nSTORY IDEA:\n'+seed;
     status.textContent='موتور متن رایگان در حال نوشتن ۶ صحنه است. مدل‌های فعال: '+models.length+'؛ ممکن است صف انتظار داشته باشد...';
@@ -3133,24 +3135,26 @@ async function generateStoryWithFreeTextEngine(){
       params:{max_length:700,temperature:0.75,top_p:0.9,top_k:40,rep_pen:1.08},
       models,
       trusted_workers:false,
-      slow_workers:true,
-      extra_slow_workers:true,
+      slow_workers:false,
+      extra_slow_workers:false,
       allow_downgrade:true
     })});
     if(!submitted.id)throw new Error('شناسه درخواست متن از سرویس دریافت نشد.');
     const started=Date.now();let finalResult=null;
-    while(Date.now()-started<2*60*60*1000){
-      await new Promise(resolve=>setTimeout(resolve,10000));
-      const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
+    while(Date.now()-started<90000){
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),2);
       if(check.faulted)throw new Error('پردازشگر متن نتوانست درخواست را کامل کند.');
       if(check.done){finalResult=check;break;}
       const elapsed=Math.floor((Date.now()-started)/60000);
       status.textContent='فیلمنامه در صف موتور متن رایگان است... زمان سپری‌شده: '+elapsed+' دقیقه';
     }
-    if(!finalResult)throw new Error('موتور متن پس از ۲ ساعت هنوز پاسخ نداده است؛ درخواست را می‌توان دوباره اجرا کرد.');
-    const generation=finalResult.generations&&finalResult.generations.find(item=>item&&typeof item.text==='string'&&item.text.trim());
+    if(!finalResult)throw new Error('موتور متن در ۹۰ ثانیه پاسخ نداد؛ برای جلوگیری از انتظار طولانی، درخواست متوقف شد.');
+    const generation=finalResult.generations&&finalResult.generations.find(item=>item&&[item.text,item.content,item.output,item.response].some(value=>typeof value==='string'&&value.trim()));
     if(!generation)throw new Error('موتور متن پاسخ قابل استفاده‌ای برنگرداند.');
-    const screenplay=generation.text.trim().replace(/^\s*\x60{3}(?:[a-z]+)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
+    const rawText=String(generation.text||generation.content||generation.output||generation.response||'').trim();
+    if(!rawText)throw new Error('پاسخ مدل خالی بود.');
+    const screenplay=rawText.replace(/^\s*\x60{3}(?:[a-z]+)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
     $('storyToScenesInput').value=screenplay;
     $('storyToScenesButton').click();
     status.textContent='فیلمنامه با موتور متن AI Horde ساخته شد و به صحنه‌های اولیه تبدیل شد. مدل: '+(generation.model||'AI Horde text');
