@@ -1398,7 +1398,19 @@ const NAMED_PROJECTS_KEY = 'aiAnimatorNamedProjectsV1';
 function readNamedProjects() {
   try {
     const value = JSON.parse(localStorage.getItem(NAMED_PROJECTS_KEY) || '[]');
-    return Array.isArray(value) ? value.filter(p => p && typeof p.name === 'string' && p.data && p.data.format === 'ai-animator-project') : [];
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    return value.filter(project => {
+      if (!project || typeof project !== 'object' || Array.isArray(project) ||
+          typeof project.id !== 'string' || !project.id || project.id.length > 120 ||
+          typeof project.name !== 'string' || !project.name.trim() || project.name.length > 60 ||
+          !project.data || typeof project.data !== 'object' || Array.isArray(project.data) ||
+          project.data.format !== 'ai-animator-project' || project.data.version !== 1 ||
+          !project.data.fields || typeof project.data.fields !== 'object' || Array.isArray(project.data.fields) ||
+          seen.has(project.id)) return false;
+      seen.add(project.id);
+      return true;
+    }).slice(0, 30);
   } catch (_) { return []; }
 }
 function renderNamedProjects(selectedId) {
@@ -2164,7 +2176,16 @@ const SAVED_PROMPTS_KEY = 'aiAnimatorSavedPromptsV1';
 function readSavedPrompts() {
   try {
     const items = JSON.parse(localStorage.getItem(SAVED_PROMPTS_KEY) || '[]');
-    return Array.isArray(items) ? items.filter(item => item && typeof item.text === 'string').slice(0, 30) : [];
+    if (!Array.isArray(items)) return [];
+    const seen = new Set();
+    return items.filter(item => {
+      if (!item || typeof item !== 'object' || Array.isArray(item) ||
+          typeof item.id !== 'string' || !item.id || item.id.length > 120 ||
+          typeof item.text !== 'string' || !item.text.trim() || item.text.length > 1800 ||
+          seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    }).slice(0, 30);
   } catch (_) { return []; }
 }
 function refreshSavedPromptList(selectedId = '') {
