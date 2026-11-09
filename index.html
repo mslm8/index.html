@@ -3021,7 +3021,7 @@ function createMotionClip() {
   catch(error){stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: '+error.message,'var(--warn)');return;}
   const chunks=[];
   recorder.ondataavailable=event=>{if(event.data&&event.data.size)chunks.push(event.data);};
-  recorder.onerror=()=>{stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد.','var(--bad)');};
+  recorder.onerror=()=>{stream.getTracks().forEach(track=>track.stop());if(audioContext)audioContext.close().catch(()=>{});button.disabled=false;setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد؛ منابع صوتی و تصویری آزاد شدند.','var(--bad)');};
   recorder.onstop=()=>{
     stream.getTracks().forEach(track=>track.stop());
     if(audioContext)audioContext.close().catch(()=>{});
