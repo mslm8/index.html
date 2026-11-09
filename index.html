@@ -137,7 +137,7 @@ body.authenticated #toolsPanel,
 body.authenticated #projectsPanel,
 body.authenticated #historyPanel,
 body.authenticated #guidePanel{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:0 3px 24px}
-body.authenticated .viewPanel[hidden]{display:none!important}
+body.authenticated .viewPanel{touch-action:pan-y}\nbody.authenticated .viewPanel[hidden]{display:none!important}
 body.authenticated .card{margin:5px 0 12px;padding:15px}
 @media(max-width:520px){
  body.authenticated>main{padding:7px 9px 5px}
@@ -2352,6 +2352,41 @@ $('cancel').addEventListener('click', cancelRequest);
   if(activePanel) activePanel.scrollTop=0;
  });
  nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="generation")));
+})();
+</script>
+<script data-swipe-navigation>
+(() => {
+  const main = document.querySelector("body.authenticated>main");
+  const nav = document.getElementById("studioNav");
+  if (!main || !nav || main.dataset.swipeNavigation) return;
+  main.dataset.swipeNavigation = "1";
+  let startX = 0;
+  let startY = 0;
+  let startTarget = null;
+  main.addEventListener("touchstart", event => {
+    if (event.touches.length !== 1) { startTarget = null; return; }
+    const target = event.target;
+    if (target.closest("#studioNav,button,a,input,select,textarea,[contenteditable='true'],#maskOverlay")) {
+      startTarget = null;
+      return;
+    }
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+    startTarget = target;
+  }, {passive:true});
+  main.addEventListener("touchend", event => {
+    if (!startTarget || event.changedTouches.length !== 1) return;
+    const dx = event.changedTouches[0].clientX - startX;
+    const dy = event.changedTouches[0].clientY - startY;
+    startTarget = null;
+    if (Math.abs(dx) < 75 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    const buttons = Array.from(nav.querySelectorAll("button[data-view]"));
+    const activeIndex = buttons.findIndex(button => button.classList.contains("active"));
+    if (activeIndex < 0) return;
+    const nextIndex = dx < 0 ? activeIndex + 1 : activeIndex - 1;
+    if (nextIndex >= 0 && nextIndex < buttons.length) buttons[nextIndex].click();
+  }, {passive:true});
+  main.addEventListener("touchcancel", () => { startTarget = null; }, {passive:true});
 })();
 </script>
 </body>
