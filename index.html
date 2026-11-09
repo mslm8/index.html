@@ -211,9 +211,18 @@ body:not(.authenticated)>main{display:none!important}
 <section class="card" id="projectCard">
   <h2>ذخیره و بازیابی پروژه</h2>
   <p><small>تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.</small></p>
+  <label for="projectName">نام پروژه</label>
+  <input id="projectName" maxlength="60" placeholder="مثلاً: انیمیشن اژدها">
   <div class="row">
-    <button id="exportProject" class="primary" type="button">ذخیره فایل پروژه</button>
-    <button id="importProjectButton" class="secondary" type="button">بارگذاری پروژه</button>
+    <button id="saveNamedProject" class="primary" type="button">ذخیره پروژه در این مرورگر</button>
+    <button id="exportProject" class="secondary" type="button">خروجی فایل JSON</button>
+  </div>
+  <label for="savedProjects">پروژه‌های ذخیره‌شده</label>
+  <select id="savedProjects"><option value="">پروژه‌ای انتخاب نشده</option></select>
+  <div class="row">
+    <button id="loadNamedProject" class="primary" type="button">باز کردن پروژه</button>
+    <button id="deleteNamedProject" class="danger" type="button">حذف پروژه</button>
+    <button id="importProjectButton" class="secondary" type="button">ورود فایل JSON</button>
     <input id="importProjectFile" type="file" accept=".json,application/json" hidden>
   </div>
   <small id="projectStatus" aria-live="polite"></small>
@@ -614,6 +623,92 @@ async function deleteHistoryItem(id) {
   });
   await renderHistory();
 }
+const NAMED_PROJECTS_KEY = 'aiAnimatorNamedProjectsV1';
+function readNamedProjects() {
+  try {
+    const value = JSON.parse(localStorage.getItem(NAMED_PROJECTS_KEY) || '[]');
+    return Array.isArray(value) ? value.filter(p => p && typeof p.name === 'string' && p.data && p.data.format === 'ai-animator-project') : [];
+  } catch (_) { return []; }
+}
+function renderNamedProjects(selectedId) {
+  const select = $('savedProjects');
+  if (!select) return;
+  const projects = readNamedProjects();
+  select.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'پروژه‌ای انتخاب نشده';
+  select.append(placeholder);
+  for (const project of projects) {
+    const option = document.createElement('option');
+    option.value = project.id;
+    option.textContent = project.name;
+    select.append(option);
+  }
+  if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
+}
+function applyProjectData(data) {
+  const allowed = ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  for (const id of allowed) {
+    if (typeof data.fields[id] !== 'string') continue;
+    const el = $(id);
+    if (el) el.value = data.fields[id].slice(0, id === 'prompt' ? 1800 : id === 'negative' ? 500 : id === 'editPrompt' ? 1200 : 40);
+  }
+}
+$('saveNamedProject').addEventListener('click', () => {
+  const name = $('projectName').value.trim();
+  if (!name) {
+    $('projectStatus').textContent = 'ابتدا برای پروژه یک نام وارد کن.';
+    $('projectName').focus();
+    return;
+  }
+  try {
+    const projects = readNamedProjects();
+    const selectedId = $('savedProjects').value;
+    const existing = projects.find(p => p.id === selectedId && p.name === name);
+    const project = {id: existing ? existing.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2,8)), name: name.slice(0,60), data: projectFields()};
+    const index = projects.findIndex(p => p.id === project.id || p.name.toLocaleLowerCase() === project.name.toLocaleLowerCase());
+    if (index >= 0) projects[index] = project;
+    else projects.unshift(project);
+    if (projects.length > 30) projects.length = 30;
+    localStorage.setItem(NAMED_PROJECTS_KEY, JSON.stringify(projects));
+    renderNamedProjects(project.id);
+    $('projectStatus').textContent = 'پروژه «' + project.name + '» در همین مرورگر ذخیره شد.';
+  } catch (error) {
+    $('projectStatus').textContent = 'ذخیره پروژه ناموفق بود؛ فضای ذخیره‌سازی مرورگر را بررسی کن. ' + error.message;
+  }
+});
+$('loadNamedProject').addEventListener('click', () => {
+  const project = readNamedProjects().find(p => p.id === $('savedProjects').value);
+  if (!project) {
+    $('projectStatus').textContent = 'ابتدا یک پروژه از فهرست انتخاب کن.';
+    return;
+  }
+  applyProjectData(project.data);
+  $('projectName').value = project.name;
+  $('projectStatus').textContent = 'پروژه «' + project.name + '» بارگذاری شد. تصویر باید جداگانه انتخاب شود.';
+  $('prompt').scrollIntoView({behavior:'smooth',block:'center'});
+});
+$('deleteNamedProject').addEventListener('click', () => {
+  const id = $('savedProjects').value;
+  if (!id) {
+    $('projectStatus').textContent = 'برای حذف، ابتدا یک پروژه انتخاب کن.';
+    return;
+  }
+  const projects = readNamedProjects();
+  const project = projects.find(p => p.id === id);
+  if (!project || !confirm('پروژه «' + project.name + '» حذف شود؟')) return;
+  try {
+    localStorage.setItem(NAMED_PROJECTS_KEY, JSON.stringify(projects.filter(p => p.id !== id)));
+    renderNamedProjects();
+    $('projectName').value = '';
+    $('projectStatus').textContent = 'پروژه حذف شد.';
+  } catch (error) {
+    $('projectStatus').textContent = 'حذف پروژه ناموفق بود: ' + error.message;
+  }
+});
+renderNamedProjects();
+
 function projectFields() {
   return {
     format: 'ai-animator-project',
@@ -654,12 +749,8 @@ $('importProjectFile').addEventListener('change', async event => {
     if (!parsed || parsed.format !== 'ai-animator-project' || parsed.version !== 1 || !parsed.fields || typeof parsed.fields !== 'object') {
       throw new Error('ساختار فایل پروژه معتبر نیست.');
     }
-    const allowed = ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
-    for (const id of allowed) {
-      if (typeof parsed.fields[id] !== 'string') continue;
-      const el = $(id);
-      if (el) el.value = parsed.fields[id].slice(0, id === 'prompt' ? 1800 : id === 'negative' ? 500 : id === 'editPrompt' ? 1200 : 40);
-    }
+    applyProjectData(parsed);
+    $('projectName').value = '';
     $('projectStatus').textContent = 'تنظیمات پروژه با موفقیت بازیابی شد. تصویر باید جداگانه از تاریخچه یا دستگاه انتخاب شود.';
     $('prompt').scrollIntoView({behavior:'smooth',block:'center'});
   } catch (error) {
