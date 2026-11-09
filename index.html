@@ -1262,17 +1262,35 @@ $('enhancePrompt').addEventListener('click', () => {
 async function translateToEnglish(text) {
   const source = String(text || '').trim();
   if (!source) return '';
-  // MyMemory free translation endpoint; keep the original sentence intact as one unit.
-  const url = 'https://api.mymemory.translated.net/get?q=' +
-    encodeURIComponent(source) + '&langpair=fa|en';
-  const response = await fetch(url, { method: 'GET' });
-  if (!response.ok) throw new Error('سرویس ترجمه پاسخ نداد (HTTP ' + response.status + ').');
-  const data = await response.json();
-  const translated = data && data.responseData && data.responseData.translatedText;
-  if (!translated || data.responseStatus !== 200) {
-    throw new Error('ترجمه متن انجام نشد؛ لطفاً کمی بعد دوباره تلاش کن.');
-  }
-  return translated.trim();
+  // Prompts already written in English should not depend on an external translator.
+  if (!/[\\u0600-\\u06FF]/.test(source)) return source;
+  const failures = [];
+  // Primary free endpoint.
+  try {
+    const url = 'https://api.mymemory.translated.net/get?q=' +
+      encodeURIComponent(source) + '&langpair=fa|en';
+    const response = await fetch(url, {method:'GET'});
+    if (!response.ok) throw new Error('MyMemory HTTP ' + response.status);
+    const data = await response.json();
+    const translated = data && data.responseData && data.responseData.translatedText;
+    if (translated && data.responseStatus === 200 && !/[\\u0600-\\u06FF]/.test(translated)) {
+      return translated.trim();
+    }
+    throw new Error('MyMemory returned no usable English translation');
+  } catch (error) { failures.push(error && error.message || String(error)); }
+  // Independent no-key fallback; Google Translate's public web endpoint.
+  try {
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=fa&tl=en&dt=t&q=' + encodeURIComponent(source);
+    const response = await fetch(url, {method:'GET'});
+    if (!response.ok) throw new Error('Google Translate HTTP ' + response.status);
+    const data = await response.json();
+    const translated = Array.isArray(data) && Array.isArray(data[0])
+      ? data[0].map(part => Array.isArray(part) ? String(part[0] || '') : '').join('')
+      : '';
+    if (translated.trim() && !/[\\u0600-\\u06FF]/.test(translated)) return translated.trim();
+    throw new Error('Google Translate returned no usable English translation');
+  } catch (error) { failures.push(error && error.message || String(error)); }
+  throw new Error('هر دو سرویس ترجمه رایگان پاسخ معتبر ندادند. ' + failures.join('؛ '));
 }
 
 function buildSemanticRoleConstraints(sourceText) {
