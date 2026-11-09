@@ -86,6 +86,14 @@ body:not(.authenticated)>main{display:none!important}
         <option value="tall">بلند · ۹:۱۶</option>
       </select>
     </div>
+    <div>
+      <label for="quality">تعادل سرعت و جزئیات</label>
+      <select id="quality">
+        <option value="15">سریع‌تر · ۱۵ مرحله</option>
+        <option value="20" selected>متعادل · ۲۰ مرحله</option>
+        <option value="26">جزئیات بیشتر · ۲۶ مرحله</option>
+      </select>
+    </div>
   </div>
   <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
   <div class="row">
@@ -330,12 +338,15 @@ async function generateImage() {
     tall: [9, 16]
   };
   const [ratioW, ratioH] = aspectDimensions[$('aspect').value] || [1, 1];
-  const unit = Math.max(1, Math.floor(dimension / Math.max(ratioW, ratioH) / 64));
-  const imageWidth = Math.max(256, Math.round((unit * ratioW * 64) / 64) * 64);
-  const imageHeight = Math.max(256, Math.round((unit * ratioH * 64) / 64) * 64);
-  setStatus('متن به انگلیسی ترجمه شد. مدل سریع‌تر انتخاب شد: ' + candidates[0] +
-    (candidates.length > 1 ? '\nگزینه‌های جایگزین هم به درخواست اضافه شدند.' : '') +
-    '\nدر حال ارسال متن ترجمه‌شده به موتور رایگان...');
+  // Keep the selected size as the longest edge; Horde dimensions are rounded to 64px.
+  const shortSide = Math.max(256, Math.round((dimension * Math.min(ratioW, ratioH) / Math.max(ratioW, ratioH)) / 64) * 64);
+  const imageWidth = ratioW >= ratioH ? dimension : shortSide;
+  const imageHeight = ratioH >= ratioW ? dimension : shortSide;
+  const steps = Number($('quality').value) || 20;
+  setStatus('متن ترجمه شد. مدل: ' + candidates[0] +
+    (candidates.length > 1 ? '\nگزینه‌های جایگزین هم آماده‌اند.' : '') +
+    '\nاندازه خروجی: ' + imageWidth + '×' + imageHeight + ' · مراحل: ' + steps +
+    '\nدر حال ارسال درخواست به موتور رایگان...');
 
   try {
     const submitted = await apiFetch('/generate/async', {
@@ -345,7 +356,7 @@ async function generateImage() {
         params: {
           width: imageWidth,
           height: imageHeight,
-          steps: 20,
+          steps,
           n: 1,
           cfg_scale: 7.5,
           sampler_name: 'k_euler_a',
