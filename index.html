@@ -80,6 +80,15 @@ body:not(.authenticated)>main{display:none!important}
   <p><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a></p>
 </section>
 
+<section class="card" id="historyCard">
+  <div class="row" style="justify-content:space-between">
+    <h2>تاریخچه تصاویر</h2>
+    <button id="clearHistory" class="secondary" type="button">پاک کردن تاریخچه</button>
+  </div>
+  <p><small>تصاویر فقط در حافظه همین مرورگر ذخیره می‌شوند و به حساب کاربری یا سرور دیگری ارسال نمی‌شوند.</small></p>
+  <div id="historyList" class="historyGrid"><small>هنوز تصویری ذخیره نشده است.</small></div>
+</section>
+
 <section class="card" id="motionCard" hidden>
   <h2>ساخت کلیپ حرکتی از تصویر</h2>
   <p>این ابزار فقط حرکت دوربین روی تصویر ثابت ایجاد می‌کند؛ حرکت تازه‌ای با هوش مصنوعی تولید نمی‌کند.</p>
@@ -342,6 +351,116 @@ async function pollRequest(id) {
   throw new Error('درخواست بیش از ۱۵ دقیقه در صف ماند. بعداً دوباره امتحان کن.');
 }
 
+let historyDbPromise = null;
+function openHistoryDb() {
+  if (!('indexedDB' in window)) return Promise.reject(new Error('ذخیره‌سازی محلی در این مرورگر پشتیبانی نمی‌شود.'));
+  if (!historyDbPromise) {
+    historyDbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('AIAnimatorStudioHistory', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', {keyPath:'id'});
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('باز کردن تاریخچه ناموفق بود.'));
+    });
+  }
+  return historyDbPromise;
+}
+function imageSource(value) {
+  if (typeof value !== 'string') return '';
+  if (/^https?:\\/\\//i.test(value) || /^data:/i.test(value)) return value;
+  return 'data:image/webp;base64,' + value;
+}
+async function saveHistory(src, seed, model) {
+  try {
+    const db = await openHistoryDb();
+    const entry = {id: Date.now() + '-' + Math.random().toString(36).slice(2,8), src, seed: seed || '', model: model || '', createdAt: new Date().toLocaleString('fa-IR')};
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('images', 'readwrite');
+      tx.objectStore('images').add(entry);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    await renderHistory();
+  } catch (error) {
+    console.warn('History save failed:', error);
+    setStatus('تصویر ساخته شد، اما ذخیره آن در تاریخچه مرورگر ممکن نشد: ' + error.message, 'var(--warn)');
+  }
+}
+async function getHistory() {
+  const db = await openHistoryDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction('images', 'readonly').objectStore('images').getAll();
+    request.onsuccess = () => resolve((request.result || []).sort((a,b) => String(b.id).localeCompare(String(a.id))));
+    request.onerror = () => reject(request.error);
+  });
+}
+async function deleteHistoryItem(id) {
+  const db = await openHistoryDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('images', 'readwrite');
+    tx.objectStore('images').delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  await renderHistory();
+}
+async function renderHistory() {
+  const list = $('historyList');
+  if (!list) return;
+  list.replaceChildren();
+  try {
+    const entries = await getHistory();
+    if (!entries.length) {
+      list.textContent = 'هنوز تصویری ذخیره نشده است.';
+      return;
+    }
+    for (const entry of entries) {
+      const item = document.createElement('article');
+      item.className = 'historyItem';
+      const image = document.createElement('img');
+      image.src = entry.src;
+      image.alt = 'تصویر ذخیره‌شده';
+      image.loading = 'lazy';
+      const details = document.createElement('small');
+      details.textContent = [entry.createdAt, entry.model ? 'مدل: ' + entry.model : '', entry.seed ? 'Seed: ' + entry.seed : ''].filter(Boolean).join(' · ');
+      const actions = document.createElement('div');
+      actions.className = 'row';
+      const download = document.createElement('a');
+      download.href = entry.src;
+      download.download = 'ai-animator-' + String(entry.id).replace(/[^a-zA-Z0-9-]/g, '') + '.webp';
+      download.textContent = 'ذخیره';
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'danger';
+      remove.textContent = 'حذف';
+      remove.addEventListener('click', () => deleteHistoryItem(entry.id).catch(err => setStatus('حذف از تاریخچه ناموفق بود: ' + err.message, 'var(--warn)')));
+      actions.append(download, remove);
+      item.append(image, details, actions);
+      list.append(item);
+    }
+  } catch (error) {
+    list.textContent = 'خواندن تاریخچه ممکن نشد: ' + error.message;
+  }
+}
+$('clearHistory').addEventListener('click', async () => {
+  if (!confirm('همه تصاویر ذخیره‌شده در این مرورگر پاک شوند؟')) return;
+  try {
+    const db = await openHistoryDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('images', 'readwrite');
+      tx.objectStore('images').clear();
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    await renderHistory();
+  } catch (error) {
+    setStatus('پاک کردن تاریخچه ناموفق بود: ' + error.message, 'var(--warn)');
+  }
+});
+
 function displayImage(imageValue, seed, model) {
   let url = imageValue;
   if (typeof imageValue === 'string' && !/^https?:\/\//i.test(imageValue) && !/^data:/i.test(imageValue)) {
@@ -361,6 +480,7 @@ function displayImage(imageValue, seed, model) {
   img.hidden = false;
   $('motionCard').hidden = false;
   $('animate').disabled = false;
+  saveHistory(url, seed, model);
 }
 
 async function cancelRequest() {
@@ -562,6 +682,7 @@ $('cancel').addEventListener('click', cancelRequest);
   });
 
   refreshSession();
+  renderHistory();
   window.addEventListener('pageshow', refreshSession);
 })();
 </script>
