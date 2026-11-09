@@ -103,7 +103,7 @@ test('retrySafeGet retries only up to its clamped maximum and marks recovery sta
     },
     setTimeout: callback => { callback(); return 1; },
     clearTimeout: () => {},
-    Math: { ...Math, random: () => 0 }
+    Math: Object.assign(Object.create(Math), { random: () => 0 })
   });
   vm.runInContext(retrySource, context);
   await assert.rejects(context.retrySafeGet('/status/models', 9), error => {
@@ -128,7 +128,7 @@ test('retrySafeGet succeeds after one transient failure', async () => {
     },
     setTimeout: callback => { callback(); return 1; },
     clearTimeout: () => {},
-    Math: { ...Math, random: () => 0 }
+    Math: Object.assign(Object.create(Math), { random: () => 0 })
   });
   vm.runInContext(retrySource, context);
   const result = await context.retrySafeGet('/status/models', 2);
