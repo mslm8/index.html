@@ -682,6 +682,69 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
 </section>
 
+<section class="card" id="backgroundStudioCard">
+  <h2>استودیوی آماده‌سازی هوشمند پس‌زمینه‌ها</h2>
+  <p>برای هر صحنه پس‌زمینه مستقل بساز، چند تصویر را یک‌جا وارد کن، پیش‌نمایش بگیر و به صحنه‌ها اختصاص بده. تولید هوش مصنوعی از موتور رایگان تصویر استفاده می‌کند و ممکن است در صف پردازش بماند.</p>
+  <label for="backgroundSceneSelect">صحنه مقصد</label>
+  <select id="backgroundSceneSelect"></select>
+  <label for="backgroundPrompt">شرح محیط و پس‌زمینه</label>
+  <textarea id="backgroundPrompt" rows="3" maxlength="1200" placeholder="مثلاً: خیابان بارانی یک شهر آینده‌نگر، ساختمان‌های بلند، تابلوهای نئونی بدون نوشته، انعکاس نور روی آسفالت..."></textarea>
+  <div class="grid">
+    <div><label for="backgroundPreset">نوع محیط</label>
+      <select id="backgroundPreset">
+        <option value="story">استخراج از توضیح صحنه</option>
+        <option value="city">شهر و خیابان</option><option value="interior">فضای داخلی</option>
+        <option value="nature">طبیعت و منظره</option><option value="fantasy">جهان فانتزی</option>
+        <option value="scifi">علمی‌تخیلی</option><option value="historical">تاریخی</option>
+        <option value="village">روستا و حومه</option><option value="underwater">زیر آب</option>
+        <option value="space">فضا و سیاره</option>
+      </select>
+    </div>
+    <div><label for="backgroundMood">حال‌وهوای نور</label>
+      <select id="backgroundMood">
+        <option value="match">هماهنگ با داستان</option><option value="day">روز روشن</option>
+        <option value="sunset">غروب گرم</option><option value="night">شب و نورهای شهری</option>
+        <option value="rain">بارانی و مه‌آلود</option><option value="dramatic">دراماتیک</option>
+        <option value="soft">نرم و آرام</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid">
+    <div><label for="backgroundComposition">ترکیب‌بندی</label>
+      <select id="backgroundComposition">
+        <option value="wide">نمای باز سینمایی</option><option value="establishing">نمای معرفی مکان</option>
+        <option value="medium">نمای متوسط محیط</option><option value="layered">عمق چندلایه برای پارالاکس</option>
+        <option value="minimal">پس‌زمینه خلوت برای قرارگیری شخصیت</option>
+      </select>
+    </div>
+    <div><label for="backgroundPalette">رنگ‌بندی</label>
+      <select id="backgroundPalette">
+        <option value="consistent">هماهنگ با قسمت</option><option value="warm">گرم</option>
+        <option value="cool">سرد</option><option value="pastel">پاستلی</option>
+        <option value="vivid">زنده و اشباع</option><option value="muted">ملایم و کم‌اشباع</option>
+      </select>
+    </div>
+  </div>
+  <label><input id="backgroundNoCharacters" type="checkbox" checked> فقط محیط؛ بدون شخصیت و سوژه انسانی (مناسب لایه پس‌زمینه)</label>
+  <div class="row">
+    <button id="generateSceneBackground" class="primary" type="button">ساخت پس‌زمینه این صحنه</button>
+    <button id="generateAllSceneBackgrounds" class="secondary" type="button">ساخت پس‌زمینه همه صحنه‌ها</button>
+  </div>
+  <div class="note"><strong>ورود گروهی تصویر</strong><br><small>چند فایل PNG، JPG یا WebP را انتخاب کن؛ سپس هر تصویر را به صحنه دلخواه بده یا به‌ترتیب بین صحنه‌ها پخش کن.</small></div>
+  <input id="backgroundFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+  <div class="row">
+    <button id="distributeBackgrounds" class="secondary" type="button">تخصیص گروهی به صحنه‌ها</button>
+    <button id="clearBackgroundLibrary" class="secondary" type="button">پاک‌کردن کتابخانه</button>
+  </div>
+  <div id="backgroundLibraryStatus" aria-live="polite"><small>کتابخانه پس‌زمینه خالی است.</small></div>
+  <div id="backgroundLibrary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin-top:10px"></div>
+  <div class="row">
+    <button id="applyPreparedBackground" class="primary" type="button" disabled>اعمال تصویر انتخاب‌شده روی صحنه</button>
+    <button id="removePreparedBackground" class="secondary" type="button">حذف پس‌زمینه صحنه</button>
+  </div>
+  <small id="backgroundStudioStatus" aria-live="polite">ابتدا یک تصویر وارد کن یا پس‌زمینه بساز.</small>
+</section>
+
 </div>
 
 <div id="animationPanel" class="viewPanel" hidden>
@@ -2953,9 +3016,134 @@ $('motionSceneBackground').addEventListener('change',async event=>{
   catch(error){URL.revokeObjectURL(url);setStatus('خواندن تصویر پس‌زمینه ناموفق بود.','var(--bad)');}
 });
 $('clearMotionSceneBackground').addEventListener('click',()=>{
-  const scene=motionScenes[activeMotionScene];if(scene.backgroundUrl)URL.revokeObjectURL(scene.backgroundUrl);
+  const scene=motionScenes[activeMotionScene];if(scene.backgroundUrl&&scene.backgroundUrl.startsWith('blob:'))URL.revokeObjectURL(scene.backgroundUrl);
   scene.backgroundImage=null;scene.backgroundUrl='';scene.backgroundName='';renderMotionSceneList();renderMotionPreview();
 });
+
+const preparedBackgrounds=[];let selectedPreparedBackground=-1,backgroundBatchRunning=false;
+function refreshBackgroundSceneOptions(){
+  const select=$('backgroundSceneSelect');if(!select)return;
+  const previous=Number(select.value);select.replaceChildren();
+  motionScenes.forEach((scene,index)=>select.add(new Option((scene.name||'صحنه '+(index+1))+' · '+(scene.backgroundImage?'پس‌زمینه آماده':'بدون پس‌زمینه'),String(index))));
+  select.value=String(Number.isInteger(previous)&&previous>=0&&previous<motionScenes.length?previous:activeMotionScene);
+}
+function renderPreparedBackgroundLibrary(){
+  const host=$('backgroundLibrary');if(!host)return;host.replaceChildren();
+  preparedBackgrounds.forEach((asset,index)=>{
+    const card=document.createElement('button');card.type='button';card.className='secondary';card.style.cssText='padding:6px;text-align:right;min-width:0;border:2px solid '+(index===selectedPreparedBackground?'var(--accent)':'var(--border)');
+    const image=document.createElement('img');image.src=asset.url;image.alt=asset.name;image.loading='lazy';image.style.cssText='width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px;display:block';
+    const caption=document.createElement('small');caption.textContent=asset.name;caption.style.cssText='display:block;overflow-wrap:anywhere;margin-top:5px';
+    card.append(image,caption);card.addEventListener('click',()=>{selectedPreparedBackground=index;renderPreparedBackgroundLibrary();$('applyPreparedBackground').disabled=false;$('backgroundStudioStatus').textContent='انتخاب شد: '+asset.name;});
+    host.appendChild(card);
+  });
+  $('backgroundLibraryStatus').innerHTML=preparedBackgrounds.length?'<small>'+preparedBackgrounds.length+' پس‌زمینه در کتابخانه · تصویر انتخاب‌شده: '+(selectedPreparedBackground>=0?selectedPreparedBackground+1:'هیچ‌کدام')+'</small>':'<small>کتابخانه پس‌زمینه خالی است.</small>';
+  $('applyPreparedBackground').disabled=selectedPreparedBackground<0||!preparedBackgrounds[selectedPreparedBackground];
+}
+function addPreparedBackground(image,url,name,source){
+  const asset={image,url,name:name||'پس‌زمینه '+(preparedBackgrounds.length+1),source:source||'upload'};
+  preparedBackgrounds.push(asset);selectedPreparedBackground=preparedBackgrounds.length-1;renderPreparedBackgroundLibrary();return asset;
+}
+function applyPreparedBackgroundToScene(asset,index){
+  const scene=motionScenes[index];if(!scene||!asset)return false;
+  scene.backgroundImage=asset.image;scene.backgroundUrl=asset.url;scene.backgroundName=asset.name;
+  if(index===activeMotionScene){renderMotionSceneList();renderMotionPreview();}
+  refreshBackgroundSceneOptions();return true;
+}
+$('backgroundSceneSelect').addEventListener('change',event=>{
+  const index=Number(event.target.value);if(Number.isInteger(index)&&motionScenes[index]){activeMotionScene=index;saveActiveMotionScene();renderMotionSceneList();renderMotionPreview();}
+});
+$('backgroundFiles').addEventListener('change',async event=>{
+  const files=Array.from(event.target.files||[]);event.target.value='';
+  for(const file of files){
+    if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>15*1024*1024){$('backgroundStudioStatus').textContent='فایل '+file.name+' رد شد؛ فقط PNG/JPG/WebP تا ۱۵ مگابایت پذیرفته می‌شود.';continue;}
+    const url=URL.createObjectURL(file),image=new Image();image.src=url;
+    try{await image.decode();addPreparedBackground(image,url,file.name,'upload');}
+    catch(error){URL.revokeObjectURL(url);$('backgroundStudioStatus').textContent='خواندن '+file.name+' ناموفق بود.';}
+  }
+  $('backgroundStudioStatus').textContent=files.length+' فایل بررسی شد؛ تصاویر معتبر به کتابخانه اضافه شدند.';
+});
+$('applyPreparedBackground').addEventListener('click',()=>{
+  const asset=preparedBackgrounds[selectedPreparedBackground],index=Number($('backgroundSceneSelect').value);
+  if(!asset||!applyPreparedBackgroundToScene(asset,index))return;
+  $('backgroundStudioStatus').textContent='پس‌زمینه «'+asset.name+'» به صحنه '+(index+1)+' اعمال شد.';
+});
+$('removePreparedBackground').addEventListener('click',()=>{
+  const index=Number($('backgroundSceneSelect').value),scene=motionScenes[index];if(!scene)return;
+  if(scene.backgroundUrl&&scene.backgroundUrl.startsWith('blob:'))URL.revokeObjectURL(scene.backgroundUrl);
+  scene.backgroundImage=null;scene.backgroundUrl='';scene.backgroundName='';
+  if(index===activeMotionScene){renderMotionSceneList();renderMotionPreview();}
+  refreshBackgroundSceneOptions();$('backgroundStudioStatus').textContent='پس‌زمینه صحنه حذف شد.';
+});
+$('distributeBackgrounds').addEventListener('click',()=>{
+  if(!preparedBackgrounds.length){$('backgroundStudioStatus').textContent='ابتدا چند تصویر وارد کتابخانه کن.';return;}
+  const count=Math.min(preparedBackgrounds.length,motionScenes.length);
+  for(let i=0;i<count;i++)applyPreparedBackgroundToScene(preparedBackgrounds[i],i);
+  renderMotionSceneList();renderMotionPreview();$('backgroundStudioStatus').textContent=count+' پس‌زمینه به‌ترتیب به صحنه‌ها اختصاص یافت.';
+});
+$('clearBackgroundLibrary').addEventListener('click',()=>{
+  const used=new Set(motionScenes.map(scene=>scene.backgroundUrl).filter(Boolean));
+  preparedBackgrounds.forEach(asset=>{if(asset.url&&asset.url.startsWith('blob:')&&!used.has(asset.url))URL.revokeObjectURL(asset.url);});
+  preparedBackgrounds.splice(0);selectedPreparedBackground=-1;renderPreparedBackgroundLibrary();$('backgroundStudioStatus').textContent='کتابخانه پاک شد؛ پس‌زمینه‌هایی که قبلاً به صحنه‌ها اعمال شده‌اند باقی می‌مانند.';
+});
+function makeBackgroundPrompt(scene,index,total){
+  const preset=$('backgroundPreset').value,mood=$('backgroundMood').value,composition=$('backgroundComposition').value,palette=$('backgroundPalette').value;
+  const presetText={story:'environment directly matching the scene description',city:'cinematic city streets and architecture',interior:'detailed believable interior environment',nature:'rich natural landscape',fantasy:'original fantasy world environment',scifi:'futuristic science fiction environment',historical:'historically inspired architecture and surroundings',village:'rural village environment',underwater:'underwater world environment',space:'outer space and alien planet environment'}[preset];
+  const moodText={match:'lighting and weather naturally matching the story',day:'clear daylight',sunset:'warm sunset light',night:'night lighting with practical lights',rain:'rainy misty atmosphere',dramatic:'dramatic cinematic lighting',soft:'soft calm diffused lighting'}[mood];
+  const compText={wide:'wide 16:9 establishing shot',establishing:'strong location establishing shot',medium:'medium-wide environmental composition',layered:'clear foreground midground and background depth for parallax animation',minimal:'clean uncluttered environment with open space for animated characters'}[composition];
+  const paletteText={consistent:'cohesive animated-series color grading',warm:'warm color palette',cool:'cool color palette',pastel:'soft pastel palette',vivid:'vivid saturated palette',muted:'muted low-saturation palette'}[palette];
+  const story=String(scene?.storyText||scene?.name||'').slice(0,650);
+  return [
+    'Create a standalone background plate for an original polished 2D animated television episode. '+presetText+'.',
+    'SCENE CONTEXT '+(index+1)+' OF '+total+': '+story,
+    'COMPOSITION: '+compText+'. Full-frame 16:9 landscape environment artwork, coherent perspective, detailed painted background, clean readable shapes, consistent visual direction.',
+    'LIGHT AND COLOR: '+moodText+', '+paletteText+'.',
+    $('backgroundNoCharacters').checked?'BACKGROUND ONLY: absolutely no people, no characters, no animals, no silhouettes, no foreground subject. Leave clear usable space for separately animated characters.':'Environment-first composition with unobtrusive distant details only.',
+    'Continuity: keep architecture, geography, weather and visual motifs coherent with the same episode. No text, no letters, no watermark, no logo, no panels, no collage.'
+  ].join('\n\n');
+}
+async function generatePreparedBackground(index){
+  const scene=motionScenes[index];if(!scene)throw new Error('صحنه مقصد پیدا نشد.');
+  const settings=['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
+  const saved=Object.fromEntries(settings.map(id=>[id,$(id)?.value]));
+  const previous=currentImageUrl||$('result')?.src||'';
+  try{
+    $('prompt').value=makeBackgroundPrompt(scene,index,motionScenes.length);
+    $('negative').value='people, characters, humans, animals, faces, text, subtitles, letters, watermark, logo, collage, storyboard panels, blurry, low quality';
+    $('style').value='anime';$('framing').value='wide';$('aspect').value='wide';$('size').value='768';$('quality').value='20';
+    $('lighting').value='dramatic';$('palette').value='vivid';$('depth').value='deep';$('focusTarget').value='background';
+    $('backgroundStudioStatus').textContent='در حال ارسال درخواست تصویر پس‌زمینه صحنه '+(index+1)+' از '+motionScenes.length+' به موتور رایگان...';
+    await generateImageUnlocked();
+    const result=$('result'),url=currentImageUrl||result?.src||'';
+    if(!result||!url||url===previous||!result.complete||!result.naturalWidth)throw new Error('تصویر پس‌زمینه صحنه '+(index+1)+' تولید نشد: '+String($('status')?.textContent||'پاسخ تصویر دریافت نشد').slice(0,160));
+    const image=new Image();image.src=result.src;
+    if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
+    const asset=addPreparedBackground(image,result.src,'پس‌زمینه صحنه '+(index+1),'ai');
+    applyPreparedBackgroundToScene(asset,index);return asset;
+  }finally{settings.forEach(id=>{if($(id)&&saved[id]!==undefined)$(id).value=saved[id];});}
+}
+$('generateSceneBackground').addEventListener('click',async()=>{
+  if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
+  if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
+  const index=Number($('backgroundSceneSelect').value),button=$('generateSceneBackground');button.disabled=true;
+  try{await generatePreparedBackground(index);$('backgroundStudioStatus').textContent='پس‌زمینه ساخته و به صحنه '+(index+1)+' اعمال شد.';}
+  catch(error){$('backgroundStudioStatus').textContent=error.message||String(error);}
+  finally{button.disabled=false;refreshBackgroundSceneOptions();}
+});
+$('generateAllSceneBackgrounds').addEventListener('click',async()=>{
+  if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
+  if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
+  backgroundBatchRunning=true;const one=$('generateSceneBackground'),all=$('generateAllSceneBackgrounds');one.disabled=all.disabled=true;
+  try{
+    for(let i=0;i<motionScenes.length;i++){
+      $('backgroundSceneSelect').value=String(i);$('backgroundStudioStatus').textContent='ساخت گروهی: صحنه '+(i+1)+' از '+motionScenes.length;
+      await generatePreparedBackground(i);
+    }
+    $('backgroundStudioStatus').textContent='پس‌زمینه تمام '+motionScenes.length+' صحنه ساخته و اختصاص داده شد.';
+  }catch(error){$('backgroundStudioStatus').textContent='تولید گروهی در صحنه '+(Number($('backgroundSceneSelect').value)+1)+' متوقف شد: '+(error.message||String(error));}
+  finally{backgroundBatchRunning=false;one.disabled=all.disabled=false;refreshBackgroundSceneOptions();renderMotionSceneList();renderMotionPreview();}
+});
+refreshBackgroundSceneOptions();renderPreparedBackgroundLibrary();
+
 function drawMotionDialogues(ctx, dialogues, progress) {
   (dialogues||[]).forEach(item=>{
     const from=(item.startAt??0)/100,to=(item.endAt??100)/100;
