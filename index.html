@@ -143,8 +143,10 @@ async function apiFetch(path, options = {}) {
 function modelScore(model) {
   const workers = Math.max(0, Number(model.count || model.worker_count || 0));
   const queued = Math.max(0, Number(model.queued || model.queued_requests || 0));
-  const eta = Number(model.eta);
-  const hasEta = Number.isFinite(eta) && eta >= 0;
+  const etaValue = model.eta;
+  const hasEta = etaValue !== null && etaValue !== undefined &&
+    Number.isFinite(Number(etaValue)) && Number(etaValue) >= 0;
+  const eta = hasEta ? Number(etaValue) : NaN;
   const queuePressure = workers > 0 ? queued / workers : Infinity;
   const estimatedWait = hasEta ? eta : queuePressure * 30;
   const qualityBonus = /XL|Juggernaut|Albedo|DreamShaper/i.test(model.name) ? 2 : 0;
@@ -171,7 +173,10 @@ async function loadModels(silent = false) {
     const first = available[0];
     const workers = Number(first.count || first.worker_count || 0);
     const queued = Number(first.queued || first.queued_requests || 0);
-    const eta = Number(first.eta);
+    const etaValue = first.eta;
+    const hasEta = etaValue !== null && etaValue !== undefined &&
+      Number.isFinite(Number(etaValue)) && Number(etaValue) >= 0;
+    const eta = hasEta ? Number(etaValue) : NaN;
     const waitText = Number.isFinite(eta) && eta >= 0
       ? 'زمان تخمینی صف: ' + Math.ceil(eta / 60) + ' دقیقه'
       : 'صف نسبی: ' + queued + ' درخواست برای ' + workers + ' پردازشگر';
@@ -218,24 +223,27 @@ async function generateImage() {
   $('cancel').disabled = true;
   $('result').hidden = true;
   $('download').hidden = true;
-  setStatus('در حال بررسی زنده صف‌ها و انتخاب سریع‌ترین مدل...');
-  const candidates = await loadModels(true);
+  setStatus('در حال بررسی صف و ترجمه متن به‌صورت هم‌زمان...');
+  const negative = $('negative').value.trim();
+  const modelsTask = loadModels(true);
+  let candidates = [];
+  let translatedPrompt = '';
+  let translatedNegative = '';
+  try {
+    [candidates, translatedPrompt, translatedNegative] = await Promise.all([
+      modelsTask,
+      translateToEnglish(prompt),
+      negative ? translateToEnglish(negative) : Promise.resolve('')
+    ]);
+  } catch (error) {
+    candidates = await modelsTask;
+    setStatus('ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ' + error.message, 'var(--warn)');
+    $('generate').disabled = candidates.length === 0;
+    return;
+  }
   if (!candidates.length) {
     $('generate').disabled = true;
     setStatus('هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.', 'var(--warn)');
-    return;
-  }
-
-  let translatedPrompt;
-  let translatedNegative = '';
-  try {
-    setStatus('در حال ترجمه دقیق توضیحات به انگلیسی...');
-    translatedPrompt = await translateToEnglish(prompt);
-    const negative = $('negative').value.trim();
-    if (negative) translatedNegative = await translateToEnglish(negative);
-  } catch (error) {
-    setStatus('ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ' + error.message, 'var(--warn)');
-    $('generate').disabled = false;
     return;
   }
   const fullPrompt = translatedNegative
@@ -254,7 +262,7 @@ async function generateImage() {
         params: {
           width: dimension,
           height: dimension,
-          steps: 25,
+          steps: 20,
           n: 1,
           cfg_scale: 7.5,
           sampler_name: 'k_euler_a',
@@ -265,7 +273,7 @@ async function generateImage() {
         censor_nsfw: true,
         trusted_workers: false,
         slow_workers: true,
-        extra_slow_workers: true,
+        extra_slow_workers: false,
         allow_downgrade: true,
         replacement_filter: true,
         r2: true,
@@ -292,7 +300,7 @@ async function pollRequest(id) {
   const started = Date.now();
   while (Date.now() - started < 15 * 60 * 1000) {
     if (activeRequestId !== id) return;
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
     if (activeRequestId !== id) return;
     const check = await apiFetch('/generate/check/' + encodeURIComponent(id));
     if (check.faulted) throw new Error('درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.');
