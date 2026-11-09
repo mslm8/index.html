@@ -371,6 +371,18 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   <label for="prompt">توضیح صحنه</label>
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
   <div class="row" style="margin-top:8px"><button id="copyPrompt" class="secondary" type="button">کپی متن درخواست</button><small id="promptCount">۰ از ۱۸۰۰ نویسه</small></div>
+  <div class="card" id="savedPromptsCard" style="margin:10px 0;padding:12px">
+    <strong>قالب‌های شخصی من</strong>
+    <div class="row" style="margin-top:8px">
+      <select id="savedPromptSelect" aria-label="قالب ذخیره‌شده"><option value="">قالب ذخیره‌شده‌ای انتخاب نشده</option></select>
+      <button id="savePrompt" class="secondary" type="button">ذخیره متن فعلی</button>
+    </div>
+    <div class="row">
+      <button id="loadSavedPrompt" class="secondary" type="button" disabled>بارگذاری انتخاب‌شده</button>
+      <button id="deleteSavedPrompt" class="danger" type="button" disabled>حذف انتخاب‌شده</button>
+    </div>
+    <small>قالب‌ها فقط روی همین مرورگر ذخیره می‌شوند؛ حداکثر ۳۰ قالب.</small>
+  </div>
   <div class="row" style="margin-top:8px">
     <button id="enhancePrompt" class="secondary" type="button">بهینه‌سازی ساختاری متن</button>
     <small id="enhanceHint">متن اصلی حفظ می‌شود؛ فقط راهنمای ترکیب‌بندی و کیفیت به آن افزوده می‌شود.</small>
@@ -1872,6 +1884,63 @@ $('copyPrompt').addEventListener('click', async () => {
 $('prompt').addEventListener('input', () => {
   $('promptCount').textContent = $('prompt').value.length.toLocaleString('fa-IR') + ' از ۱۸۰۰ نویسه';
 });
+const SAVED_PROMPTS_KEY = 'aiAnimatorSavedPromptsV1';
+function readSavedPrompts() {
+  try {
+    const items = JSON.parse(localStorage.getItem(SAVED_PROMPTS_KEY) || '[]');
+    return Array.isArray(items) ? items.filter(item => item && typeof item.text === 'string').slice(0, 30) : [];
+  } catch (_) { return []; }
+}
+function refreshSavedPromptList(selectedId = '') {
+  const select = $('savedPromptSelect');
+  if (!select) return;
+  const items = readSavedPrompts();
+  select.replaceChildren(new Option('قالب ذخیره‌شده‌ای انتخاب نشده', ''));
+  items.forEach(item => {
+    const label = item.text.replace(/\s+/g, ' ').trim();
+    select.add(new Option(label.length > 54 ? label.slice(0, 54) + '…' : label, item.id));
+  });
+  select.value = selectedId;
+  $('deleteSavedPrompt').disabled = !select.value;
+  $('loadSavedPrompt').disabled = !select.value;
+}
+$('savedPromptSelect').addEventListener('change', () => {
+  const selected = Boolean($('savedPromptSelect').value);
+  $('deleteSavedPrompt').disabled = !selected;
+  $('loadSavedPrompt').disabled = !selected;
+});
+$('savePrompt').addEventListener('click', () => {
+  const text = $('prompt').value.trim();
+  if (!text) { setStatus('ابتدا متنی برای ذخیره بنویس.'); return; }
+  const items = readSavedPrompts();
+  if (items.length >= 30) { setStatus('ظرفیت ۳۰ قالب ذخیره‌شده پر شده است؛ ابتدا یکی را حذف کن.', 'var(--warn)'); return; }
+  if (items.some(item => item.text === text)) { setStatus('این متن قبلاً ذخیره شده است.'); return; }
+  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
+  items.unshift({id, text, createdAt: Date.now()});
+  try {
+    localStorage.setItem(SAVED_PROMPTS_KEY, JSON.stringify(items));
+    refreshSavedPromptList(id);
+    setStatus('قالب شخصی ذخیره شد.');
+  } catch (_) { setStatus('فضای ذخیره‌سازی مرورگر در دسترس نیست.', 'var(--warn)'); }
+});
+$('loadSavedPrompt').addEventListener('click', () => {
+  const item = readSavedPrompts().find(entry => entry.id === $('savedPromptSelect').value);
+  if (!item) return;
+  $('prompt').value = item.text;
+  $('prompt').dispatchEvent(new Event('input', {bubbles: true}));
+  setStatus('قالب انتخاب‌شده در کادر متن بارگذاری شد.');
+});
+$('deleteSavedPrompt').addEventListener('click', () => {
+  const id = $('savedPromptSelect').value;
+  if (!id) return;
+  const items = readSavedPrompts().filter(item => item.id !== id);
+  try {
+    localStorage.setItem(SAVED_PROMPTS_KEY, JSON.stringify(items));
+    refreshSavedPromptList();
+    setStatus('قالب انتخاب‌شده حذف شد.');
+  } catch (_) { setStatus('حذف قالب انجام نشد.', 'var(--warn)'); }
+});
+refreshSavedPromptList();
 $('generate').addEventListener('click', generateImage);
 $('generateVariation').addEventListener('click', () => {
   if (!lastGenerationSettings || generationInProgress) return;
