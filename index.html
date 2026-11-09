@@ -3963,10 +3963,14 @@ $('cancel').addEventListener('click', cancelRequest);
   const activePanel=views[selected];
   if(activePanel) activePanel.scrollTop=0;
  });
- nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="animation")));
- let lastView="animation";
- try{const saved=localStorage.getItem("aiAnimatorLastViewV1");if(saved&&Object.prototype.hasOwnProperty.call(views,saved)&&views[saved])lastView=saved==="generation"?"animation":saved;}catch(_){}
- if(lastView!=="generation"){const savedButton=nav.querySelector('button[data-view="'+lastView+'"]');if(savedButton)savedButton.click();}
+ nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item.dataset.view==="animation";item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
+ // Always open the story-to-video workspace; the legacy saved tab may point to hidden tools.
+ try{localStorage.removeItem("aiAnimatorLastViewV1");}catch(_){}
+ Object.entries(views).forEach(([name,panel])=>{if(panel)panel.hidden=name!=="animation";});
+ const header=document.querySelector("body.authenticated>main>header");
+ if(header)header.hidden=true;
+ const animationPanel=views.animation;
+ if(animationPanel)animationPanel.scrollTop=0;
 })();
 </script>
 <script data-swipe-navigation>
