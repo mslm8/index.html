@@ -692,13 +692,13 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   </div>
   <section class="motion-scene-panel" id="storyToScenesPanel">
     <h3>تبدیل داستان به صحنه‌های اولیه</h3>
-    <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
+    <label for="storyToScenesInput">داستان کاملت را همین‌جا بنویس؛ لازم نیست صحنه، شخصیت، حرکت یا دیالوگ را جداگانه مشخص کنی</label>
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">موتور متن و تصویر AI Horde با پردازشگرهای معمولی، کند و بسیار کند؛ رندر نهایی با موتور داخلی Canvas. صف انتظار ممکن است طولانی باشد.</small>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت کامل انیمیشن فقط از متن</button>
-    <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
+    <small>فقط داستان را وارد کن؛ موتور متن صحنه‌ها، دیالوگ‌ها، احساس، حرکت و دوربین را انتخاب می‌کند و سپس تصاویر صحنه‌ها و شخصیت پایه را می‌سازد. تولید متن و تصویر به پردازشگرهای رایگان و صف انتظار وابسته است.</small>
     <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
     <button id="autoSceneMotionButton" type="button" class="secondary" hidden>هوشمندسازی حرکت از روی داستان</button>
     <small>موتور متن داستان و دیالوگ هر صحنه را از نظر حرکت و احساس تحلیل می‌کند و حرکت بدن، ژست دست، حالت چهره و دوربین را به‌صورت قاعده‌محور پیشنهاد می‌دهد؛ نتیجه را می‌توانی دستی اصلاح کنی.</small>
@@ -2562,7 +2562,7 @@ async function autoBuildEpisodeFromStory(){
       plans=groups.map(parts=>({visual:parts.join(' '),dialogues:[],action:'idle',emotion:'none',gesture:'neutral',camera:'zoom-in'}));
     }
     const nextScenes=plans.map((plan,index)=>({
-      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>({text:String(item.text).slice(0,180),speaker:String(item.speaker||'شخصیت اصلی').slice(0,40),speakerId:'',startAt:0,endAt:100,voiceName:''})),
+      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>({text:String(item.text).slice(0,180),speaker:String(item.speaker||'شخصیت اصلی').slice(0,40),speakerId:'auto-main-character',startAt:0,endAt:100,voiceName:''})),
       backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),autoDirection:{action:plan.action||'idle',emotion:plan.emotion||'none',gesture:plan.gesture||'neutral',camera:plan.camera||'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
@@ -2602,7 +2602,7 @@ async function autoBuildEpisodeFromStory(){
     $('motionDuration').value='60';activeMotionScene=0;
     motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    setStatus('چیدمان خودکار قسمت کامل شد: '+nextScenes.length+' صحنه، شخصیت ریگ‌شده، دیالوگ‌های زمان‌بندی‌شده، حرکت بدن و صورت و دوربین. برای خروجی ویدئو فقط دکمه خروجی را بزن.');
+    setStatus('چیدمان خودکار قسمت کامل شد: '+nextScenes.length+' صحنه، '+(characterBase.length?'یک شخصیت کارتونی ریگ‌شده':'بدون ریگ شخصیت')+'، دیالوگ‌های زمان‌بندی‌شده و حرکت‌های پیشنهادی. برای خروجی ویدئو دکمه خروجی را بزن.');
     status.textContent='قسمت به‌صورت خودکار چیده شد. هیچ تنظیم دستی برای صحنه، حرکت، احساس یا دوربین لازم نبود.';
   }catch(error){
     renderMotionSceneList();renderMotionPreview();
