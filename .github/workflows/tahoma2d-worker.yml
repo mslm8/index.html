@@ -193,6 +193,7 @@ jobs:
           cat "$LOG"
           test -s "$SCENE"
           echo "Animated scene created: $SCENE ($(stat -c%s "$SCENE") bytes)"
+          cp "$SCENE" "$RUNNER_TEMP/tahoma2d-animation.tnz"
           echo "TAHOMA_ANIMATION_SCENE=$SCENE" >> "$GITHUB_ENV"
 
       - name: Render the scene with Tahoma2D compositor
@@ -210,7 +211,7 @@ jobs:
           export IOLIBS="$TAHOMA_APPDIR/usr/lib/libgphoto2_port/0.12.2"
           export QT_PLUGIN_PATH="$TAHOMA_APPDIR/usr/plugins"
           export QT_QPA_PLATFORM=xcb
-          export LD_LIBRARY_PATH="$TAHOMA_APPDIR/usr/lib:$TAHOMA_APPDIR/usr/lib/tahoma2d:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="$TAHOMA_APPDIR/usr/lib:$TAHOMA_APPDIR/usr/lib/tahoma2d:${LD_LIBRARY_PATH:-}"
           RENDER_DIR="$RUNNER_TEMP/tahoma2d-render"
           mkdir -p "$RENDER_DIR"
           cd "$TAHOMA_APPDIR"
