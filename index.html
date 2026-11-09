@@ -2156,6 +2156,12 @@ refreshSavedPromptList();
 $('appLanguage').value=currentLanguage;
 $('appLanguage').addEventListener('change',()=>applyAppLanguage($('appLanguage').value));
 applyAppLanguage(currentLanguage);
+// Translate UI elements added later (history, projects, status messages, and dynamic options).
+const languageObserver=new MutationObserver(records=>{
+ if(currentLanguage!=='en')return;
+ if(records.some(record=>record.addedNodes&&record.addedNodes.length))applyAppLanguage(currentLanguage);
+});
+languageObserver.observe(document.body,{childList:true,subtree:true});
 $('prompt').addEventListener('input',updatePromptCounter);
 $('generate').addEventListener('click', generateImage);
 $('generateVariation').addEventListener('click', () => {
