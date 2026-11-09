@@ -352,6 +352,7 @@ body.authenticated .viewPanel button,
 body.authenticated .viewPanel select,
 body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
+.filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -539,7 +540,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <div class="card" style="margin:12px 0;background:#151b2d">
     <h2>یا تصویر خودت را بارگذاری کن</h2>
     <label for="localImage">انتخاب تصویر از گوشی یا رایانه</label>
-    <input id="localImage" type="file" accept="image/jpeg,image/png,image/webp">
+    <div class="filePicker"><label class="filePickerButton" for="localImage"><span id="localImageButtonText">انتخاب فایل</span></label><span id="localImageName" aria-live="polite">فایلی انتخاب نشده است</span><input id="localImage" type="file" accept="image/jpeg,image/png,image/webp"></div>
     <button id="loadLocalImage" class="secondary primary" type="button">بارگذاری تصویر برای ویرایش</button>
     <small>فرمت‌های JPG، PNG و WebP؛ حداکثر حجم فایل ۱۲ مگابایت. تصویر در مرورگر کوچک‌سازی و در تاریخچه محلی ذخیره می‌شود.</small>
   </div>
@@ -1731,6 +1732,7 @@ function displayImage(imageValue, seed, model) {
 }
 
 
+$('localImage').addEventListener('change',()=>{const file=$('localImage').files&&$('localImage').files[0];$('localImageName').textContent=file?file.name:'فایلی انتخاب نشده است';});
 async function importLocalImage() {
   const file = $('localImage').files && $('localImage').files[0];
   if (!file) {
