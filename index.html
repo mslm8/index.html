@@ -152,6 +152,28 @@ body.authenticated .card{margin:5px 0 12px;padding:15px}
  body.authenticated #studioNav button{font-size:10px;min-height:36px}
 }
 
+/* Persistent bottom navigation; each tab displays its own full page */
+@media(min-width:0px){
+ body.authenticated>main{padding-bottom:76px}
+ body.authenticated #studioNav{
+  position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));
+  top:auto;z-index:1000;order:20;width:auto;margin:0;
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:5px;padding:7px;border-radius:18px;
+  box-shadow:0 8px 30px rgba(0,0,0,.42)
+ }
+ body.authenticated #studioNav button{min-width:0;width:100%;white-space:nowrap}
+ body.authenticated>main>header[hidden],body.authenticated #accountBar[hidden]{display:none!important}
+ body.authenticated #generationCard,body.authenticated #toolsPanel,
+ body.authenticated #projectsPanel,body.authenticated #historyPanel,
+ body.authenticated #guidePanel{flex:1 1 0}
+}
+@media(max-width:520px){
+ body.authenticated>main{padding-bottom:70px}
+ body.authenticated #studioNav{left:7px;right:7px;bottom:max(7px,env(safe-area-inset-bottom));gap:2px;padding:5px}
+ body.authenticated #studioNav button{font-size:clamp(9px,2.7vw,11px);padding:7px 1px;min-height:38px}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
@@ -1786,6 +1808,10 @@ $('cancel').addEventListener('click', cancelRequest);
   const selected=button.dataset.view;
   Object.entries(views).forEach(([name,panel])=>{if(panel) panel.hidden=name!==selected;});
   nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item===button;item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
+  const header=document.querySelector("body.authenticated>main>header");
+  const account=document.getElementById("accountBar");
+  if(header) header.hidden=selected!=="generation";
+  if(account) account.hidden=selected!=="generation";
   const activePanel=views[selected];
   if(activePanel) activePanel.scrollTop=0;
  });
