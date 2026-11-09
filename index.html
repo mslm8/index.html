@@ -684,7 +684,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 
 <section class="card" id="backgroundStudioCard">
   <h2>استودیوی آماده‌سازی هوشمند پس‌زمینه‌ها</h2>
-  <p>برای هر صحنه پس‌زمینه مستقل بساز، چند تصویر را یک‌جا وارد کن، پیش‌نمایش بگیر و به صحنه‌ها اختصاص بده. تولید هوش مصنوعی از موتور رایگان تصویر استفاده می‌کند و ممکن است در صف پردازش بماند.</p>
+  <p>برای هر صحنه پس‌زمینه مستقل بساز، از تصویر مرجع برای حفظ سبک استفاده کن، چند تصویر را یک‌جا وارد کن و کتابخانه را در همین مرورگر نگه دار. تولید پس‌زمینه از Cloudflare Workers AI انجام می‌شود؛ دسترسی و سهمیه به تنظیمات حساب Cloudflare وابسته است.</p>
   <label for="backgroundSceneSelect">صحنه مقصد</label>
   <select id="backgroundSceneSelect"></select>
   <label for="backgroundPrompt">شرح محیط و پس‌زمینه</label>
@@ -2660,6 +2660,8 @@ function renderMotionSceneList() {
   $('motionSceneBackgroundName').textContent=activeScene.backgroundImage?'پس‌زمینه: '+(activeScene.backgroundName||'تصویر اختصاصی'):'پس‌زمینه اصلی پروژه استفاده می‌شود.';
   $('clearMotionSceneBackground').disabled=!activeScene.backgroundImage;
   renderMotionDialogueEditor();
+  if(typeof refreshBackgroundSceneOptions==='function')refreshBackgroundSceneOptions();
+  if(typeof updateBackgroundBatchControls==='function')updateBackgroundBatchControls();
 }
 function switchMotionScene(index) {
   if(!Number.isInteger(index)||index<0||index>=motionScenes.length||index===activeMotionScene||!motionScenes[index])return;
@@ -3452,7 +3454,7 @@ function writeBackgroundBatchQueue(fingerprint,failed){
 function updateBackgroundBatchControls(){
   const queue=readBackgroundBatchQueue(),matches=queue.fingerprint===backgroundScenesFingerprint();
   const retry=$('retryFailedBackgrounds'),cancel=$('cancelBackgroundBatch');
-  if(retry)retry.disabled=backgroundBatchRunning||!matches||!queue.failed.length;
+  if(retry){retry.disabled=backgroundBatchRunning||!matches||!queue.failed.length;retry.textContent=queue.failed.length?'تلاش دوباره برای '+queue.failed.length+' صحنه ناموفق':'تلاش دوباره برای صحنه‌های ناموفق';}
   if(cancel)cancel.disabled=!backgroundBatchRunning;
 }
 function refreshBackgroundSceneOptions(){
@@ -3507,6 +3509,7 @@ async function restorePreparedBackgroundLibrary(){
       const tx=db.transaction('backgrounds','readonly'),request=tx.objectStore('backgrounds').getAll();
       request.onsuccess=()=>resolve(request.result||[]);request.onerror=()=>reject(request.error||new Error('خواندن کتابخانه ناموفق بود.'));
     });
+    rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));
     for(const row of rows.slice(-40)){
       if(!row?.blob||preparedBackgrounds.some(item=>item.id===row.id))continue;
       const url=URL.createObjectURL(row.blob),image=new Image();image.src=url;
@@ -3520,7 +3523,7 @@ async function restorePreparedBackgroundLibrary(){
 }
 function addPreparedBackground(image,url,name,source){
   const asset={id:(crypto.randomUUID?crypto.randomUUID():'bg-'+Date.now()+'-'+Math.random().toString(16).slice(2)),image,url,name:name||'پس‌زمینه '+(preparedBackgrounds.length+1),source:source||'upload',createdAt:Date.now()};
-  preparedBackgrounds.push(asset);selectedPreparedBackground=preparedBackgrounds.length-1;renderPreparedBackgroundLibrary();persistPreparedBackground(asset);return asset;
+  preparedBackgrounds.push(asset);selectedPreparedBackground=preparedBackgrounds.length-1;renderPreparedBackgroundLibrary();asset.persistPromise=persistPreparedBackground(asset);return asset;
 }
 function applyPreparedBackgroundToScene(asset,index){
   const scene=motionScenes[index];if(!scene||!asset)return false;
@@ -3628,7 +3631,7 @@ async function generatePreparedBackground(index){
   if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
   const report=inspectBackgroundImage(image);
   const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه صحنه '+(index+1),useReference?'cloudflare-flux2-reference':'cloudflare-flux1');
-  await persistPreparedBackground(asset);
+  await asset.persistPromise;
   if(!applyPreparedBackgroundToScene(asset,index))throw new Error('تصویر ساخته شد اما اختصاص آن به صحنه ناموفق بود.');
   status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):' · بررسی اولیه کیفیت مناسب بود');
   return asset;
@@ -3636,8 +3639,14 @@ async function generatePreparedBackground(index){
 async function runBackgroundBatch(indices){
   if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر دیگر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
-  const targets=[...new Set(indices)].filter(index=>Number.isInteger(index)&&index>=0&&index<motionScenes.length&&!motionScenes[index]?.backgroundImage);
-  if(!targets.length){$('backgroundStudioStatus').textContent='همه صحنه‌های انتخاب‌شده از قبل پس‌زمینه دارند.';return;}
+  const requested=[...new Set(indices)].filter(index=>Number.isInteger(index)&&index>=0&&index<motionScenes.length);
+  const targets=requested.filter(index=>!motionScenes[index]?.backgroundImage);
+  if(!targets.length){
+    const queue=readBackgroundBatchQueue(),fingerprint=backgroundScenesFingerprint();
+    if(queue.fingerprint===fingerprint)writeBackgroundBatchQueue(fingerprint,queue.failed.filter(item=>!motionScenes[item.index]?.backgroundImage));
+    $('backgroundStudioStatus').textContent='همه صحنه‌های انتخاب‌شده از قبل پس‌زمینه دارند.';
+    return;
+  }
   const fingerprint=backgroundScenesFingerprint();
   let pending=targets.map(index=>({index,attempts:0,lastError:'در انتظار ساخت'}));
   writeBackgroundBatchQueue(fingerprint,pending);
