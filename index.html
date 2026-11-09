@@ -2672,10 +2672,39 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   renderMotionDialogueEditor();renderMotionPreview();
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
+function buildLocalFallbackScreenplay(seed){
+  const story=String(seed||'').trim();
+  const sentences=story.split(/(?<=[.!؟?])\\s+|\\n+/u).map(part=>part.trim()).filter(Boolean);
+  const source=sentences.length>=2?sentences:story.split(/،|؛|,/u).map(part=>part.trim()).filter(Boolean);
+  const words=story.split(/\\s+/u).filter(Boolean);
+  const beats=Array.from({length:4},(_,index)=>{
+    const from=Math.floor(index*(source.length||words.length)/4);
+    const to=Math.max(from+1,Math.floor((index+1)*(source.length||words.length)/4));
+    const part=source.length?source.slice(from,to).join('؛ '):words.slice(from,to).join(' ');
+    return part||story;
+  });
+  const actions=['idle','walk','run','jump'];
+  const emotions=['none','surprised','happy','happy'];
+  const cameras=['zoom-in','pan-right','zoom-in','zoom-out'];
+  return {
+    characters:[{name:'قهرمان',description:'شخصیت کارتونی دوبعدی اصلی با ظاهر ثابت در تمام صحنه‌ها'}],
+    scenes:beats.map((beat,index)=>({
+      visual:'نمایش وفادارانه این بخش از داستان، بدون افزودن رویداد تازه: '+beat,
+      dialogues:[],
+      action:actions[index],
+      emotion:emotions[index],
+      gesture:index===1?'wave':'neutral',
+      camera:cameras[index]
+    }))
+  };
+}
 async function requestAutomaticScreenplay(seed,status){
   if(!document.body.classList.contains('authenticated'))throw new Error('برای استفاده از موتور داستان، ابتدا وارد حساب شو.');
   const models=await loadTextModels();
-  if(!models.length)throw new Error('فعلاً پردازشگر متن رایگان و فعالی پیدا نشد؛ بعداً دوباره امتحان کن.');
+  if(!models.length){
+    liveBuildLog('موتور متن رایگان در دسترس نیست؛ تقسیم‌بندی محلی داستان فعال شد.');
+    return buildLocalFallbackScreenplay(seed);
+  }
   const candidates=models.slice(0,40);
   const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY valid compact JSON, no markdown and no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\n\nSTORY:\n'+String(seed||'').trim();
   let lastFailure='پاسخ خالی بود';
@@ -2796,11 +2825,15 @@ async function autoBuildEpisodeFromStory(){
     liveBuildUpdate(0,'در حال اتصال به موتور رایگان فیلمنامه و تحلیل روایت.',5);
     status.textContent='در حال بررسی پردازشگرهای رایگان متن و تصویر...';
     const [textModels,imageModels]=await Promise.all([loadTextModels(),loadModels(true)]);
-    if(!textModels.length)throw new Error('موتور متن رایگان فعالی در دسترس نیست؛ بعداً دوباره تلاش کن.');
     if(!imageModels.length)throw new Error('موتور تصویر رایگان فعالی در دسترس نیست؛ بعداً دوباره تلاش کن.');
-    freeEngineManagerState.text=true;freeEngineManagerState.image=true;
+    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=true;
     liveBuildUpdate(0,'موتورهای متن و تصویر فعال شدند؛ فیلمنامه در حال تولید است.',8);
-    const screenplay=await requestAutomaticScreenplay(raw,status);
+    let screenplay;
+    try{screenplay=await requestAutomaticScreenplay(raw,status);}
+    catch(error){
+      liveBuildLog('موتورهای متن پاسخ ندادند؛ تقسیم‌بندی محلی داستان به‌عنوان مسیر پشتیبان فعال شد: '+(error.message||String(error)));
+      screenplay=buildLocalFallbackScreenplay(raw);
+    }
     const plans=screenplay.scenes;
     const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
     const speakerNames=Array.from(new Set([
