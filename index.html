@@ -1391,7 +1391,8 @@ async function pollRequest(id, historySettings = null) {
       if (generation.img === 'CENSORED' || (typeof generation.img === 'string' && generation.img.trim().toUpperCase() === 'CENSORED')) {
         throw new Error('فیلتر ایمنی سرویس تصویر را مسدود کرد. این تشخیص ممکن است اشتباه باشد؛ متن درخواست را ساده‌تر و کاملاً غیرحساس بنویس و دوباره امتحان کن.');
       }
-      displayImage(generation.img, generation.seed, generation.model, historySettings);
+      const savedSettings = historySettings && isValidHistorySettings(historySettings) ? {...historySettings, seed: String(generation.seed ?? historySettings.seed ?? '').slice(0, 80)} : null;
+      displayImage(generation.img, generation.seed, generation.model, savedSettings);
       return;
     }
     const position = Number(check.queue_position || 0);
