@@ -34,7 +34,7 @@ small{color:var(--muted);line-height:1.8}
 .row button{flex:1}
 [hidden]{display:none!important}
 @media(max-width:520px){.grid{grid-template-columns:1fr}h1{font-size:22px}}
-#authGate{max-width:480px;margin:12vh auto;padding:22px 18px;background:var(--panel);border:1px solid var(--line);border-radius:18px;text-align:center}
+#maskEditor{position:relative;width:100%;margin-top:12px;background:#0b1020;border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none}#maskPreview{display:block;width:100%;height:auto;max-height:65vh;object-fit:contain}#maskOverlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}#authGate{max-width:480px;margin:12vh auto;padding:22px 18px;background:var(--panel);border:1px solid var(--line);border-radius:18px;text-align:center}
 #authGate button{width:100%;margin-top:14px}
 #authError{color:var(--bad);white-space:pre-wrap;font-size:13px;line-height:1.8}
 #accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;background:#171d30;border:1px solid var(--line);border-radius:12px}#accountEmail{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
@@ -138,6 +138,21 @@ body:not(.authenticated)>main{display:none!important}
     </div>
   </div>
   <button id="editImage" class="primary" type="button">ساخت نسخه ویرایش‌شده</button>
+  <div class="note"><strong>ویرایش موضعی</strong><br><small>روی بخشی که می‌خواهی عوض شود نقاشی کن. قسمت قرمز برای بازسازی انتخاب می‌شود؛ بقیه تصویر حفظ خواهد شد.</small></div>
+  <div id="maskEditor" aria-label="انتخاب ناحیه تصویر">
+    <canvas id="maskPreview"></canvas>
+    <canvas id="maskOverlay"></canvas>
+  </div>
+  <div class="grid">
+    <div>
+      <label for="brushSize">اندازه قلم انتخاب</label>
+      <input id="brushSize" type="range" min="8" max="120" value="36">
+    </div>
+    <div class="row" style="align-items:end">
+      <button id="maskEraser" class="secondary" type="button" aria-pressed="false">پاک‌کن: خاموش</button>
+      <button id="clearMask" class="secondary" type="button">پاک‌کردن انتخاب</button>
+    </div>
+  </div>
   <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
 </section>
 
@@ -598,6 +613,7 @@ function displayImage(imageValue, seed, model) {
   img.onload = () => {
     $('download').href = url;
     $('download').hidden = false;
+    resetMaskCanvas();
     setStatus('تصویر آماده شد.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
   };
   img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
@@ -628,6 +644,122 @@ async function imageToWebpBase64(imageUrl) {
   return dataUrl.split(',')[1];
 }
 
+
+let maskCanvas = null;
+let maskContext = null;
+let overlayContext = null;
+let maskHasPaint = false;
+let maskErasing = false;
+let maskPointerDown = false;
+let maskLastPoint = null;
+
+function resetMaskCanvas() {
+  const preview = $('maskPreview');
+  const overlay = $('maskOverlay');
+  const image = $('result');
+  if (!preview || !overlay || !image.naturalWidth) return;
+  preview.width = overlay.width = image.naturalWidth;
+  preview.height = overlay.height = image.naturalHeight;
+  const pctx = preview.getContext('2d');
+  maskCanvas = document.createElement('canvas');
+  maskCanvas.width = image.naturalWidth;
+  maskCanvas.height = image.naturalHeight;
+  maskContext = maskCanvas.getContext('2d', {willReadFrequently:true});
+  overlayContext = overlay.getContext('2d');
+  if (!pctx || !maskContext || !overlayContext) {
+    $('editHint').textContent = 'مرورگر امکان آماده‌سازی قلم انتخاب را فراهم نکرد.';
+    return;
+  }
+  pctx.clearRect(0, 0, preview.width, preview.height);
+  pctx.drawImage(image, 0, 0, preview.width, preview.height);
+  maskContext.fillStyle = '#000';
+  maskContext.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+  overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+  maskHasPaint = false;
+  maskErasing = false;
+  $('maskEraser').textContent = 'پاک‌کن: خاموش';
+  $('maskEraser').setAttribute('aria-pressed', 'false');
+}
+function maskPoint(event) {
+  const rect = $('maskOverlay').getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(maskCanvas.width, (event.clientX - rect.left) * maskCanvas.width / rect.width)),
+    y: Math.max(0, Math.min(maskCanvas.height, (event.clientY - rect.top) * maskCanvas.height / rect.height))
+  };
+}
+function paintMaskSegment(from, to) {
+  const brush = Number($('brushSize').value) * (maskCanvas.width / $('maskOverlay').getBoundingClientRect().width);
+  maskContext.lineCap = overlayContext.lineCap = 'round';
+  maskContext.lineJoin = overlayContext.lineJoin = 'round';
+  maskContext.lineWidth = overlayContext.lineWidth = brush;
+  maskContext.strokeStyle = maskErasing ? '#000' : '#fff';
+  maskContext.beginPath();
+  maskContext.moveTo(from.x, from.y);
+  maskContext.lineTo(to.x, to.y);
+  maskContext.stroke();
+  if (maskErasing) {
+    overlayContext.globalCompositeOperation = 'destination-out';
+    overlayContext.strokeStyle = '#000';
+  } else {
+    overlayContext.globalCompositeOperation = 'source-over';
+    overlayContext.strokeStyle = 'rgba(255,45,75,.48)';
+    maskHasPaint = true;
+  }
+  overlayContext.beginPath();
+  overlayContext.moveTo(from.x, from.y);
+  overlayContext.lineTo(to.x, to.y);
+  overlayContext.stroke();
+  overlayContext.globalCompositeOperation = 'source-over';
+}
+$('maskOverlay').addEventListener('pointerdown', event => {
+  if (!maskCanvas || generationInProgress) return;
+  event.preventDefault();
+  maskPointerDown = true;
+  $('maskOverlay').setPointerCapture(event.pointerId);
+  maskLastPoint = maskPoint(event);
+  paintMaskSegment(maskLastPoint, maskLastPoint);
+});
+$('maskOverlay').addEventListener('pointermove', event => {
+  if (!maskPointerDown || !maskLastPoint) return;
+  event.preventDefault();
+  const next = maskPoint(event);
+  paintMaskSegment(maskLastPoint, next);
+  maskLastPoint = next;
+});
+function stopMaskDrawing() {
+  maskPointerDown = false;
+  maskLastPoint = null;
+}
+$('maskOverlay').addEventListener('pointerup', stopMaskDrawing);
+$('maskOverlay').addEventListener('pointercancel', stopMaskDrawing);
+$('maskEraser').addEventListener('click', () => {
+  maskErasing = !maskErasing;
+  $('maskEraser').textContent = maskErasing ? 'پاک‌کن: روشن' : 'پاک‌کن: خاموش';
+  $('maskEraser').setAttribute('aria-pressed', String(maskErasing));
+});
+$('clearMask').addEventListener('click', () => {
+  if (!maskCanvas || !maskContext || !overlayContext) return;
+  maskContext.fillStyle = '#000';
+  maskContext.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+  overlayContext.clearRect(0, 0, $('maskOverlay').width, $('maskOverlay').height);
+  maskHasPaint = false;
+  $('editHint').textContent = 'انتخاب پاک شد؛ می‌توانی دوباره روی تصویر نقاشی کنی.';
+});
+function maskToWebpBase64() {
+  if (!maskCanvas || !maskHasPaint) return '';
+  const pixels = maskContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
+  let hasWhite = false;
+  for (let i = 0; i < pixels.length; i += 64) {
+    if (pixels[i] > 200) { hasWhite = true; break; }
+  }
+  if (!hasWhite) return '';
+  const dataUrl = maskCanvas.toDataURL('image/webp', 0.95);
+  if (!dataUrl.startsWith('data:image/webp;base64,')) {
+    throw new Error('ساخت ماسک WebP ممکن نشد.');
+  }
+  return dataUrl.split(',')[1];
+}
+
 async function editCurrentImage() {
   const instruction = $('editPrompt').value.trim();
   if (!instruction) {
@@ -648,8 +780,10 @@ async function editCurrentImage() {
   $('download').hidden = true;
   setStatus('در حال آماده‌سازی تصویر اصلی برای ویرایش...');
   try {
-    const [sourceImage, translatedInstruction, translatedNegative, candidates] = await Promise.all([
+    const useInpainting = maskHasPaint;
+    const [sourceImage, sourceMask, translatedInstruction, translatedNegative, candidates] = await Promise.all([
       imageToWebpBase64(currentImageUrl),
+      Promise.resolve(useInpainting ? maskToWebpBase64() : ''),
       translateToEnglish(instruction),
       $('negative').value.trim() ? translateToEnglish($('negative').value.trim()) : Promise.resolve(''),
       loadModels(true)
@@ -671,10 +805,11 @@ async function editCurrentImage() {
           cfg_scale: 7.5,
           sampler_name: 'k_euler_a',
           karras: true,
-          denoising_strength: Number($('editStrength').value)
+          denoising_strength: useInpainting ? 1 : Number($('editStrength').value)
         },
         source_image: sourceImage,
-        source_processing: 'img2img',
+        source_processing: useInpainting ? 'inpainting' : 'img2img',
+        ...(useInpainting ? {source_mask: sourceMask} : {}),
         models: candidates,
         nsfw: false,
         censor_nsfw: true,
@@ -690,12 +825,12 @@ async function editCurrentImage() {
     if (!submitted.id) throw new Error('شناسه درخواست ویرایش دریافت نشد.');
     activeRequestId = submitted.id;
     $('cancel').disabled = false;
-    setStatus('درخواست ویرایش ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.');
+    setStatus(useInpainting ? 'درخواست ویرایش ناحیه انتخابی ثبت شد؛ نتیجه ممکن است فقط در بخش ماسک‌شده تغییر کند.' : 'درخواست ویرایش تصویر ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.');
     await pollRequest(submitted.id);
-    $('editHint').textContent = 'نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس.';
+    $('editHint').textContent = 'نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس یا انتخاب را پاک کن.';
   } catch (error) {
     setStatus('ویرایش تصویر انجام نشد: ' + error.message, 'var(--warn)');
-    $('editHint').textContent = 'اگر پردازشگر از img2img پشتیبانی نکند یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود.';
+    $('editHint').textContent = 'اگر پردازشگر از inpainting یا img2img پشتیبانی نکند، یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود. برای تغییر کل تصویر، انتخاب قرمز را پاک کن.';
   } finally {
     activeRequestId = null;
     polling = false;
