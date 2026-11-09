@@ -28,6 +28,19 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 2500
   try { return await fetch(url, { ...init, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
+// Keep the abort timer alive until the complete response body has been consumed.
+// A headers-only timeout leaves streamed image bodies able to hang indefinitely.
+async function fetchTextWithTimeout(url: string, init: RequestInit, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("response-body-timeout"), timeoutMs);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const text = await response.text();
+    return { response, text };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 async function authenticate(req: Request) {
   const authorization = req.headers.get("authorization") || "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -118,16 +131,15 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Prompt must contain 4 to 2048 characters.", code: "INVALID_PROMPT", request_id: requestId }, 400);
       }
       try {
-        const upstream = await fetchWithTimeout(
+        const { response: upstream, text: raw } = await fetchTextWithTimeout(
           "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(cloudflareAccountId) + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
           {
             method: "POST",
             headers: { "Authorization": "Bearer " + cloudflareToken, "Content-Type": "application/json" },
             body: JSON.stringify({ prompt, steps: 4, seed: Math.floor(Math.random() * 2147483647) })
           },
-          60000
+          45000
         );
-        const raw = await upstream.text();
         let payload: Record<string, unknown>;
         try { payload = raw ? JSON.parse(raw) : {}; }
         catch {
@@ -178,12 +190,11 @@ Deno.serve(async (req: Request) => {
         form.append("width", "1024");
         form.append("height", "576");
         form.append("input_image_0", new Blob([bytes], { type: "image/" + match[1].toLowerCase() }), "background-reference." + (match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase()));
-        const upstream = await fetchWithTimeout(
+        const { response: upstream, text: raw } = await fetchTextWithTimeout(
           "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(cloudflareAccountId) + "/ai/run/@cf/black-forest-labs/flux-2-klein-4b",
           { method: "POST", headers: { "Authorization": "Bearer " + cloudflareToken }, body: form },
-          90000
+          60000
         );
-        const raw = await upstream.text();
         let payload: Record<string, unknown>;
         try { payload = raw ? JSON.parse(raw) : {}; }
         catch {
