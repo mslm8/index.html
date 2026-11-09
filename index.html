@@ -1170,8 +1170,8 @@ async function loadModels(silent = false) {
       ? models.filter(m => m && m.name && Number(m.count || m.worker_count || 0) > 0)
       : [];
     available.sort((a,b) => modelScore(a) - modelScore(b));
-    // Keep a broad live pool so the Horde can route around unavailable or unsuitable workers.
-    smartModelChoices = [...new Set(available.map(m => String(m.name).trim()).filter(Boolean))].slice(0, 100);
+    // Keep up to 250 currently worker-backed models so Horde can route around unavailable or unsuitable workers.
+    smartModelChoices = [...new Set(available.map(m => String(m.name).trim()).filter(Boolean))].slice(0, 250);
     if (!smartModelChoices.length) {
       if (!generationInProgress) $('generate').disabled = true;
       $('autoModelInfo').textContent = 'فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.';
@@ -1191,7 +1191,7 @@ async function loadModels(silent = false) {
     $('autoModelInfo').textContent =
       'انتخاب خودکار فعال است. سریع‌ترین گزینه فعلی: ' + first.name +
       ' · ' + waitText +
-      (smartModelChoices.length > 1 ? ' · ' + (smartModelChoices.length - 1) + ' گزینه جایگزین هم آماده است.' : '');
+      (smartModelChoices.length > 1 ? ' · ' + (smartModelChoices.length - 1) + ' مدل جایگزین فعال هم آماده است.' : '');
     if (!generationInProgress) $('generate').disabled = false;
     if (!silent) setStatus('موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.');
     return smartModelChoices;
@@ -2606,7 +2606,7 @@ async function requestAutomaticScreenplay(seed,status){
   if(!document.body.classList.contains('authenticated'))throw new Error('برای استفاده از موتور داستان، ابتدا وارد حساب شو.');
   const models=await loadTextModels();
   if(!models.length)throw new Error('فعلاً پردازشگر متن رایگان و فعالی پیدا نشد؛ بعداً دوباره امتحان کن.');
-  const candidates=models.slice(0,12);
+  const candidates=models.slice(0,40);
   const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY valid compact JSON, no markdown and no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\n\nSTORY:\n'+String(seed||'').trim();
   let lastFailure='پاسخ خالی بود';
   for(let attempt=0;attempt<candidates.length;attempt++){
@@ -2838,8 +2838,8 @@ async function loadTextModels(){
   const models=await apiFetch('/status/models?type=text');
   const available=Array.isArray(models)?models.filter(m=>m&&m.name&&Number(m.count||m.worker_count||0)>0):[];
   available.sort((a,b)=>modelScore(a)-modelScore(b));
-  // More independent text engines improve screenplay fallback coverage.
-  smartTextModelChoices=[...new Set(available.map(m=>String(m.name).trim()).filter(Boolean))].slice(0,40);
+  // Keep a large live text-model pool for sequential fallback when a model fails.
+  smartTextModelChoices=[...new Set(available.map(m=>String(m.name).trim()).filter(Boolean))].slice(0,100);
   return smartTextModelChoices;
 }
 async function generateStoryWithFreeTextEngine(){
