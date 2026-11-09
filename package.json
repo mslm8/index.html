@@ -1,0 +1,17 @@
+{
+  "name": "ai-animator-studio-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android wrapper build for AI Animator Studio",
+  "scripts": {
+    "android:sync": "cap sync android",
+    "android:build": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}
