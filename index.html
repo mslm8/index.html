@@ -129,6 +129,7 @@ const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
 let activeRequestId = null;
 let polling = false;
+let generationInProgress = false;
 let currentImageUrl = null;
 let smartModelChoices = [];
 
@@ -177,7 +178,7 @@ async function loadModels(silent = false) {
     available.sort((a,b) => modelScore(a) - modelScore(b));
     smartModelChoices = available.slice(0, 3).map(m => m.name);
     if (!smartModelChoices.length) {
-      $('generate').disabled = true;
+      if (!generationInProgress) $('generate').disabled = true;
       $('autoModelInfo').textContent = 'فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.';
       if (!silent) setStatus('مدل فعال در دسترس نیست.', 'var(--warn)');
       return [];
@@ -196,12 +197,12 @@ async function loadModels(silent = false) {
       'انتخاب خودکار فعال است. سریع‌ترین گزینه فعلی: ' + first.name +
       ' · ' + waitText +
       (smartModelChoices.length > 1 ? ' · ' + (smartModelChoices.length - 1) + ' گزینه جایگزین هم آماده است.' : '');
-    $('generate').disabled = false;
+    if (!generationInProgress) $('generate').disabled = false;
     if (!silent) setStatus('موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.');
     return smartModelChoices;
   } catch (error) {
     smartModelChoices = [];
-    $('generate').disabled = true;
+    if (!generationInProgress) $('generate').disabled = true;
     $('autoModelInfo').textContent = 'اتصال به فهرست مدل‌های فعال برقرار نشد. انتخاب خودکار فعلاً ممکن نیست.';
     if (!silent) setStatus('بررسی مدل‌ها ناموفق بود: ' + error.message, 'var(--warn)');
     return [];
@@ -231,6 +232,7 @@ async function generateImage() {
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
   if (activeRequestId || polling) return;
 
+  generationInProgress = true;
   $('generate').disabled = true;
   $('cancel').disabled = true;
   $('result').hidden = true;
@@ -250,10 +252,12 @@ async function generateImage() {
   } catch (error) {
     candidates = await modelsTask;
     setStatus('ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ' + error.message, 'var(--warn)');
+    generationInProgress = false;
     $('generate').disabled = candidates.length === 0;
     return;
   }
   if (!candidates.length) {
+    generationInProgress = false;
     $('generate').disabled = true;
     setStatus('هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.', 'var(--warn)');
     return;
@@ -302,6 +306,7 @@ async function generateImage() {
   } finally {
     activeRequestId = null;
     polling = false;
+    generationInProgress = false;
     $('generate').disabled = smartModelChoices.length === 0;
     $('cancel').disabled = true;
   }
