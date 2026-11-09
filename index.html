@@ -2845,8 +2845,9 @@ async function autoBuildEpisodeFromStory(){
   try{
     liveBuildUpdate(0,'در حال اتصال به موتور رایگان فیلمنامه و تحلیل روایت.',5);
     status.textContent='در حال بررسی پردازشگرهای رایگان متن و تصویر...';
-    const [textModels,imageModels]=await Promise.all([loadTextModels(),loadModels(true)]);
-    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=imageModels.length>0;
+    // Story generation must never query the shared anonymous AI Horde image pool.
+    const textModels=await loadTextModels();
+    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=false;
     let cloudflareImageReady=false;
     try{
       const client=window.__aiAnimatorSupabaseClient;
@@ -2854,10 +2855,9 @@ async function autoBuildEpisodeFromStory(){
         const health=await client.functions.invoke('fal-gateway',{body:{action:'health'}});
         cloudflareImageReady=!health.error&&health.data?.cloudflareImageConfigured===true;
       }
-    }catch(error){liveBuildLog('بررسی موتور Cloudflare انجام نشد: '+String(error?.message||error).slice(0,160));}
-    if(cloudflareImageReady)liveBuildLog('موتور اصلی تصویر فعال است: Cloudflare Workers AI · FLUX.1 Schnell؛ AI Horde فقط مسیر جایگزین است.');
-    else liveBuildLog('موتور Cloudflare هنوز تنظیم نشده؛ AI Horde با حداکثر ۵۰۰ مدل فعال، موتور تصویر اصلی و جایگزین باقی می‌ماند.');
-    if(!imageModels.length)liveBuildLog('هیچ پردازشگر رایگان AI Horde در این لحظه پاسخ‌گو نیست؛ موتور Cloudflare در صورت پیکربندی استفاده می‌شود و در غیر این صورت پس‌زمینه جایگزین ساخته خواهد شد.');
+    }catch(error){liveBuildLog('بررسی وضعیت Cloudflare انجام نشد؛ درخواست مستقیم تصویر انجام می‌شود: '+String(error?.message||error).slice(0,160));}
+    liveBuildLog('موتور تصویر داستان فقط Cloudflare Workers AI · FLUX.1 Schnell است؛ AI Horde ناشناس کاملاً غیرفعال است.');
+    if(!cloudflareImageReady)liveBuildLog('وضعیت پیکربندی Cloudflare تأیید نشد؛ اتصال مستقیم آزمایش می‌شود و در صورت خطا جزئیات نمایش داده خواهد شد.');
     liveBuildLog('موتور fal.ai اختیاری است و در ساخت خودکار استفاده نمی‌شود؛ هیچ اعتبار پولی مصرف نخواهد شد.');
     liveBuildUpdate(0,'موتورهای متن و تصویر فعال شدند؛ فیلمنامه در حال تولید است.',8);
     let screenplay;
@@ -2956,56 +2956,14 @@ async function autoBuildEpisodeFromStory(){
       $('prompt').value=scenePrompt;
       let generatedUrl='';
       let lastSceneError=null;
-      // Prefer the configured Cloudflare image engine for every scene.
-      // AI Horde remains a fallback only when Cloudflare is unavailable or fails.
-      if(cloudflareImageReady){
-        try{
-          status.textContent='موتور اصلی تصویر: Cloudflare FLUX.1 Schnell · صحنه '+(index+1)+' از '+nextScenes.length;
-          generatedUrl=await generateCloudflareBackground(scenePrompt,status);
-          liveBuildLog('تصویر صحنه '+(index+1)+' با Cloudflare FLUX.1 Schnell تولید شد.');
-        }catch(error){
-          lastSceneError=error;
-          liveBuildLog('Cloudflare برای صحنه '+(index+1)+' ناموفق بود؛ موتور جایگزین بررسی می‌شود: '+String(error?.message||error).slice(0,240));
-        }
-      }
-      // When Cloudflare is configured, never fall back to anonymous AI Horde: its shared quota can be exhausted and repeated retries only waste time. Use Horde only when Cloudflare is not configured.
-      if(!generatedUrl&&imageModels.length&&!cloudflareImageReady){
-        for(let sceneAttempt=0;sceneAttempt<3;sceneAttempt++){
-          try{
-            if(sceneAttempt>0){
-              const delay=1200*Math.pow(2,sceneAttempt-1);
-              status.textContent='تلاش مجدد '+sceneAttempt+' از ۲ برای تصویر صحنه '+(index+1)+'...';
-              liveBuildLog('تلاش مجدد تصویر صحنه '+(index+1)+' ('+sceneAttempt+'/2) پس از '+delay+' میلی‌ثانیه.');
-              await new Promise(resolve=>setTimeout(resolve,delay));
-            }else{
-              status.textContent='در حال تولید تصویر صحنه '+(index+1)+' با موتور رایگان...';
-              liveBuildLog('ارسال تصویر صحنه '+(index+1)+' به صف پردازشگرهای رایگان.');
-            }
-            const previousImageUrl=currentImageUrl||$('result')?.src||'';
-            await generateImageUnlocked();
-            const source=$('result');
-            const nextImageUrl=currentImageUrl||source?.src||'';
-            if(!source||!nextImageUrl||nextImageUrl===previousImageUrl||!source.complete||!source.naturalWidth){
-              throw new Error('پاسخ موتور تصویر خالی یا نامعتبر بود: '+String($('status').textContent||'بدون جزئیات').slice(0,180));
-            }
-            generatedUrl=source.src;
-            lastSceneError=null;
-            break;
-          }catch(sceneError){
-            lastSceneError=sceneError;
-            liveBuildLog('تلاش تصویر صحنه '+(index+1)+' ناموفق بود: '+String(sceneError?.message||sceneError).slice(0,220));
-          }
-        }
-      }
-      if(!generatedUrl&&cloudflareImageReady){
-        try{
-          status.textContent='موتور جایگزین Cloudflare برای صحنه '+(index+1)+' در حال اجراست...';
-          generatedUrl=await generateCloudflareBackground(scenePrompt,status);
-          liveBuildLog('تصویر صحنه '+(index+1)+' با موتور جایگزین Cloudflare تولید شد.');
-        }catch(error){
-          lastSceneError=error;
-          liveBuildLog('هر دو موتور تصویر برای صحنه '+(index+1)+' ناموفق بودند: '+String(error?.message||error).slice(0,180));
-        }
+      // Cloudflare is the only image provider in story mode. Never call AI Horde.
+      try{
+        status.textContent='در حال تولید تصویر صحنه '+(index+1)+' با Cloudflare FLUX.1 Schnell...';
+        generatedUrl=await generateCloudflareBackground(scenePrompt,status);
+        liveBuildLog('تصویر صحنه '+(index+1)+' از Cloudflare دریافت شد.');
+      }catch(error){
+        lastSceneError=error;
+        liveBuildLog('تولید Cloudflare برای صحنه '+(index+1)+' ناموفق بود: '+String(error?.message||error).slice(0,260));
       }
       if(!generatedUrl){
         const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر رایگان در دسترس نبود';
@@ -3016,7 +2974,7 @@ async function autoBuildEpisodeFromStory(){
           localStorage.setItem(queueKey,JSON.stringify(queue.slice(-30)));
         }catch(_){}
         liveBuildLog('ساخت متوقف شد: تصویر واقعی صحنه '+(index+1)+' تولید نشد؛ از پس‌زمینهٔ ساختگی استفاده نمی‌شود. علت: '+reason);
-        throw new Error('تصویر واقعی صحنه '+(index+1)+' تولید نشد. درخواست در صف تلاش مجدد ذخیره شد؛ پس از در دسترس قرار گرفتن موتور تصویر، دوباره ساخت را اجرا کن. علت: '+reason);
+        throw new Error('تصویر صحنه '+(index+1)+' با Cloudflare تولید نشد. AI Horde عمداً غیرفعال است تا خطای سهمیه ناشناس تکرار نشود. جزئیات اتصال/مجوز Cloudflare: '+reason);
       }
       const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
       if(typeof frame.decode==='function')await frame.decode();
