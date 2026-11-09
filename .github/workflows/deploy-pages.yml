@@ -49,6 +49,8 @@ jobs:
           if (deployerCount !== 1) throw new Error('Expected exactly one Pages deployment action, found ' + deployerCount + '.');
           console.log('Validated ' + checked + ' inline scripts, ' + ids.length + ' unique HTML IDs, and one Pages deployer.');
           NODE
+      - name: Run network resilience regression tests
+        run: node --test tests/reliability.test.mjs
       - name: Check Cloudflare Worker JavaScript
         run: node --input-type=module --check < worker.js
       - name: Set up Deno
