@@ -1505,7 +1505,7 @@ async function pollRequest(id, historySettings = null) {
   const started = Date.now();
   let consecutiveCheckErrors = 0;
   // Volunteer workers can take a long time to become available; poll less often and allow a longer wait.
-  while (Date.now() - started < 30 * 60 * 1000) {
+  while (Date.now() - started < 2 * 60 * 60 * 1000) {
     if (activeRequestId !== id) return;
     await new Promise(resolve => setTimeout(resolve, 5000));
     if (activeRequestId !== id) return;
@@ -2557,15 +2557,15 @@ async function generateStoryWithFreeTextEngine(){
     })});
     if(!submitted.id)throw new Error('شناسه درخواست متن از سرویس دریافت نشد.');
     const started=Date.now();let finalResult=null;
-    while(Date.now()-started<20*60*1000){
-      await new Promise(resolve=>setTimeout(resolve,6000));
-      const check=await apiFetch('/generate/text/status/'+encodeURIComponent(submitted.id));
+    while(Date.now()-started<2*60*60*1000){
+      await new Promise(resolve=>setTimeout(resolve,10000));
+      const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
       if(check.faulted)throw new Error('پردازشگر متن نتوانست درخواست را کامل کند.');
       if(check.done){finalResult=check;break;}
       const elapsed=Math.floor((Date.now()-started)/60000);
       status.textContent='فیلمنامه در صف موتور متن رایگان است... زمان سپری‌شده: '+elapsed+' دقیقه';
     }
-    if(!finalResult)throw new Error('موتور متن بیش از ۲۰ دقیقه در صف ماند.');
+    if(!finalResult)throw new Error('موتور متن پس از ۲ ساعت هنوز پاسخ نداده است؛ درخواست را می‌توان دوباره اجرا کرد.');
     const generation=finalResult.generations&&finalResult.generations.find(item=>item&&typeof item.text==='string'&&item.text.trim());
     if(!generation)throw new Error('موتور متن پاسخ قابل استفاده‌ای برنگرداند.');
     const screenplay=generation.text.trim().replace(/^\s*\x60{3}(?:[a-z]+)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
