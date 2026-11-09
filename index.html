@@ -462,10 +462,7 @@ $('clearHistory').addEventListener('click', async () => {
 });
 
 function displayImage(imageValue, seed, model) {
-  let url = imageValue;
-  if (typeof imageValue === 'string' && !/^https?:\/\//i.test(imageValue) && !/^data:/i.test(imageValue)) {
-    url = 'data:image/webp;base64,' + imageValue;
-  }
+  const url = imageSource(imageValue);
   if (currentImageUrl && currentImageUrl.startsWith('blob:')) URL.revokeObjectURL(currentImageUrl);
   currentImageUrl = url;
   const img = $('result');
