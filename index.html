@@ -692,7 +692,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
     <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
-    <small>این ابزار بدون اینترنت، متن را به حداکثر ۶ صحنه و دیالوگ‌های اولیه تقسیم می‌کند. برای تصویر و حرکت هر صحنه باید لایه‌های تصویری اضافه یا تنظیم شوند.</small>
+    <button id="autoSceneMotionButton" type="button" class="secondary">ساخت حرکت خودکار شخصیت‌ها و دوربین</button>
+    <small>حرکت خودکار روی لایه‌های اصلی هر صحنه فریم حرکتی می‌سازد؛ اجزای متصل به آن‌ها حرکت والد را دنبال می‌کنند. دوربین نیز برای هر صحنه جداگانه تنظیم می‌شود.</small>
   </section>
   <section class="motion-scene-panel">
     <h3>صحنه‌های قسمت</h3>
@@ -702,6 +703,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <button id="duplicateMotionScene" type="button" class="secondary">کپی صحنه</button>
       <button id="deleteMotionScene" type="button" class="secondary">حذف صحنه</button>
     </div>
+    <label for="motionSceneCamera">حرکت دوربین صحنه فعلی</label>
+    <select id="motionSceneCamera"><option value="zoom-in">زوم به داخل</option><option value="zoom-out">زوم به بیرون</option><option value="pan-right">حرکت دوربین به راست</option><option value="pan-left">حرکت دوربین به چپ</option></select>
     <label for="motionSceneBackground">پس‌زمینه اختصاصی صحنه فعلی</label>
     <input id="motionSceneBackground" type="file" accept="image/png,image/jpeg,image/webp">
     <div class="motion-scene-background-tools"><small id="motionSceneBackgroundName">پس‌زمینه اصلی پروژه استفاده می‌شود.</small><button id="clearMotionSceneBackground" type="button" class="secondary">حذف پس‌زمینه صحنه</button></div>
@@ -2398,6 +2401,7 @@ function renderMotionSceneList() {
   const total=Number($('motionDuration').value)||60;
   $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌ها، پس‌زمینه و دیالوگ مستقل دارد.';
   const activeScene=motionScenes[activeMotionScene];
+  $('motionSceneCamera').value=activeScene.cameraMotion||'zoom-in';
   $('motionSceneBackgroundName').textContent=activeScene.backgroundImage?'پس‌زمینه: '+(activeScene.backgroundName||'تصویر اختصاصی'):'پس‌زمینه اصلی پروژه استفاده می‌شود.';
   $('clearMotionSceneBackground').disabled=!activeScene.backgroundImage;
   renderMotionDialogueEditor();
@@ -2410,6 +2414,29 @@ function switchMotionScene(index) {
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
 }
+ $('motionSceneCamera').addEventListener('change',()=>{motionScenes[activeMotionScene].cameraMotion=$('motionSceneCamera').value;renderMotionPreview();});
+$('autoSceneMotionButton').addEventListener('click',()=>{
+  saveActiveMotionScene();let animated=0;
+  motionScenes.forEach((scene,index)=>{
+    scene.cameraMotion=['zoom-in','pan-right','zoom-out','pan-left','zoom-in','pan-right'][index%6];
+    const roots=scene.layers.filter(layer=>layer.image&&!layer.parentLayerId);
+    roots.forEach((layer,rootIndex)=>{
+      const existing=Array.isArray(layer.motionKeys)&&layer.motionKeys.length?layer.motionKeys.slice().sort((a,b)=>a.at-b.at)[0]:null;
+      const x=Math.max(8,Math.min(92,Number(existing?.x??layer.startX??50)));
+      const y=Math.max(12,Math.min(88,Number(existing?.y??layer.startY??50)));
+      const drift=(rootIndex%2===0?1:-1)*5;
+      layer.motionKeys=[
+        {at:0,x:Math.max(5,Math.min(95,x-drift)),y:y+2,rotation:Number(existing?.rotation??layer.rotationStart)||0},
+        {at:50,x,y:Math.max(5,Math.min(95,y-2)),rotation:Number(existing?.rotation??layer.rotationStart)||0},
+        {at:100,x:Math.max(5,Math.min(95,x+drift)),y:y+2,rotation:Number(existing?.rotation??layer.rotationEnd)||0}
+      ];
+      if(!layer.motion||layer.motion==='still')layer.motion='walk';
+      animated++;
+    });
+  });
+  renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
+  setStatus(animated?'حرکت اولیه برای '+animated+' لایه اصلی در '+motionScenes.length+' صحنه ساخته شد؛ حرکت دوربین هم برای هر صحنه تنظیم شد.':'لایه تصویری برای متحرک‌سازی پیدا نشد؛ ابتدا تصویرها را به‌صورت لایه اضافه کن.','var(--b)');
+});
 $('autoTimeDialoguesButton').addEventListener('click',()=>{
   saveActiveMotionScene();
   let scheduled=0;
@@ -2779,7 +2806,7 @@ function renderMotionPreview() {
     const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
     const fit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
     if(background&&background.naturalWidth){
-      drawSceneBackground(ctx,background,progress,baseMotion);
+      drawSceneBackground(ctx,background,progress,cameraMotion);
     }else if(baseIsSprite){
       const w=source.naturalWidth*fit,h=source.naturalHeight*fit;
       let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
@@ -2790,7 +2817,7 @@ function renderMotionPreview() {
       if(baseMotion==='fade')alpha=Math.abs(Math.sin(progress*Math.PI));
       ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(source,-w/2,-h/2,w,h);ctx.restore();
     }else{
-      drawSceneBackground(ctx,source,progress,baseMotion);
+      drawSceneBackground(ctx,source,progress,cameraMotion);
     }
   }
   motionLayers.forEach(layer=>{
@@ -3050,7 +3077,7 @@ function createMotionClip() {
   if(!source.src||!source.complete||!source.naturalWidth){setStatus('اول یک تصویر تولید کن.','var(--warn)');return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
   saveActiveMotionScene();
-  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item})),backgroundImage:scene.backgroundImage||null}));
+  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item})),backgroundImage:scene.backgroundImage||null,cameraMotion:scene.cameraMotion||$('motion').value}));
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
@@ -3087,6 +3114,7 @@ function createMotionClip() {
   const totalDuration=Number($('motionDuration').value)*1000;
   const sceneDuration=totalDuration/exportScenes.length;
   const baseMotion=$('motion').value;
+  const cameraMotion=scene?.cameraMotion||baseMotion;
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
   const cameraScale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
   const baseFit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
@@ -3126,7 +3154,7 @@ function createMotionClip() {
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
     const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:source;
     if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
-    else drawSceneBackground(ctx,sceneBackground,sceneProgress,baseMotion);
+    else drawSceneBackground(ctx,sceneBackground,sceneProgress,scene.cameraMotion||baseMotion);
     scene.layers.forEach(layer=>{
       if(!layer.image||!layer.image.complete||!layer.image.naturalWidth)return;
       const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
