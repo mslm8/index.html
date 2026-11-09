@@ -152,6 +152,14 @@ body.authenticated .card{margin:5px 0 12px;padding:15px}
  body.authenticated #studioNav button{font-size:10px;min-height:36px}
 }
 
+/* Full-page tab transitions: only the bottom navigation persists */
+@keyframes appPageEnter{from{opacity:.72;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+body.authenticated #generationCard:not([hidden]),
+body.authenticated .viewPanel:not([hidden]){animation:appPageEnter .2s ease-out both}
+body.authenticated main>header:not([hidden]),
+body.authenticated #accountBar:not([hidden]){animation:appPageEnter .2s ease-out both}
+body.authenticated main>footer{display:none}
+
 /* Persistent bottom navigation; each tab displays its own full page */
 @media(min-width:0px){
  body.authenticated>main{padding-bottom:76px}
