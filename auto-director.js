@@ -31,14 +31,14 @@
     const continuity = new Map();
     scenes.forEach((scene, index) => {
       const source = clean([scene.visual, scene.action, ...(Array.isArray(scene.dialogues) ? scene.dialogues.map(d => d?.text) : [])].join(' '));
-      const inferredAction = pick(source, actionRules, index === 0 ? 'idle' : 'walk');
-      const inferredEmotion = pick(source, emotionRules, 'none');
-      const inferredGesture = pick(source, gestureRules, Array.isArray(scene.dialogues) && scene.dialogues.length ? 'talk' : 'neutral');
-      const inferredCamera = pick(source, cameraRules, index % 3 === 0 ? 'zoom-in' : index % 3 === 1 ? 'pan-right' : 'zoom-out');
-      scene.action = ['idle','walk','run','jump','sway'].includes(scene.action) ? scene.action : inferredAction;
-      scene.emotion = ['none','happy','sad','angry','surprised'].includes(scene.emotion) ? scene.emotion : inferredEmotion;
-      scene.gesture = ['neutral','wave','talk'].includes(scene.gesture) ? scene.gesture : inferredGesture;
-      scene.camera = ['zoom-in','zoom-out','pan-left','pan-right'].includes(scene.camera) ? scene.camera : inferredCamera;
+      const inferredAction = pick(source, actionRules, '');
+      const inferredEmotion = pick(source, emotionRules, '');
+      const inferredGesture = pick(source, gestureRules, '');
+      const inferredCamera = pick(source, cameraRules, '');
+      scene.action = inferredAction || (['idle','walk','run','jump','sway'].includes(scene.action) ? scene.action : (index === 0 ? 'idle' : 'walk'));
+      scene.emotion = inferredEmotion || (['none','happy','sad','angry','surprised'].includes(scene.emotion) ? scene.emotion : 'none');
+      scene.gesture = inferredGesture || (['neutral','wave','talk'].includes(scene.gesture) ? scene.gesture : (Array.isArray(scene.dialogues) && scene.dialogues.length ? 'talk' : 'neutral'));
+      scene.camera = inferredCamera || (['zoom-in','zoom-out','pan-left','pan-right'].includes(scene.camera) ? scene.camera : (index % 3 === 0 ? 'zoom-in' : index % 3 === 1 ? 'pan-right' : 'zoom-out'));
       scene.durationSeconds = Math.max(4, Math.min(18, Number(scene.durationSeconds) || (scene.dialogues?.length ? 8 + Math.min(6, scene.dialogues.length * 2) : 7)));
       scene.shotType = scene.camera === 'zoom-in' ? 'نمای نزدیک' : scene.camera === 'zoom-out' ? 'نمای باز' : 'نمای متحرک';
       scene.visual = clean(scene.visual || source || story).slice(0, 900);
