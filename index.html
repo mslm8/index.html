@@ -1290,7 +1290,12 @@ async function translateToEnglish(text) {
     if (translated.trim() && !/[\\u0600-\\u06FF]/.test(translated)) return translated.trim();
     throw new Error('Google Translate returned no usable English translation');
   } catch (error) { failures.push(error && error.message || String(error)); }
-  throw new Error('هر دو سرویس ترجمه رایگان پاسخ معتبر ندادند. ' + failures.join('؛ '));
+  // Translation services are optional. Keep image generation available when both
+  // public endpoints fail: preserve the original Persian prompt and explicitly
+  // tell multilingual image models what language it is written in.
+  console.warn('Optional translation unavailable; continuing with source text:', failures);
+  return 'Persian-language scene description (preserve its meaning faithfully): ' + source +
+    '. Create a clear image matching this description. Preserve every named subject, action, and spatial relationship; do not invent or replace subjects.';
 }
 
 function buildSemanticRoleConstraints(sourceText) {
@@ -1370,11 +1375,12 @@ async function generateImageUnlocked() {
       negative ? translateToEnglish(negative) : Promise.resolve('')
     ]);
   } catch (error) {
+    // Defensive fallback: translation must never block image generation.
     candidates = await modelsTask;
-    setStatus('ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ' + error.message, 'var(--warn)');
-    generationInProgress = false;
-    $('generate').disabled = candidates.length === 0;
-    return;
+    translatedPrompt = 'Persian-language scene description: ' + prompt +
+      '. Create an image that faithfully depicts this description and preserves all subjects and actions.';
+    translatedNegative = '';
+    setStatus('سرویس ترجمه در دسترس نیست؛ تولید با متن اصلی فارسی ادامه پیدا می‌کند.', 'var(--warn)');
   }
   if (!candidates.length) {
     generationInProgress = false;
