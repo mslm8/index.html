@@ -223,9 +223,14 @@ jobs:
           COUNT="$(find "$RENDER_DIR" -maxdepth 1 -type f -name 'frame.*.png' | wc -l)"
           echo "Rendered frame count: $COUNT"
           test "$COUNT" -eq 24
-          ffmpeg -y -framerate 24 -i "$RENDER_DIR/frame.%04d.png" \
+          # Tahoma2D bundles older GLib libraries; do not leak its library path into system ffmpeg.
+          env -u LD_LIBRARY_PATH -u APPDIR -u QT_PLUGIN_PATH -u CAMLIBS -u IOLIBS \
+            ffmpeg -y -framerate 24 -i "$RENDER_DIR/frame.%04d.png" \
             -c:v libx264 -pix_fmt yuv420p "$RUNNER_TEMP/tahoma2d-test-animation.mp4"
           test -s "$RUNNER_TEMP/tahoma2d-test-animation.mp4"
+          env -u LD_LIBRARY_PATH ffprobe -v error -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,nb_frames \
+            -of default=noprint_wrappers=1 "$RUNNER_TEMP/tahoma2d-test-animation.mp4"
           echo "TAHOMA_RENDER_TEST=passed" >> "$GITHUB_ENV"
 
       - name: Verify Tahoma2D can start in a virtual display
