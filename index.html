@@ -695,6 +695,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
+    <button id="autoEpisodeButton" type="button" class="primary">ساخت خودکار قسمت از متن</button>
+    <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
     <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
     <button id="autoSceneMotionButton" type="button" class="secondary">ساخت حرکت خودکار شخصیت‌ها و دوربین</button>
     <small>حرکت خودکار روی لایه‌های اصلی هر صحنه فریم حرکتی می‌سازد؛ اجزای متصل به آن‌ها حرکت والد را دنبال می‌کنند. دوربین نیز برای هر صحنه جداگانه تنظیم می‌شود.</small>
@@ -2465,6 +2467,51 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   renderMotionDialogueEditor();renderMotionPreview();
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
+async function autoBuildEpisodeFromStory(){
+  const raw=$('storyToScenesInput').value.trim();
+  if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
+  if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
+  const paragraphs=raw.split(/\\n+|(?<=[.!؟?])\\s+(?=\\S)/u).map(part=>part.trim()).filter(Boolean);
+  const count=Math.min(6,paragraphs.length);
+  if(!count){setStatus('متن داستان قابل تقسیم نیست.','var(--warn)');return;}
+  const groups=Array.from({length:count},()=>[]);
+  paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
+  const button=$('autoEpisodeButton');button.disabled=true;
+  const savedPrompt=$('prompt').value;
+  const savedStyle=$('style').value;
+  const sceneStyle='Create a clean 2D animated cartoon frame for a comedy science-fiction series. Maintain the same character designs, clothing, colors and proportions across all scenes. No captions, no speech bubbles, no lettering. Scene action: ';
+  const nextScenes=groups.map((parts,index)=>({name:'صحنه '+(index+1),layers:[],dialogues:[],backgroundImage:null,backgroundUrl:'',cameraMotion:['zoom-in','pan-right','zoom-out','pan-left','zoom-in','pan-right'][index%6],selectedIndex:-1,storyText:parts.join(' ')}));
+  saveActiveMotionScene();
+  motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
+  renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
+  try{
+    for(let index=0;index<nextScenes.length;index++){
+      const scene=nextScenes[index];
+      $('prompt').value=sceneStyle+scene.storyText;
+      setStatus('ساخت خودکار قسمت: در حال تولید تصویر صحنه '+(index+1)+' از '+nextScenes.length+'؛ هر تصویر از صف رایگان تولید می‌شود.');
+      await generateImageUnlocked();
+      const source=$('result');
+      if(!source||!source.src||!source.complete||!source.naturalWidth)throw new Error('تصویر صحنه '+(index+1)+' تولید نشد؛ ادامه متوقف شد.');
+      const frame=new Image();frame.src=source.src;
+      if(typeof frame.decode==='function')await frame.decode();
+      else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+      scene.backgroundImage=frame;
+      scene.backgroundUrl=source.src;
+      scene.backgroundName='تصویر تولیدشده برای '+scene.name;
+      setStatus('تصویر '+(index+1)+' از '+nextScenes.length+' آماده شد.');
+    }
+    $('motionDuration').value='60';
+    activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
+    renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
+    setStatus('تصاویر همه '+nextScenes.length+' صحنه آماده شدند. پروژه برای پیش‌نمایش و خروجی ۶۰ ثانیه‌ای آماده است؛ حرکت فعلی شامل حرکت دوربین است.');
+  }catch(error){
+    renderMotionSceneList();renderMotionPreview();
+    setStatus('ساخت قسمت نیمه‌تمام ماند: '+(error.message||String(error))+'. صحنه‌های آماده‌شده حفظ شدند؛ می‌توانی دوباره تلاش کنی.','var(--warn)');
+  }finally{
+    $('prompt').value=savedPrompt;$('style').value=savedStyle;button.disabled=false;
+  }
+}
+$('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
 $('storyToScenesButton').addEventListener('click',()=>{
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
