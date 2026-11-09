@@ -701,7 +701,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <textarea id="motionDialogueText" rows="2" maxlength="180" placeholder="مثلاً: بالاخره پیدات کردم!" style="width:100%;box-sizing:border-box"></textarea>
       <button id="addMotionDialogue" type="button" class="secondary" style="margin-top:8px">+ افزودن دیالوگ</button>
       <div id="motionDialogueList" style="display:grid;gap:8px;margin-top:10px"></div>
-      <small>برای هر دیالوگ می‌توانی فایل صدای ضبط‌شده اضافه کنی. صدا در خروجی WebM با زمان شروع دیالوگ پخش می‌شود؛ هماهنگ‌سازی حرکت لب هنوز وجود ندارد.</small>
+      <small>برای هر دیالوگ نام شخصیت و صدای قابل‌دسترس مرورگر را انتخاب کن و نمونه را بشنو. فایل صدای ضبط‌شده در خروجی WebM استفاده می‌شود؛ صدای تبدیل متن به گفتار فعلاً فقط پیش‌نمایش است و وارد خروجی نمی‌شود.</small>
     </section>
   </section>
   <label for="motionLayerFiles">افزودن لایه‌های تصویری (حداکثر ۸ لایه)</label>
@@ -2422,6 +2422,7 @@ function drawMotionDialogues(ctx, dialogues, progress) {
   });
 }
 function canvasWidthForDialogue(ctx){return ctx.canvas.width*.78;}
+if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=()=>{if(typeof renderMotionDialogueEditor==='function')renderMotionDialogueEditor();};
 function renderMotionDialogueEditor(){
   const host=$('motionDialogueList');if(!host)return;
   host.replaceChildren();
@@ -2431,7 +2432,28 @@ function renderMotionDialogueEditor(){
     const card=document.createElement('div');card.style.cssText='padding:9px;border:1px solid var(--border);border-radius:9px;display:grid;gap:6px';
     const input=document.createElement('textarea');input.rows=2;input.maxLength=180;input.value=item.text||'';input.setAttribute('aria-label','متن دیالوگ '+(index+1));
     input.addEventListener('input',()=>{item.text=input.value;renderMotionPreview();});
-    const audioLabel=document.createElement('label');audioLabel.textContent=item.audioName?'فایل صدا: '+item.audioName:'افزودن صدای همین دیالوگ';
+    const speakerLabel=document.createElement('label');speakerLabel.textContent='نام شخصیت گوینده';
+    const speakerInput=document.createElement('input');speakerInput.type='text';speakerInput.maxLength=40;speakerInput.placeholder='مثلاً: ریک';speakerInput.value=item.speaker||'';
+    speakerInput.addEventListener('input',()=>{item.speaker=speakerInput.value;});
+    speakerLabel.appendChild(speakerInput);
+    const voiceLabel=document.createElement('label');voiceLabel.textContent='صدای شخصیت (تبدیل متن به گفتار مرورگر)';
+    const voiceSelect=document.createElement('select');voiceSelect.style.width='100%';
+    const availableVoices=window.speechSynthesis?window.speechSynthesis.getVoices():[];
+    voiceSelect.add(new Option('صدای پیش‌فرض مرورگر',''));
+    availableVoices.forEach(voice=>voiceSelect.add(new Option(voice.name+' · '+voice.lang,voice.name)));
+    voiceSelect.value=item.voiceName||'';
+    voiceSelect.addEventListener('change',()=>{item.voiceName=voiceSelect.value;});
+    voiceLabel.appendChild(voiceSelect);
+    const speakButton=document.createElement('button');speakButton.type='button';speakButton.className='secondary';speakButton.textContent='شنیدن نمونه صدا';
+    speakButton.addEventListener('click',()=>{
+      if(!window.speechSynthesis){setStatus('تبدیل متن به گفتار در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
+      const utterance=new SpeechSynthesisUtterance(item.text||'متنی برای خواندن وجود ندارد.');
+      const chosen=window.speechSynthesis.getVoices().find(voice=>voice.name===item.voiceName);
+      if(chosen)utterance.voice=chosen;
+      utterance.lang=chosen?.lang||'fa-IR';
+      window.speechSynthesis.cancel();window.speechSynthesis.speak(utterance);
+    });
+    const audioLabel=document.createElement('label');audioLabel.textContent=item.audioName?'فایل صدا: '+item.audioName:'افزودن صدای ضبط‌شده (اولویت با این فایل است)';
     const audioInput=document.createElement('input');audioInput.type='file';audioInput.accept='audio/*';audioInput.setAttribute('aria-label','فایل صدای دیالوگ '+(index+1));
     audioInput.addEventListener('change',async()=>{
       const file=audioInput.files&&audioInput.files[0];if(!file)return;
@@ -2454,7 +2476,7 @@ function renderMotionDialogueEditor(){
       wrap.appendChild(range);timing.appendChild(wrap);
     });
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف دیالوگ';remove.addEventListener('click',()=>{scene.dialogues.splice(index,1);renderMotionDialogueEditor();renderMotionPreview();});
-    card.append(input,audioLabel,timing,remove);host.appendChild(card);
+    card.append(input,speakerLabel,voiceLabel,speakButton,audioLabel,timing,remove);host.appendChild(card);
   });
 }
 $('addMotionDialogue').addEventListener('click',()=>{
