@@ -512,7 +512,7 @@ function openHistoryDb() {
 }
 function imageSource(value) {
   if (typeof value !== 'string') return '';
-  if (/^https?:\\/\\//i.test(value) || /^data:/i.test(value)) return value;
+  if (/^https?:\/\//i.test(value) || /^data:/i.test(value)) return value;
   return 'data:image/webp;base64,' + value;
 }
 async function saveHistory(src, seed, model) {
