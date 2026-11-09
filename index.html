@@ -1796,6 +1796,14 @@ async function importLocalImage() {
     setStatus('فقط فایل‌های JPG، PNG و WebP پشتیبانی می‌شوند.', 'var(--warn)');
     return;
   }
+  const signature = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isPng = signature.length >= 8 && signature[0] === 0x89 && signature[1] === 0x50 && signature[2] === 0x4e && signature[3] === 0x47 && signature[4] === 0x0d && signature[5] === 0x0a && signature[6] === 0x1a && signature[7] === 0x0a;
+  const isJpeg = signature.length >= 3 && signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+  const isWebp = signature.length >= 12 && String.fromCharCode(...signature.slice(0, 4)) === 'RIFF' && String.fromCharCode(...signature.slice(8, 12)) === 'WEBP';
+  if (!(isPng || isJpeg || isWebp)) {
+    setStatus('محتوای فایل با فرمت تصویر JPG، PNG یا WebP مطابقت ندارد.', 'var(--warn)');
+    return;
+  }
   if (file.size > 12 * 1024 * 1024) {
     setStatus('حجم تصویر بیشتر از ۱۲ مگابایت است. یک فایل کوچک‌تر انتخاب کن.', 'var(--warn)');
     return;
@@ -1809,16 +1817,25 @@ async function importLocalImage() {
   setStatus('در حال آماده‌سازی تصویر انتخاب‌شده...');
   try {
     const bitmap = await createImageBitmap(file);
-    const maxEdge = 1536;
-    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('آماده‌سازی تصویر در این مرورگر ممکن نشد.');
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    const dataUrl = canvas.toDataURL('image/webp', 0.9);
+    let dataUrl;
+    try {
+      const width = bitmap.width;
+      const height = bitmap.height;
+      if (!width || !height || width > 12000 || height > 12000 || width * height > 40000000) {
+        throw new Error('ابعاد تصویر بیش از حد مجاز است.');
+      }
+      const maxEdge = 1536;
+      const scale = Math.min(1, maxEdge / Math.max(width, height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('آماده‌سازی تصویر در این مرورگر ممکن نشد.');
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      dataUrl = canvas.toDataURL('image/webp', 0.9);
+    } finally {
+      if (typeof bitmap.close === 'function') bitmap.close();
+    }
     if (!dataUrl.startsWith('data:image/webp;base64,')) {
       throw new Error('تبدیل تصویر به فرمت WebP ناموفق بود.');
     }
