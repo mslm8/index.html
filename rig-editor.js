@@ -50,11 +50,26 @@
     reader.onerror = () => reject(new Error('خواندن تصویر ناموفق بود.'));
     reader.readAsDataURL(blob);
   });
+  const safeValue = (value, depth = 0) => {
+    if (depth > 5) return undefined;
+    if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value;
+    if (Array.isArray(value)) return value.slice(0, 120).map(item => safeValue(item, depth + 1)).filter(item => item !== undefined);
+    if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+      const result = {};
+      for (const [key, item] of Object.entries(value).slice(0, 100)) {
+        const clean = safeValue(item, depth + 1);
+        if (clean !== undefined) result[key] = clean;
+      }
+      return result;
+    }
+    return undefined;
+  };
   const safeLayerData = (layer) => {
     const data = {};
     for (const [key, value] of Object.entries(layer)) {
-      if (key === 'image' || key === 'url' || key === 'blob' || key === 'element') continue;
-      if (['string', 'number', 'boolean'].includes(typeof value) || value === null) data[key] = value;
+      if (['image', 'url', 'blob', 'element'].includes(key)) continue;
+      const clean = safeValue(value);
+      if (clean !== undefined) data[key] = clean;
     }
     return data;
   };
