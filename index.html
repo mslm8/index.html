@@ -385,7 +385,7 @@ body.authenticated .viewPanel select,
 body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 .filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
-.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}</style>
+.motion-scene-background-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -694,6 +694,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <button id="duplicateMotionScene" type="button" class="secondary">کپی صحنه</button>
       <button id="deleteMotionScene" type="button" class="secondary">حذف صحنه</button>
     </div>
+    <label for="motionSceneBackground">پس‌زمینه اختصاصی صحنه فعلی</label>
+    <input id="motionSceneBackground" type="file" accept="image/png,image/jpeg,image/webp">
+    <div class="motion-scene-background-tools"><small id="motionSceneBackgroundName">پس‌زمینه اصلی پروژه استفاده می‌شود.</small><button id="clearMotionSceneBackground" type="button" class="secondary">حذف پس‌زمینه صحنه</button></div>
     <small id="motionSceneInfo">هر صحنه لایه‌ها و حرکت‌های مستقل دارد. زمان کل قسمت بین صحنه‌ها تقسیم می‌شود.</small>
     <section class="motion-dialogue-panel" style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:12px">
       <h4 style="margin:0 0 8px">شخصیت‌های این قسمت</h4>
@@ -2367,7 +2370,7 @@ let motionPreviewFrame = null;
 let motionDragState = null;
 const motionCharacters = [];
 let nextMotionCharacterId = 1;
-const motionScenes = [{name:'صحنه ۱',layers:[],dialogues:[]}];
+const motionScenes = [{name:'صحنه ۱',layers:[],dialogues:[],backgroundImage:null,backgroundUrl:''}];
 let activeMotionScene = 0;
 function saveActiveMotionScene() {
   const scene=motionScenes[activeMotionScene];
@@ -2385,7 +2388,10 @@ function renderMotionSceneList() {
   $('addMotionScene').disabled=motionScenes.length>=6;
   $('duplicateMotionScene').disabled=motionScenes.length>=6;
   const total=Number($('motionDuration').value)||60;
-  $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌ها و دیالوگ مستقل دارد.';
+  $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌ها، پس‌زمینه و دیالوگ مستقل دارد.';
+  const activeScene=motionScenes[activeMotionScene];
+  $('motionSceneBackgroundName').textContent=activeScene.backgroundImage?'پس‌زمینه: '+(activeScene.backgroundName||'تصویر اختصاصی'):'پس‌زمینه اصلی پروژه استفاده می‌شود.';
+  $('clearMotionSceneBackground').disabled=!activeScene.backgroundImage;
   renderMotionDialogueEditor();
 }
 function switchMotionScene(index) {
@@ -2398,13 +2404,13 @@ function switchMotionScene(index) {
 }
 $('addMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
-  saveActiveMotionScene();motionScenes.push({name:'صحنه '+(motionScenes.length+1),layers:[],selectedIndex:-1});
+  saveActiveMotionScene();motionScenes.push({name:'صحنه '+(motionScenes.length+1),layers:[],dialogues:[],backgroundImage:null,backgroundUrl:'',selectedIndex:-1});
   switchMotionScene(motionScenes.length-1);
 });
 $('duplicateMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
   saveActiveMotionScene();const original=motionScenes[activeMotionScene];
-  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})),dialogues:(original.dialogues||[]).map(item=>({...item})),selectedIndex:original.selectedIndex};
+  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})),dialogues:(original.dialogues||[]).map(item=>({...item})),backgroundImage:original.backgroundImage||null,backgroundUrl:original.backgroundUrl||'',backgroundName:original.backgroundName||'',selectedIndex:original.selectedIndex};
   motionScenes.splice(activeMotionScene+1,0,copy);switchMotionScene(activeMotionScene+1);
 });
 $('deleteMotionScene').addEventListener('click',()=>{
@@ -2413,6 +2419,27 @@ $('deleteMotionScene').addEventListener('click',()=>{
   const scene=motionScenes[activeMotionScene];motionLayers.splice(0,motionLayers.length,...scene.layers);
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
+});
+function drawSceneBackground(ctx,image,progress,motion){
+  if(!image||!image.naturalWidth)return false;
+  const scale=Math.max(ctx.canvas.width/image.naturalWidth,ctx.canvas.height/image.naturalHeight);
+  const zoom=motion==='zoom-out'?1.12-.12*progress:1+.12*progress;
+  const width=image.naturalWidth*scale*zoom,height=image.naturalHeight*scale*zoom;
+  let pan=0;if(motion==='pan-right')pan=(progress-.5)*64;if(motion==='pan-left')pan=(.5-progress)*64;
+  ctx.drawImage(image,(ctx.canvas.width-width)/2+pan,(ctx.canvas.height-height)/2,width,height);
+  return true;
+}
+$('motionSceneBackground').addEventListener('change',async event=>{
+  const file=event.target.files&&event.target.files[0];event.target.value='';
+  if(!file)return;
+  if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024){setStatus('پس‌زمینه باید PNG، JPG یا WebP و حداکثر ۱۲ مگابایت باشد.','var(--warn)');return;}
+  const url=URL.createObjectURL(file),image=new Image();image.src=url;
+  try{await image.decode();const scene=motionScenes[activeMotionScene];if(scene.backgroundUrl)URL.revokeObjectURL(scene.backgroundUrl);scene.backgroundImage=image;scene.backgroundUrl=url;scene.backgroundName=file.name;renderMotionSceneList();renderMotionPreview();setStatus('پس‌زمینه اختصاصی صحنه تنظیم شد.');}
+  catch(error){URL.revokeObjectURL(url);setStatus('خواندن تصویر پس‌زمینه ناموفق بود.','var(--bad)');}
+});
+$('clearMotionSceneBackground').addEventListener('click',()=>{
+  const scene=motionScenes[activeMotionScene];if(scene.backgroundUrl)URL.revokeObjectURL(scene.backgroundUrl);
+  scene.backgroundImage=null;scene.backgroundUrl='';scene.backgroundName='';renderMotionSceneList();renderMotionPreview();
 });
 function drawMotionDialogues(ctx, dialogues, progress) {
   (dialogues||[]).forEach(item=>{
@@ -2622,9 +2649,10 @@ function addLayerMotionKey(layer, globalProgress){
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
-  const source=$('result'),progress=Number($('motionPlayhead').value)/100;
+  const source=$('result'),scene=motionScenes[activeMotionScene],background=scene?.backgroundImage,baseImage=background&&background.naturalWidth?background:source,progress=Number($('motionPlayhead').value)/100;
   ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
-  if(source&&source.complete&&source.naturalWidth){
+  if(baseImage&&baseImage.complete&&baseImage.naturalWidth){
+    const source=baseImage;
     const baseMotion=$('motion').value;
     const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
     const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
@@ -2839,7 +2867,7 @@ function createMotionClip() {
   if(!source.src||!source.complete||!source.naturalWidth){setStatus('اول یک تصویر تولید کن.','var(--warn)');return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
   saveActiveMotionScene();
-  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item}))}));
+  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item})),backgroundImage:scene.backgroundImage||null}));
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
@@ -2903,13 +2931,9 @@ function createMotionClip() {
     const sceneProgress=Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration));
     const scene=exportScenes[sceneIndex];
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
-    if(baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
-    else{
-      const zoom=baseMotion==='zoom-out'?1.12-.12*sceneProgress:1+.12*sceneProgress;
-      const width=source.naturalWidth*cameraScale*zoom,height=source.naturalHeight*cameraScale*zoom;
-      let panX=0;if(baseMotion==='pan-right')panX=(sceneProgress-.5)*64;if(baseMotion==='pan-left')panX=(.5-sceneProgress)*64;
-      ctx.drawImage(source,(canvas.width-width)/2+panX,(canvas.height-height)/2,width,height);
-    }
+    const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:source;
+    if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
+    else drawSceneBackground(ctx,sceneBackground,sceneProgress,baseMotion);
     scene.layers.forEach(layer=>{
       const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
       if(sceneProgress<from||sceneProgress>to||to<=from)return;
