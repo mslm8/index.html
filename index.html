@@ -3326,6 +3326,54 @@ async function retryQueuedSceneImages(){
 }
 $('retrySceneImagesButton').addEventListener('click',retryQueuedSceneImages);
 $('storyToScenesInput').addEventListener('input',updateSceneRetryButton);
+async function createAutomaticCharacterRig(characterName,characterIndex){
+  const palettes=[
+    {skin:'#e9a66f',hair:'#392b36',shirt:'#4e9e91',pants:'#3d527e',accent:'#f2c66d'},
+    {skin:'#c98261',hair:'#252d43',shirt:'#bd6a78',pants:'#45405f',accent:'#79d6c2'},
+    {skin:'#f0c18b',hair:'#70513c',shirt:'#6c83c7',pants:'#4c685c',accent:'#e9b95c'},
+    {skin:'#d99b82',hair:'#493b68',shirt:'#d18b45',pants:'#425b68',accent:'#e8d5a5'}
+  ];
+  const p=palettes[characterIndex%palettes.length];
+  const id='auto-rig-'+characterIndex+'-'+Date.now().toString(36);
+  const make=async(name,width,height,svg,role,offsetX,offsetY,scale=1)=>{
+    const image=await makeLocalSvgImage('<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+svg+'</svg>',name);
+    image.rigId=id+'-'+role;
+    image.characterId='auto-speaker-'+Array.from(String(characterName||'شخصیت اصلی').trim()).map(ch=>ch.codePointAt(0).toString(16)).join('-');
+    image.characterName=characterName;
+    image.scale=scale;
+    image.startX=50;image.endX=50;image.startY=65;image.endY=65;
+    image.motion='still';image.startAt=0;image.endAt=100;
+    if(role!=='body'){
+      image.parentLayerId=id+'-body';image.rigRole=role;
+      image.jointX=50;image.jointY=50;
+      image.jointOffsetX=offsetX;image.jointOffsetY=offsetY;
+    }
+    return image;
+  };
+  const body=await make('تنه '+characterName,220,300,
+    '<path d="M57 18 Q110 0 163 18 L188 83 L171 250 Q110 278 49 250 L32 83 Z" fill="'+p.shirt+'" stroke="#30334b" stroke-width="9"/><path d="M62 48 Q110 68 158 48 L151 104 Q110 122 69 104 Z" fill="'+p.accent+'"/><path d="M82 150 Q110 164 138 150" fill="none" stroke="#245b59" stroke-width="7" stroke-linecap="round"/>',
+    'body',0,0,1.05);
+  body.motion='idle';
+  const leftArm=await make('دست چپ '+characterName,76,176,
+    '<path d="M38 8 C15 18 12 52 23 83 L18 137 Q18 157 34 159 Q48 158 47 140 L52 91 Q65 55 59 24 Z" fill="'+p.skin+'" stroke="#49353b" stroke-width="8"/><path d="M23 137 Q5 157 20 169 Q40 181 49 158 L46 139" fill="'+p.skin+'" stroke="#49353b" stroke-width="7"/>',
+    'arm-left',-38,-15,.92);
+  const rightArm=await make('دست راست '+characterName,76,176,
+    '<path d="M38 8 C15 18 12 52 23 83 L18 137 Q18 157 34 159 Q48 158 47 140 L52 91 Q65 55 59 24 Z" fill="'+p.skin+'" stroke="#49353b" stroke-width="8"/><path d="M23 137 Q5 157 20 169 Q40 181 49 158 L46 139" fill="'+p.skin+'" stroke="#49353b" stroke-width="7"/>',
+    'arm-right',38,-15,.92);
+  const leftLeg=await make('پای چپ '+characterName,82,184,
+    '<path d="M22 8 Q58 0 62 25 L54 125 Q52 145 38 148 L18 143 Q10 136 14 119 Z" fill="'+p.pants+'" stroke="#293b63" stroke-width="7"/><path d="M18 130 Q-2 145 8 165 Q30 181 65 164 Q75 151 55 141 L38 145" fill="#e9d5b5" stroke="#593c38" stroke-width="7"/>',
+    'leg-left',-13,35,.92);
+  const rightLeg=await make('پای راست '+characterName,82,184,
+    '<path d="M22 8 Q58 0 62 25 L54 125 Q52 145 38 148 L18 143 Q10 136 14 119 Z" fill="'+p.pants+'" stroke="#293b63" stroke-width="7"/><path d="M18 130 Q-2 145 8 165 Q30 181 65 164 Q75 151 55 141 L38 145" fill="#e9d5b5" stroke="#593c38" stroke-width="7"/>',
+    'leg-right',13,35,.92);
+  const head=await make('سر '+characterName,180,180,
+    '<path d="M25 91 Q18 22 90 18 Q162 22 155 91 L148 139 Q122 178 90 177 Q58 178 32 139 Z" fill="'+p.skin+'" stroke="#49353b" stroke-width="8"/><path d="M28 64 Q40 5 90 15 Q140 5 152 64 Q118 42 90 48 Q62 42 28 64" fill="'+p.hair+'" stroke="#302a3b" stroke-width="8"/><ellipse cx="65" cy="94" rx="11" ry="15" fill="#fff"/><ellipse cx="115" cy="94" rx="11" ry="15" fill="#fff"/><circle cx="68" cy="97" r="5" fill="#26334b"/><circle cx="112" cy="97" r="5" fill="#26334b"/><path d="M76 133 Q90 145 105 132" fill="none" stroke="#713d3c" stroke-width="6" stroke-linecap="round"/>',
+    'head',0,-48,.76);
+  head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
+  head.eyeAnimation=true;head.blinkRate=3+characterIndex;head.eyeY=52;head.leftEyeX=36;head.rightEyeX=64;
+  return [leftArm,rightArm,leftLeg,rightLeg,body,head];
+}
+
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
@@ -3369,45 +3417,12 @@ async function autoBuildEpisodeFromStory(){
     ])).slice(0,4);
 
     if(!speakerNames.length)speakerNames.push('شخصیت اصلی');
-    // Build persistent character artwork once, then reuse it across every scene.
-    const characterColors=[
-      {skin:'#e9a66f',hair:'#392b36',shirt:'#4e9e91',pants:'#3d527e',accent:'#f2c66d'},
-      {skin:'#c98261',hair:'#252d43',shirt:'#bd6a78',pants:'#45405f',accent:'#79d6c2'},
-      {skin:'#f0c18b',hair:'#70513c',shirt:'#6c83c7',pants:'#4c685c',accent:'#e9b95c'}
-    ];
-    const autoCharacterLayers=[];
+    // Generate a reusable six-part 2D rig for each speaker. No manual image splitting or joint setup is required.
+    const autoCharacterRigs=[];
     for(let characterIndex=0;characterIndex<speakerNames.length;characterIndex++){
       const characterName=speakerNames[characterIndex];
-      const colors=characterColors[characterIndex%characterColors.length];
-      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="260" height="440" viewBox="0 0 260 440">'+
-        '<ellipse cx="130" cy="424" rx="72" ry="12" fill="#080d1b" opacity=".3"/>'+
-        '<path d="M91 285 L76 385 Q72 409 91 410 L111 410 L126 302 Z" fill="'+colors.pants+'" stroke="#282b42" stroke-width="8"/>'+
-        '<path d="M135 302 L149 385 Q151 409 171 410 L190 410 Q198 400 183 386 L169 280 Z" fill="'+colors.pants+'" stroke="#282b42" stroke-width="8"/>'+
-        '<path d="M82 399 Q62 405 69 424 L119 424 Q130 414 111 402 Z M151 402 Q140 414 151 424 L205 424 Q210 407 184 399 Z" fill="#e8d8bd" stroke="#392f39" stroke-width="7"/>'+
-        '<path d="M83 159 Q130 130 177 159 L198 285 Q130 317 62 285 Z" fill="'+colors.shirt+'" stroke="#30334b" stroke-width="9"/>'+
-        '<path d="M91 176 Q130 198 169 176 L158 232 Q130 248 102 232 Z" fill="'+colors.accent+'" opacity=".9"/>'+
-        '<path d="M83 174 Q49 184 43 246 L34 294 Q33 312 49 316 Q66 317 71 296 L88 236 Z" fill="'+colors.skin+'" stroke="#49353b" stroke-width="8"/>'+
-        '<path d="M177 174 Q211 184 217 246 L226 294 Q227 312 211 316 Q194 317 189 296 L172 236 Z" fill="'+colors.skin+'" stroke="#49353b" stroke-width="8"/>'+
-        '<path d="M105 145 L105 174 Q130 193 155 174 L155 145 Z" fill="'+colors.skin+'" stroke="#49353b" stroke-width="7"/>'+
-        '<path d="M68 93 Q64 25 130 25 Q196 25 192 93 L181 145 Q164 177 130 177 Q96 177 79 145 Z" fill="'+colors.skin+'" stroke="#49353b" stroke-width="9"/>'+
-        '<path d="M68 104 Q54 42 105 22 Q163 -1 193 58 L190 103 Q168 70 139 72 Q100 69 68 104 Z" fill="'+colors.hair+'" stroke="#302a3b" stroke-width="8"/>'+
-        '<path d="M81 111 Q95 96 111 110 M149 110 Q166 96 179 111" fill="none" stroke="#49353b" stroke-width="7" stroke-linecap="round"/>'+
-        '<ellipse cx="105" cy="119" rx="12" ry="15" fill="#fff"/><ellipse cx="155" cy="119" rx="12" ry="15" fill="#fff"/>'+
-        '<circle cx="108" cy="121" r="6" fill="#26334b"/><circle cx="152" cy="121" r="6" fill="#26334b"/>'+
-        '<path d="M130 126 L124 143 Q130 149 137 143" fill="none" stroke="#9a5d50" stroke-width="4" stroke-linecap="round"/>'+
-        '<path d="M108 157 Q130 166 152 157" fill="none" stroke="#713d3c" stroke-width="5" stroke-linecap="round"/>'+
-        '</svg>';
-      const layer=await makeLocalSvgImage(svg,'شخصیت '+characterName);
-      layer.characterName=characterName;
-      layer.characterId=speakerIdFor(characterName);
-      layer.rigId='auto-character-'+characterIndex+'-'+Date.now().toString(36);
-      layer.motion='idle';layer.startAt=0;layer.endAt=100;
-      layer.startY=65;layer.endY=65;
-      layer.scale=speakerNames.length===1?1.12:.92;
-      layer.eyeAnimation=true;layer.blinkRate=3+characterIndex;
-      layer.eyeY=38;layer.leftEyeX=40;layer.rightEyeX=60;
-      layer.mouthMode='talk';layer.mouthX=50;layer.mouthY=63;
-      autoCharacterLayers.push(layer);
+      liveBuildUpdate(1,'در حال ساخت خودکار ریگ شش‌تکه شخصیت «'+characterName+'»؛ سر، تنه، دست‌ها و پاها.',14+characterIndex*2);
+      autoCharacterRigs.push(await createAutomaticCharacterRig(characterName,characterIndex));
     }
     const characterBible=speakerNames.map(name=>{
       const entry=screenplay.characters.find(character=>String(character.name||'').trim()===name);
@@ -3425,12 +3440,30 @@ async function autoBuildEpisodeFromStory(){
     nextScenes.forEach(autoScheduleSceneDialogues);
     nextScenes.forEach((scene,sceneIndex)=>{
       const positions=speakerNames.length===1?[50]:speakerNames.length===2?[35,65]:[25,50,75];
-      scene.layers=autoCharacterLayers.map((base,characterIndex)=>{
-        const speaking=scene.dialogues.some(item=>item.speakerId===base.characterId);
+      scene.layers=autoCharacterRigs.flatMap((rig,characterIndex)=>rig.map(base=>{
+        const characterId=base.characterId;
+        const speaking=scene.dialogues.some(item=>item.speakerId===characterId);
         const action=scene.autoDirection.action;
-        const motion=action==='run'?'run':action==='jump'?'jump':action==='walk'?'walk':action==='sway'?'sway':'idle';
-        return {...base,name:'کاراکتر '+base.characterName,startX:positions[characterIndex],endX:positions[characterIndex]+(sceneIndex%2===0?2:-2),startY:65,endY:65,motion:motion,faceExpression:scene.autoDirection.emotion,mouthMode:speaking?'talk':'smile'};
-      });
+        const root=base.rigRole==='body'||base.rigId.endsWith('-body');
+        const head=base.rigRole==='head';
+        const arm=String(base.rigRole||'').startsWith('arm-');
+        const leg=String(base.rigRole||'').startsWith('leg-');
+        const motion=root?(action==='run'?'run':action==='jump'?'jump':action==='walk'?'walk':action==='sway'?'sway':'idle'):'still';
+        const x=positions[characterIndex];
+        const layer={...base,name:base.name,startX:x,endX:x+(sceneIndex%2===0?2:-2),startY:65,endY:65,motion,faceExpression:head?scene.autoDirection.emotion:'none'};
+        if(head)layer.mouthMode=speaking?'talk':'smile';
+        if(arm&&scene.autoDirection.gesture!=='neutral'){
+          const sign=base.rigRole==='arm-left'?-1:1;
+          const swing=scene.autoDirection.gesture==='wave'?sign*42:sign*24;
+          layer.motionKeys=[{at:0,x,y:65,rotation:0},{at:35,x,y:65,rotation:swing},{at:65,x,y:65,rotation:scene.autoDirection.gesture==='wave'?-swing:swing*.5},{at:100,x,y:65,rotation:0}];
+        }
+        if(leg&&['walk','run'].includes(action)){
+          const phase=base.rigRole==='leg-right'?Math.PI:0;
+          const amplitude=action==='run'?28:18;
+          layer.motionKeys=[{at:0,x,y:65,rotation:-amplitude*Math.sin(phase)},{at:25,x,y:65,rotation:amplitude*Math.sin(Math.PI/2+phase)},{at:50,x,y:65,rotation:amplitude*Math.sin(Math.PI+phase)},{at:75,x,y:65,rotation:amplitude*Math.sin(Math.PI*1.5+phase)},{at:100,x,y:65,rotation:-amplitude*Math.sin(phase)}];
+        }
+        return layer;
+      }));
     });
     saveActiveMotionScene();motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length,...(motionScenes[0]?.layers||[]));selectedMotionLayer=motionLayers[0]||null;
     renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
