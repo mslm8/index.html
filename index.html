@@ -2898,7 +2898,7 @@ async function autoBuildEpisodeFromStory(){
         cloudflareImageReady=!health.error&&health.data?.cloudflareImageConfigured===true;
       }
     }catch(error){liveBuildLog('بررسی موتور Cloudflare انجام نشد: '+String(error?.message||error).slice(0,160));}
-    if(cloudflareImageReady)liveBuildLog('موتور دوم تصویر فعال است: Cloudflare Workers AI · FLUX.1 Schnell؛ موتور رایگان AI Horde نیز حفظ شده است.');
+    if(cloudflareImageReady)liveBuildLog('موتور اصلی تصویر فعال است: Cloudflare Workers AI · FLUX.1 Schnell؛ AI Horde فقط مسیر جایگزین است.');
     else liveBuildLog('موتور Cloudflare هنوز تنظیم نشده؛ AI Horde با حداکثر ۵۰۰ مدل فعال، موتور تصویر اصلی و جایگزین باقی می‌ماند.');
     if(!imageModels.length)liveBuildLog('هیچ پردازشگر رایگان AI Horde در این لحظه پاسخ‌گو نیست؛ موتور Cloudflare در صورت پیکربندی استفاده می‌شود و در غیر این صورت پس‌زمینه جایگزین ساخته خواهد شد.');
     liveBuildLog('موتور fal.ai اختیاری است و در ساخت خودکار استفاده نمی‌شود؛ هیچ اعتبار پولی مصرف نخواهد شد.');
@@ -2999,15 +2999,16 @@ async function autoBuildEpisodeFromStory(){
       $('prompt').value=scenePrompt;
       let generatedUrl='';
       let lastSceneError=null;
-      // Rotate the preferred provider by scene so both independent image engines are exercised.
-      if(cloudflareImageReady&&index%2===0){
+      // Prefer the configured Cloudflare image engine for every scene.
+      // AI Horde remains a fallback only when Cloudflare is unavailable or fails.
+      if(cloudflareImageReady){
         try{
-          status.textContent='موتور تصویر دوم: Cloudflare FLUX.1 Schnell · صحنه '+(index+1);
+          status.textContent='موتور اصلی تصویر: Cloudflare FLUX.1 Schnell · صحنه '+(index+1)+' از '+nextScenes.length;
           generatedUrl=await generateCloudflareBackground(scenePrompt,status);
           liveBuildLog('تصویر صحنه '+(index+1)+' با Cloudflare FLUX.1 Schnell تولید شد.');
         }catch(error){
           lastSceneError=error;
-          liveBuildLog('موتور Cloudflare برای صحنه '+(index+1)+' ناموفق بود؛ AI Horde امتحان می‌شود: '+String(error?.message||error).slice(0,180));
+          liveBuildLog('Cloudflare برای صحنه '+(index+1)+' ناموفق بود؛ موتور جایگزین بررسی می‌شود: '+String(error?.message||error).slice(0,240));
         }
       }
       if(!generatedUrl&&imageModels.length){
