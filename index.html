@@ -2567,6 +2567,22 @@ function autoScheduleSceneDialogues(scene){
   const total=weights.reduce((a,b)=>a+b,0);let cursor=0;
   items.forEach((item,index)=>{item.startAt=Math.round(cursor/total*100);cursor+=weights[index];item.endAt=Math.max(item.startAt+1,Math.min(100,Math.round(cursor/total*100)));});
 }
+async function makeLocalEpisodeBackground(scene,index){
+  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=576;
+  const ctx=canvas.getContext('2d');
+  const hue=(index*47+205)%360;
+  const gradient=ctx.createLinearGradient(0,0,1024,576);
+  gradient.addColorStop(0,'hsl('+hue+' 48% 18%)');gradient.addColorStop(1,'hsl('+((hue+55)%360)+' 55% 42%)');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,1024,576);
+  ctx.fillStyle='rgba(255,255,255,.08)';
+  for(let i=0;i<12;i++){const x=(i*137+index*71)%1024,y=(i*83+index*43)%576;ctx.beginPath();ctx.arc(x,y,18+(i%4)*12,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='rgba(8,12,30,.42)';ctx.fillRect(0,390,1024,186);
+  ctx.fillStyle='rgba(255,255,255,.82)';ctx.font='bold 30px sans-serif';ctx.fillText('SCENE '+(index+1),42,72);
+  ctx.font='22px sans-serif';const label=String(scene.storyText||'').slice(0,70);ctx.fillText(label,42,112,920);
+  const image=new Image();image.src=canvas.toDataURL('image/png');
+  if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
+  return image;
+}
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
@@ -2639,17 +2655,30 @@ async function autoBuildEpisodeFromStory(){
       scene.cameraMotion=plan.camera;
     }
     $('style').value='anime';$('framing').value='medium';
+    let useLocalBackgrounds=!freeEngineManagerState.image;
     for(let index=0;index<nextScenes.length;index++){
-      const scene=nextScenes[index];$('prompt').value=sceneStyle+scene.storyText;
-      const previousImageUrl=$('result')?.src||'';
-      status.textContent='ساخت خودکار قسمت: تولید پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+'؛ شخصیت و حرکت‌ها از قبل چیده شده‌اند.';
-      await generateImageUnlocked();
-      const source=$('result');
-      if(!source||!source.src||!source.complete||!source.naturalWidth||source.src===previousImageUrl)throw new Error('تصویر تازهٔ صحنه '+(index+1)+' تولید نشد؛ خروجی قبلی جایگزین تصویر جدید نشد.');
-      const frame=new Image();frame.src=source.src;
-      if(typeof frame.decode==='function')await frame.decode();
-      else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
-      scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='پس‌زمینه '+scene.name;
+      const scene=nextScenes[index];
+      if(!useLocalBackgrounds){
+        $('prompt').value=sceneStyle+scene.storyText;
+        const previousImageUrl=$('result')?.src||'';
+        status.textContent='ساخت خودکار قسمت: تولید پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+'؛ ممکن است صف رایگان طول بکشد...';
+        try{
+          await Promise.race([generateImageUnlocked(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('تولید تصویر بیش از ۹۰ ثانیه طول کشید')),90000))]);
+          const source=$('result');
+          if(!source||!source.src||!source.complete||!source.naturalWidth||source.src===previousImageUrl)throw new Error('تصویر تازه تولید نشد');
+          const frame=new Image();frame.src=source.src;
+          if(typeof frame.decode==='function')await frame.decode();
+          else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+          scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='پس‌زمینه '+scene.name;
+        }catch(imageError){
+          useLocalBackgrounds=true;
+          status.textContent='موتور تصویر پاسخ نداد؛ ادامهٔ قسمت با پس‌زمینه‌های داخلی رایگان انجام می‌شود.';
+        }
+      }
+      if(useLocalBackgrounds){
+        scene.backgroundImage=await makeLocalEpisodeBackground(scene,index);
+        scene.backgroundUrl='';scene.backgroundName='پس‌زمینه داخلی '+scene.name;
+      }
       renderMotionSceneList();renderMotionPreview();
     }
     $('motionDuration').value='60';activeMotionScene=0;
@@ -2670,10 +2699,11 @@ $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
 let freeEngineManagerCheckedAt=0;
 let freeEngineManagerState={text:false,image:false,canvas:false,voicePreview:false};
 async function refreshFreeEngineManager(status){
-  if(status)status.textContent='مدیر هوشمند در حال بررسی هم‌زمان موتورهای رایگان متن، تصویر و رندر است...';
+  if(status)status.textContent='مدیر هوشمند در حال بررسی موتورهای رایگان است؛ حداکثر ۱۲ ثانیه...';
+  const bounded=(promise,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' بیش از ۱۲ ثانیه طول کشید')),12000))]);
   const [textResult,imageResult]=await Promise.allSettled([
-    apiFetch('/status/models?type=text'),
-    apiFetch('/status/models?type=image')
+    bounded(apiFetch('/status/models?type=text'),'بررسی موتور متن'),
+    bounded(apiFetch('/status/models?type=image'),'بررسی موتور تصویر')
   ]);
   const active=list=>Array.isArray(list)?list.filter(model=>model&&model.name&&Number(model.count||model.worker_count||0)>0).sort((a,b)=>modelScore(a)-modelScore(b)):[];
   const textModels=textResult.status==='fulfilled'?active(textResult.value):[];
@@ -2693,7 +2723,7 @@ async function refreshFreeEngineManager(status){
   labels.push(freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود');
   labels.push(freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست');
   if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ');
-  if(!freeEngineManagerState.image)throw new Error('هیچ پردازشگر رایگان تصویر در AI Horde فعال نیست؛ مدیر هوشمند امکان ساخت پس‌زمینه‌ها را ندارد.');
+  if(!freeEngineManagerState.image&&status)status.textContent+=' · پس‌زمینه‌های داخلی جایگزین می‌شوند';
   if(!freeEngineManagerState.canvas)throw new Error('این مرورگر از ضبط ویدیوی Canvas با MediaRecorder پشتیبانی نمی‌کند.');
   return {...freeEngineManagerState};
 }
