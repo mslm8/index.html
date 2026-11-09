@@ -2986,6 +2986,30 @@ async function generateCloudflareBackground(prompt,status){
   return imageUrl;
 }
 
+async function generateCloudflareReferenceBackground(prompt,status,referenceImage){
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw Object.assign(new Error('اتصال Supabase برای موتور تصویر مرجع در دسترس نیست.'),{code:'SUPABASE_CLIENT_MISSING'});
+  if(typeof referenceImage!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(referenceImage)||referenceImage.length>1800000)throw Object.assign(new Error('تصویر مرجع معتبر نیست یا بیش از اندازه بزرگ است.'),{code:'INVALID_REFERENCE_IMAGE'});
+  status.textContent='در حال بازسازی با تصویر مرجع توسط Cloudflare FLUX.2 Klein 4B...';
+  const response=await client.functions.invoke('fal-gateway',{body:{action:'cloudflare-reference-background',prompt:String(prompt||'').slice(0,2048),reference_image:referenceImage}});
+  if(response.error){
+    const context=response.error.context||{};
+    const httpStatus=Number(context.status||response.error.status||0);
+    const detail=typeof context.body==='string'?context.body:response.error.message||'درخواست تصویر مرجع ناموفق بود.';
+    const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':
+      httpStatus===429?'CLOUDFLARE_RATE_LIMIT':
+      httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':
+      httpStatus>=500?'CLOUDFLARE_UPSTREAM':
+      /failed to fetch|network/i.test(detail)?'NETWORK_ERROR':'CLOUDFLARE_REFERENCE_REQUEST';
+    const error=new Error('خطای '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,260));
+    error.code=code;error.status=httpStatus;error.retryable=['CLOUDFLARE_RATE_LIMIT','CLOUDFLARE_TIMEOUT','CLOUDFLARE_UPSTREAM','NETWORK_ERROR'].includes(code);
+    throw error;
+  }
+  const imageUrl=response.data?.image_data_url;
+  if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl)||imageUrl.length<1000)throw Object.assign(new Error('مدل مرجع تصویر معتبر برنگرداند.'),{code:'INVALID_REFERENCE_OUTPUT'});
+  return imageUrl;
+}
+
 function storyFingerprint(value){
   const normalized=String(value||'').normalize('NFKC').replace(/\s+/gu,' ').trim();
   let hash=2166136261;
