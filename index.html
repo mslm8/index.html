@@ -2458,9 +2458,14 @@ $('cancel').addEventListener('click', cancelRequest);
         errorBox.textContent = 'هنوز وارد نشده‌ای. اگر پس از انتخاب حساب گوگل دوباره به این صفحه برگشتی، ورود را در Chrome و در همان تب انجام بده.';
       }
     } catch (error) {
-      document.body.classList.remove('authenticated');
-      gate.hidden = false;
-      errorBox.textContent = 'بررسی ورود ناموفق بود: ' + (error.message || String(error));
+      const message = 'بررسی وضعیت ورود موقتاً ناموفق بود: ' + (error.message || String(error));
+      if (document.body.classList.contains('authenticated')) {
+        if (accountMessage) accountMessage.textContent = message;
+        else errorBox.textContent = message;
+      } else {
+        gate.hidden = false;
+        errorBox.textContent = message;
+      }
     }
   }
 
