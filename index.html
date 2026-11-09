@@ -3049,16 +3049,15 @@ async function autoBuildEpisodeFromStory(){
         }
       }
       if(!generatedUrl){
-        const fallbackSvg='<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900"><defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#202b55"/><stop offset=".58" stop-color="#526c88"/><stop offset="1" stop-color="#e3a77e"/></linearGradient><linearGradient id="ground" x2="0" y2="1"><stop stop-color="#39435d"/><stop offset="1" stop-color="#172238"/></linearGradient></defs><rect width="1600" height="900" fill="url(#sky)"/><circle cx="1260" cy="190" r="88" fill="#ffd9a0" opacity=".8"/><path d="M0 560 L150 430 290 520 430 370 600 550 760 420 930 560 1100 390 1270 540 1440 420 1600 540 V900 H0Z" fill="#33445f" opacity=".85"/><path d="M0 660 L180 610 310 640 470 590 650 660 830 610 1010 660 1210 590 1400 650 1600 600 V900 H0Z" fill="url(#ground)"/><g fill="#202b40"><path d="M130 900V590h170v310zM360 900V510h210v390zM650 900V620h180v280zM940 900V490h220v410zM1240 900V570h210v330z"/></g><g fill="#f8d89a" opacity=".62"><path d="M160 630h24v38h-24zM220 630h24v38h-24zM400 560h28v38h-28zM475 560h28v38h-28zM990 545h28v38h-28zM1060 545h28v38h-28zM1300 620h28v38h-28zM1370 620h28v38h-28z"/></g><path d="M0 790 Q400 735 800 790 T1600 790 V900H0Z" fill="#121c30" opacity=".62"/></svg>';
-        generatedUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(fallbackSvg);
-        const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,160):'پردازشگر رایگان در دسترس نبود';
-        liveBuildLog('تصویر صحنه '+(index+1)+' پس از دو تلاش مجدد آماده نشد؛ پس‌زمینه جایگزین ساخته شد و کل پروژه ادامه پیدا می‌کند. علت: '+reason);
+        const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر رایگان در دسترس نبود';
         try{
           const queueKey='aiAnimatorSceneRetryQueueV1';
           const queue=JSON.parse(localStorage.getItem(queueKey)||'[]');
           queue.push({sceneIndex:index,sceneName:scene.name,prompt:scenePrompt,createdAt:Date.now(),attempts:0});
           localStorage.setItem(queueKey,JSON.stringify(queue.slice(-30)));
         }catch(_){}
+        liveBuildLog('ساخت متوقف شد: تصویر واقعی صحنه '+(index+1)+' تولید نشد؛ از پس‌زمینهٔ ساختگی استفاده نمی‌شود. علت: '+reason);
+        throw new Error('تصویر واقعی صحنه '+(index+1)+' تولید نشد. درخواست در صف تلاش مجدد ذخیره شد؛ پس از در دسترس قرار گرفتن موتور تصویر، دوباره ساخت را اجرا کن. علت: '+reason);
       }
       const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
       if(typeof frame.decode==='function')await frame.decode();
