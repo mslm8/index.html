@@ -44,7 +44,10 @@ jobs:
             new vm.Script(source, { filename: 'index.html:inline-script-' + (++checked) });
           }
           if (!checked) throw new Error('No inline JavaScript was validated.');
-          console.log('Validated ' + checked + ' inline scripts and ' + ids.length + ' unique HTML IDs.');
+          const workflowFiles = fs.readdirSync('.github/workflows').filter(name => name.endsWith('.yml') || name.endsWith('.yaml'));
+          const deployerCount = workflowFiles.reduce((total, name) => total + ((fs.readFileSync('.github/workflows/' + name, 'utf8').match(/^\\s*uses:\\s*actions\\/deploy-pages@/gm) || []).length), 0);
+          if (deployerCount !== 1) throw new Error('Expected exactly one Pages deployment action, found ' + deployerCount + '.');
+          console.log('Validated ' + checked + ' inline scripts, ' + ids.length + ' unique HTML IDs, and one Pages deployer.');
           NODE
       - name: Check Cloudflare Worker JavaScript
         run: node --input-type=module --check < worker.js
@@ -54,11 +57,6 @@ jobs:
           deno-version: v2.x
       - name: Type-check Supabase Edge Function
         run: deno check supabase/functions/fal-gateway/index.ts
-      - name: Ensure a single GitHub Pages deployer
-        run: |
-          count=$(grep -R --include='*.yml' "uses: actions/deploy-pages@" .github/workflows | wc -l)
-          test "$count" -eq 1
-
   deploy:
     needs: validate
     environment:
