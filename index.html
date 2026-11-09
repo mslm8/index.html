@@ -722,6 +722,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     </div>
     <small>حرکت‌های «تاب خوردن بدن»، «قدم زدن درجا» و «تپش نرم» به لایه اضافه شده‌اند. این حرکت‌ها کل تصویر لایه را متحرک می‌کنند و هنوز ریگ‌بندی جداگانه دست‌وپا و صورت نیستند.</small>
 <small>هر قسمت می‌تواند تا ۶۰ ثانیه باشد. زمان انتخاب‌شده در پیش‌نمایش و خروجی WebM اعمال می‌شود؛ ساخت صحنه‌های داستانی متعدد و دیالوگ هنوز در مراحل توسعه است.</small>
+    <small>برای حرکت اعضای بدن، هر عضو را به‌صورت تصویر PNG شفاف جداگانه وارد کن. محور چرخش هر لایه را روی محل اتصال عضو تنظیم کن؛ مثلاً محور بازو را نزدیک شانه قرار بده. این ابزار ریگ خودکار نیست و جداسازی اعضا باید در تصویر انجام شده باشد.</small>
     <small>برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.</small>
   </section>
   <button id="animate" class="primary" type="button" disabled>ساخت انیمیشن چندلایه</button>
@@ -2628,9 +2629,11 @@ function renderMotionPreview() {
     if(layer.motion==='walk'){y-=Math.abs(Math.sin(p*Math.PI*6))*10;angle+=Math.sin(p*Math.PI*6)*.055;}
     if(layer.motion==='pulse')dynamicScale=1+Math.sin(p*Math.PI*4)*.055;
     if(layer.motion==='fade')alpha=Math.sin(p*Math.PI);
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
-    ctx.drawImage(layer.image,-w*dynamicScale/2,-h*dynamicScale/2,w*dynamicScale,h*dynamicScale);
-    if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2,-h/2,w,h);}
+    const pivotX=(Math.max(0,Math.min(100,Number(layer.pivotX??50))/100)-.5)*w*dynamicScale;
+    const pivotY=(Math.max(0,Math.min(100,Number(layer.pivotY??50))/100)-.5)*h*dynamicScale;
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.translate(pivotX,pivotY);ctx.rotate(angle);
+    ctx.drawImage(layer.image,-w*dynamicScale/2-pivotX,-h*dynamicScale/2-pivotY,w*dynamicScale,h*dynamicScale);
+    if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2-pivotX,-h/2-pivotY,w,h);}
     ctx.restore();
   });
   drawMotionDialogues(ctx,motionScenes[activeMotionScene]?.dialogues,progress);
@@ -2686,12 +2689,12 @@ function renderMotionLayerList() {
     const segment=document.createElement('div');segment.className='motion-timeline-segment';segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
     track.appendChild(segment);
     const transform=document.createElement('div');transform.className='motion-transform-controls';
-    [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°']].forEach(([key,label,min,max,unit])=>{
-      if(typeof layer[key]!=='number')layer[key]=key==='scale'?1:0;
+    [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°'],['pivotX','محور چرخش افقی',0,100,'%'],['pivotY','محور چرخش عمودی',0,100,'%']].forEach(([key,label,min,max,unit])=>{
+      if(typeof layer[key]!=='number')layer[key]=key==='scale'?1:(key==='pivotX'||key==='pivotY'?50:0);
       const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
       const caption=document.createElement('span');caption.textContent=label;
       const line=document.createElement('div');line.className='motion-range-line';
-      const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=1;input.value=key==='scale'?Math.round(layer.scale*100):layer.rotation;
+      const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=1;input.value=key==='scale'?Math.round(layer.scale*100):layer[key];
       const value=document.createElement('output');value.textContent=input.value+unit;
       input.addEventListener('click',event=>event.stopPropagation());
       input.addEventListener('input',event=>{event.stopPropagation();layer[key]=key==='scale'?Number(input.value)/100:Number(input.value);value.textContent=input.value+unit;renderMotionPreview();});
@@ -2854,7 +2857,9 @@ function createMotionClip() {
       if(layer.motion==='walk'){y-=Math.abs(Math.sin(localProgress*Math.PI*6))*10;angle+=Math.sin(localProgress*Math.PI*6)*.055;}
       if(layer.motion==='pulse')dynamicScale=1+Math.sin(localProgress*Math.PI*4)*.055;
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2,-height*dynamicScale/2,width*dynamicScale,height*dynamicScale);ctx.restore();
+      const pivotX=(Math.max(0,Math.min(100,Number(layer.pivotX??50))/100)-.5)*width*dynamicScale;
+      const pivotY=(Math.max(0,Math.min(100,Number(layer.pivotY??50))/100)-.5)*height*dynamicScale;
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.translate(pivotX,pivotY);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2-pivotX,-height*dynamicScale/2-pivotY,width*dynamicScale,height*dynamicScale);ctx.restore();
     });
     drawMotionDialogues(ctx,scene.dialogues,sceneProgress);
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
