@@ -73,6 +73,31 @@ jobs:
           cat "$LOG"
           set -e
 
+      - name: Execute a ToonzScript and save a real scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="$RUNNER_TEMP/tahoma2d-smoke.js"
+          OUTPUT="$RUNNER_TEMP/tahoma2d-smoke.tnz"
+          LOG="$RUNNER_TEMP/tahoma2d-script.log"
+          cat > "$SCRIPT" <<EOF
+          var scene = new Scene();
+          scene.save("$OUTPUT");
+          print("TAHOMA_SCENE_SAVE_OK");
+          EOF
+          set +e
+          timeout --signal=TERM 35s xvfb-run -a "$TAHOMA_APPDIR/AppRun" "$SCRIPT" > "$LOG" 2>&1
+          code=$?
+          set -e
+          cat "$LOG"
+          if [ ! -s "$OUTPUT" ]; then
+            echo "ToonzScript did not create a non-empty .tnz scene."
+            exit 1
+          fi
+          echo "Verified scene file: $OUTPUT ($(stat -c%s "$OUTPUT") bytes)"
+          echo "Tahoma2D script runner exit code: $code"
+          echo "TAHOMA_SCRIPT_TEST=passed" >> "$GITHUB_ENV"
+
       - name: Verify Tahoma2D can start in a virtual display
         shell: bash
         run: |
@@ -99,5 +124,7 @@ jobs:
           path: |
             ${{ runner.temp }}/tahoma2d-startup.log
             ${{ runner.temp }}/tahoma2d-cli-probe.log
+            ${{ runner.temp }}/tahoma2d-script.log
+            ${{ runner.temp }}/tahoma2d-smoke.tnz
           if-no-files-found: ignore
           retention-days: 3
