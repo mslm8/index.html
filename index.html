@@ -1345,7 +1345,7 @@ async function generateImageUnlocked() {
     savePendingRequest(submitted.id);
     $('cancel').disabled = false;
     setStatus('درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.');
-    await pollRequest(submitted.id);
+    await pollRequest(submitted.id, lastGenerationSettings ? {...lastGenerationSettings} : null);
   } catch (error) {
     preservePendingRequestOnError = !!error.recoverableRequest;
     setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
@@ -1359,7 +1359,7 @@ async function generateImageUnlocked() {
   }
 }
 
-async function pollRequest(id) {
+async function pollRequest(id, historySettings = null) {
   polling = true;
   const started = Date.now();
   let consecutiveCheckErrors = 0;
@@ -1391,7 +1391,7 @@ async function pollRequest(id) {
       if (generation.img === 'CENSORED' || (typeof generation.img === 'string' && generation.img.trim().toUpperCase() === 'CENSORED')) {
         throw new Error('فیلتر ایمنی سرویس تصویر را مسدود کرد. این تشخیص ممکن است اشتباه باشد؛ متن درخواست را ساده‌تر و کاملاً غیرحساس بنویس و دوباره امتحان کن.');
       }
-      displayImage(generation.img, generation.seed, generation.model, lastGenerationSettings ? {...lastGenerationSettings} : null);
+      displayImage(generation.img, generation.seed, generation.model, historySettings);
       return;
     }
     const position = Number(check.queue_position || 0);
