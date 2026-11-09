@@ -695,6 +695,14 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <button id="deleteMotionScene" type="button" class="secondary">حذف صحنه</button>
     </div>
     <small id="motionSceneInfo">هر صحنه لایه‌ها و حرکت‌های مستقل دارد. زمان کل قسمت بین صحنه‌ها تقسیم می‌شود.</small>
+    <section class="motion-dialogue-panel" style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:12px">
+      <h4 style="margin:0 0 8px">دیالوگ صحنه</h4>
+      <label for="motionDialogueText">متن گفت‌وگو</label>
+      <textarea id="motionDialogueText" rows="2" maxlength="180" placeholder="مثلاً: بالاخره پیدات کردم!" style="width:100%;box-sizing:border-box"></textarea>
+      <button id="addMotionDialogue" type="button" class="secondary" style="margin-top:8px">+ افزودن دیالوگ</button>
+      <div id="motionDialogueList" style="display:grid;gap:8px;margin-top:10px"></div>
+      <small>زمان شروع و پایان هر دیالوگ برحسب درصد زمان همین صحنه تنظیم می‌شود. این قابلیت حباب متنی است و هنوز هماهنگ‌سازی حرکت لب (Lip-sync) ندارد.</small>
+    </section>
   </section>
   <label for="motionLayerFiles">افزودن لایه‌های تصویری (حداکثر ۸ لایه)</label>
   <input id="motionLayerFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
@@ -2347,11 +2355,11 @@ const motionLayers = [];
 let selectedMotionLayer = null;
 let motionPreviewFrame = null;
 let motionDragState = null;
-const motionScenes = [{name:'صحنه ۱',layers:[]}];
+const motionScenes = [{name:'صحنه ۱',layers:[],dialogues:[]}];
 let activeMotionScene = 0;
 function saveActiveMotionScene() {
   const scene=motionScenes[activeMotionScene];
-  if(scene){scene.layers=motionLayers.slice();scene.selectedIndex=motionLayers.indexOf(selectedMotionLayer);}
+  if(scene){scene.layers=motionLayers.slice();scene.selectedIndex=motionLayers.indexOf(selectedMotionLayer);if(!Array.isArray(scene.dialogues))scene.dialogues=[];}
 }
 function renderMotionSceneList() {
   const host=$('motionSceneList');if(!host)return;
@@ -2365,7 +2373,8 @@ function renderMotionSceneList() {
   $('addMotionScene').disabled=motionScenes.length>=6;
   $('duplicateMotionScene').disabled=motionScenes.length>=6;
   const total=Number($('motionDuration').value)||60;
-  $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌های مستقل دارد.';
+  $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌ها و دیالوگ مستقل دارد.';
+  renderMotionDialogueEditor();
 }
 function switchMotionScene(index) {
   if(index<0||index>=motionScenes.length||index===activeMotionScene)return;
@@ -2383,7 +2392,7 @@ $('addMotionScene').addEventListener('click',()=>{
 $('duplicateMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
   saveActiveMotionScene();const original=motionScenes[activeMotionScene];
-  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer})),selectedIndex:original.selectedIndex};
+  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer})),dialogues:(original.dialogues||[]).map(item=>({...item})),selectedIndex:original.selectedIndex};
   motionScenes.splice(activeMotionScene+1,0,copy);switchMotionScene(activeMotionScene+1);
 });
 $('deleteMotionScene').addEventListener('click',()=>{
@@ -2392,6 +2401,53 @@ $('deleteMotionScene').addEventListener('click',()=>{
   const scene=motionScenes[activeMotionScene];motionLayers.splice(0,motionLayers.length,...scene.layers);
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
+});
+function drawMotionDialogues(ctx, dialogues, progress) {
+  (dialogues||[]).forEach(item=>{
+    const from=(item.startAt??0)/100,to=(item.endAt??100)/100;
+    if(!item.text||progress<from||progress>to||to<=from)return;
+    const text=String(item.text).slice(0,180),maxWidth=canvasWidthForDialogue(ctx);
+    ctx.save();ctx.font='bold 19px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const words=text.split(/\\s+/),lines=[];let line='';
+    words.forEach(word=>{const test=line?line+' '+word:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test;});
+    if(line)lines.push(line);
+    const shown=lines.slice(0,3),lineHeight=25,padX=18,padY=12;
+    const boxWidth=Math.min(maxWidth+padX*2,Math.max(...shown.map(v=>ctx.measureText(v).width))+padX*2);
+    const boxHeight=shown.length*lineHeight+padY*2,x=ctx.canvas.width/2-boxWidth/2,y=18;
+    ctx.fillStyle='#ffffff';ctx.strokeStyle='#202638';ctx.lineWidth=3;
+    ctx.beginPath();ctx.roundRect(x,y,boxWidth,boxHeight,14);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ctx.canvas.width/2-9,y+boxHeight-1);ctx.lineTo(ctx.canvas.width/2+2,y+boxHeight+12);ctx.lineTo(ctx.canvas.width/2+10,y+boxHeight-1);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#171b2a';shown.forEach((value,index)=>ctx.fillText(value,ctx.canvas.width/2,y+padY+lineHeight*(index+.5)));
+    ctx.restore();
+  });
+}
+function canvasWidthForDialogue(ctx){return ctx.canvas.width*.78;}
+function renderMotionDialogueEditor(){
+  const host=$('motionDialogueList');if(!host)return;
+  host.replaceChildren();
+  const scene=motionScenes[activeMotionScene];if(!scene)return;
+  if(!Array.isArray(scene.dialogues))scene.dialogues=[];
+  scene.dialogues.forEach((item,index)=>{
+    const card=document.createElement('div');card.style.cssText='padding:9px;border:1px solid var(--border);border-radius:9px;display:grid;gap:6px';
+    const input=document.createElement('textarea');input.rows=2;input.maxLength=180;input.value=item.text||'';input.setAttribute('aria-label','متن دیالوگ '+(index+1));
+    input.addEventListener('input',()=>{item.text=input.value;renderMotionPreview();});
+    const timing=document.createElement('div');timing.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+    [['startAt','شروع',0,99],['endAt','پایان',1,100]].forEach(([key,label,min,max])=>{
+      const wrap=document.createElement('label');wrap.textContent=label+' ('+item[key]+'٪)';
+      const range=document.createElement('input');range.type='range';range.min=min;range.max=max;range.value=item[key];range.style.width='100%';
+      range.addEventListener('input',()=>{item[key]=Number(range.value);wrap.firstChild.textContent=label+' ('+range.value+'٪)';if(item.startAt>=item.endAt){if(key==='startAt')item.endAt=Math.min(100,item.startAt+1);else item.startAt=Math.max(0,item.endAt-1);renderMotionDialogueEditor();}renderMotionPreview();});
+      wrap.appendChild(range);timing.appendChild(wrap);
+    });
+    const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف دیالوگ';remove.addEventListener('click',()=>{scene.dialogues.splice(index,1);renderMotionDialogueEditor();renderMotionPreview();});
+    card.append(input,timing,remove);host.appendChild(card);
+  });
+}
+$('addMotionDialogue').addEventListener('click',()=>{
+  const text=$('motionDialogueText').value.trim();if(!text){setStatus('ابتدا متن دیالوگ را وارد کن.','var(--warn)');return;}
+  const scene=motionScenes[activeMotionScene];if(!Array.isArray(scene.dialogues))scene.dialogues=[];
+  if(scene.dialogues.length>=12){setStatus('هر صحنه حداکثر ۱۲ دیالوگ دارد.','var(--warn)');return;}
+  scene.dialogues.push({text:text.slice(0,180),startAt:0,endAt:100});$('motionDialogueText').value='';
+  renderMotionDialogueEditor();renderMotionPreview();
 });
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
@@ -2442,6 +2498,7 @@ function renderMotionPreview() {
     if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2,-h/2,w,h);}
     ctx.restore();
   });
+  drawMotionDialogues(ctx,motionScenes[activeMotionScene]?.dialogues,progress);
   $('motionPlayheadValue').textContent=Math.round(progress*100)+'٪';
 }
 function renderMotionLayerList() {
@@ -2571,7 +2628,7 @@ function createMotionClip() {
   if(!source.src||!source.complete||!source.naturalWidth){setStatus('اول یک تصویر تولید کن.','var(--warn)');return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
   saveActiveMotionScene();
-  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice()}));
+  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item}))}));
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
@@ -2646,6 +2703,7 @@ function createMotionClip() {
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
       ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2,-height*dynamicScale/2,width*dynamicScale,height*dynamicScale);ctx.restore();
     });
+    drawMotionDialogues(ctx,scene.dialogues,sceneProgress);
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
   }
   requestAnimationFrame(draw);
