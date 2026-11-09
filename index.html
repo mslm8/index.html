@@ -1152,7 +1152,7 @@ function buildSemanticRoleConstraints(sourceText) {
     'پسر':'boy', 'دختر':'girl'
   };
   const terms = Object.keys(subjects).sort((a,b) => b.length-a.length).join('|');
-  const relation = new RegExp('(?:^|[\\\\s،])(?:یک\\\\s*|یه\\\\s*)?(' + terms + ')[^،؛.!؟]{0,35}?سوار\\\\s*(?:بر\\\\s*)?(?:یک\\\\s*|یه\\\\s*)?(' + terms + ')');
+  const relation = new RegExp(String.raw`(?:^|[\s،])(?:یک\s*|یه\s*)?(${terms})[^،؛.!؟]{0,35}?سوار\s*(?:بر\s*)?(?:یک\s*|یه\s*)?(${terms})`);
   const match = source.match(relation);
   if (!match) return {prompt:'', negative:''};
   const rider = subjects[match[1]];
