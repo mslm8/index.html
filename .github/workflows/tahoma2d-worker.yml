@@ -142,17 +142,18 @@ jobs:
           import os
           out = os.environ["RUNNER_TEMP"] + "/tahoma2d-animation-input"
           os.makedirs(out, exist_ok=True)
-          w, h = 640, 360
+          # Match Tahoma2D default 1920x1080 camera canvas so frames fill the render.
+          w, h = 1920, 1080
           for frame in range(1, 25):
               im = Image.new("RGB", (w, h), (22, 31, 50))
               d = ImageDraw.Draw(im)
-              d.rectangle((0, 292, w, h), fill=(37, 54, 64))
-              x = 70 + int((frame - 1) * 500 / 23)
-              y = 205 - int(42 * abs(((frame - 1) % 12) - 6) / 6)
-              d.ellipse((x-42, y-42, x+42, y+42), fill=(245, 164, 66), outline=(255, 225, 180), width=5)
-              d.ellipse((x-17, y-12, x-5, y+3), fill=(30, 35, 48))
-              d.ellipse((x+7, y-12, x+19, y+3), fill=(30, 35, 48))
-              d.arc((x-16, y+2, x+16, y+25), start=10, end=170, fill=(30, 35, 48), width=3)
+              d.rectangle((0, 876, w, h), fill=(37, 54, 64))
+              x = 210 + int((frame - 1) * 1500 / 23)
+              y = 615 - int(126 * abs(((frame - 1) % 12) - 6) / 6)
+              d.ellipse((x-126, y-126, x+126, y+126), fill=(245, 164, 66), outline=(255, 225, 180), width=15)
+              d.ellipse((x-51, y-36, x-15, y+9), fill=(30, 35, 48))
+              d.ellipse((x+21, y-36, x+57, y+9), fill=(30, 35, 48))
+              d.arc((x-48, y+6, x+48, y+75), start=10, end=170, fill=(30, 35, 48), width=9)
               im.save(os.path.join(out, "frame.%04d.png" % frame))
           print("Generated 24 numbered PNG frames:", out)
           PY
