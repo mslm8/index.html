@@ -3541,13 +3541,13 @@ function createMotionClip() {
   const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item})),backgroundImage:scene.backgroundImage||null,cameraMotion:scene.cameraMotion||$('motion').value}));
   // Automatic story episodes can use locally rendered scene backgrounds without any generated source image.
   const sourceImage=source&&source.complete&&source.naturalWidth?source:exportScenes.find(scene=>scene.backgroundImage&&scene.backgroundImage.naturalWidth)?.backgroundImage;
-  if(!sourceImage){setStatus('پس‌زمینه یا تصویر صحنه برای ساخت ویدیو آماده نیست؛ دوباره ساخت ویدیو را اجرا کن.','var(--warn)');return;}
-  if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
+  if(!sourceImage){const message='پس‌زمینه یا تصویر صحنه برای ساخت ویدیو آماده نیست؛ دوباره ساخت ویدیو را اجرا کن.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
+  if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){const message='ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
   const ctx=canvas.getContext('2d');
-  if(!ctx){button.disabled=false;setStatus('ساخت صحنه ناموفق بود.','var(--bad)');return;}
+  if(!ctx){button.disabled=false;const message='ساخت صحنه ناموفق بود؛ بوم گرافیکی در دسترس نیست.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
   const stream=canvas.captureStream(24);
   let audioContext=null,audioDestination=null;
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
@@ -3565,13 +3565,16 @@ function createMotionClip() {
   try{recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);}
   catch(error){stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: '+error.message,'var(--warn)');return;}
   const chunks=[];
+  let renderFailure=null,renderWatchdog=null;
   recorder.ondataavailable=event=>{if(event.data&&event.data.size)chunks.push(event.data);};
-  recorder.onerror=()=>{stream.getTracks().forEach(track=>track.stop());if(audioContext)audioContext.close().catch(()=>{});button.disabled=false;setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد؛ منابع صوتی و تصویری آزاد شدند.','var(--bad)');};
+  recorder.onerror=event=>{renderFailure=event&&event.error?event.error.message:'خطای MediaRecorder';if(renderWatchdog)clearTimeout(renderWatchdog);stream.getTracks().forEach(track=>track.stop());if(audioContext)audioContext.close().catch(()=>{});button.disabled=false;setStatus('هنگام ضبط ویدیو خطا رخ داد: '+renderFailure,'var(--bad)');liveBuildFinish(false,'خطای ضبط: '+renderFailure);};
   recorder.onstop=()=>{
+    if(renderWatchdog)clearTimeout(renderWatchdog);
     stream.getTracks().forEach(track=>track.stop());
     if(audioContext)audioContext.close().catch(()=>{});
     const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
-    if(!blob.size){button.disabled=false;setStatus('فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.','var(--bad)');return;}
+    if(renderFailure){button.disabled=false;setStatus('رندر متوقف شد: '+renderFailure,'var(--bad)');liveBuildFinish(false,'رندر متوقف شد: '+renderFailure);return;}
+    if(!blob.size){button.disabled=false;const message='فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
     liveBuildUpdate(5,'فریم‌ها ضبط شدند؛ فایل WebM در حال آماده‌سازی است.',98);
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
     $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
@@ -3585,8 +3588,10 @@ function createMotionClip() {
   const baseFit=Math.min((canvas.width*.62)/sourceImage.naturalWidth,(canvas.height*.62)/sourceImage.naturalHeight);
   let start=0;
   function beginRecording(){
+    if(recorder.state!=='inactive')return;
     start=performance.now();
     recorder.start(200);
+    renderWatchdog=setTimeout(()=>{if(recorder.state==='recording'){renderFailure='زمان‌بندی رندر از حد مجاز گذشت؛ ضبط برای جلوگیری از انتظار بی‌پایان متوقف شد.';try{recorder.stop();}catch(_){button.disabled=false;liveBuildFinish(false,renderFailure);}}},totalDuration+20000);
     if(audioContext){
       const audioStart=audioContext.currentTime+0.04;
       dialogueAudio.forEach(clip=>{try{clip.node.start(audioStart+clip.when);}catch(_){}});
@@ -3612,6 +3617,8 @@ function createMotionClip() {
     ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(image,-w/2,-h/2,w,h);ctx.restore();
   }
   function draw(now){
+    if(recorder.state!=='recording')return;
+    try{
     const elapsed=Math.min(totalDuration,now-start);
     const sceneIndex=Math.min(exportScenes.length-1,Math.floor(elapsed/sceneDuration));
     const sceneProgress=Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration));
@@ -3644,6 +3651,11 @@ function createMotionClip() {
     });
     drawMotionDialogues(ctx,scene.dialogues,sceneProgress);
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
+    }catch(error){
+      renderFailure=error&&error.message?error.message:String(error);
+      liveBuildLog('خطای رندر فریم: '+renderFailure);
+      try{if(recorder.state==='recording')recorder.stop();else{button.disabled=false;liveBuildFinish(false,'خطای رندر: '+renderFailure);}}catch(_){button.disabled=false;liveBuildFinish(false,'خطای رندر: '+renderFailure);}
+    }
   }
 }
 $('loadLocalImage').addEventListener('click', importLocalImage);
