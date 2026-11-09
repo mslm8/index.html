@@ -3596,8 +3596,11 @@ function createMotionClip() {
     $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
     setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است.');liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد.');
   };
-  const totalDuration=Number($('motionDuration').value)*1000;
-  const sceneDuration=totalDuration/exportScenes.length;
+  const requestedDuration=Number($('motionDuration').value);
+  const totalDuration=Number.isFinite(requestedDuration)&&requestedDuration>0?Math.max(1000,requestedDuration*1000):60000;
+  const safeExportScenes=exportScenes.length?exportScenes:[{layers:[],dialogues:[],backgroundImage:sourceImage,cameraMotion:$('motion').value}];
+  const sceneDuration=totalDuration/safeExportScenes.length;
+  const fallbackExportScene={layers:[],dialogues:[],backgroundImage:sourceImage,cameraMotion:$('motion').value};
   const baseMotion=$('motion').value;
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
   const cameraScale=Math.max(canvas.width/sourceImage.naturalWidth,canvas.height/sourceImage.naturalHeight);
@@ -3635,11 +3638,12 @@ function createMotionClip() {
   function draw(now){
     if(recorder.state!=='recording')return;
     try{
-    const elapsed=Math.min(totalDuration,now-start);
-    const sceneIndex=Math.min(exportScenes.length-1,Math.floor(elapsed/sceneDuration));
-    const sceneProgress=Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration));
-    const scene=exportScenes[sceneIndex];
-    if(draw._lastScene!==sceneIndex){draw._lastScene=sceneIndex;liveBuildUpdate(4,'در حال رندر صحنه '+(sceneIndex+1)+' از '+exportScenes.length+'.',76+(elapsed/totalDuration)*20);}
+    const elapsed=Math.max(0,Math.min(totalDuration,Number.isFinite(now-start)?now-start:0));
+    const rawSceneIndex=Number.isFinite(sceneDuration)&&sceneDuration>0?Math.floor(elapsed/sceneDuration):0;
+    const sceneIndex=Math.max(0,Math.min(safeExportScenes.length-1,Number.isFinite(rawSceneIndex)?rawSceneIndex:0));
+    const sceneProgress=Number.isFinite(sceneDuration)&&sceneDuration>0?Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration)):0;
+    const scene=safeExportScenes[sceneIndex]||fallbackExportScene;
+    if(draw._lastScene!==sceneIndex){draw._lastScene=sceneIndex;liveBuildUpdate(4,'در حال رندر صحنه '+(sceneIndex+1)+' از '+safeExportScenes.length+'.',76+(elapsed/totalDuration)*20);}
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
     const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:sourceImage;
     if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
