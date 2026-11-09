@@ -2638,8 +2638,9 @@ async function autoBuildEpisodeFromStory(){
       paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
       plans=groups.map((parts,index)=>{const visual=parts.join(' ');const direction=inferSceneDirection({storyText:visual,dialogues:[]},index);return {visual,dialogues:[],action:direction.action,emotion:direction.emotion,gesture:direction.gesture,camera:direction.camera};});
     }
+    const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
     const nextScenes=plans.map((plan,index)=>({
-      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>({text:String(item.text).slice(0,180),speaker:String(item.speaker||'شخصیت اصلی').slice(0,40),speakerId:'auto-main-character',startAt:0,endAt:100,voiceName:''})),
+      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>{const speaker=String(item.speaker||'شخصیت اصلی').slice(0,40);return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};}),
       backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),autoDirection:{action:plan.action||'idle',emotion:plan.emotion||'none',gesture:plan.gesture||'neutral',camera:plan.camera||'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
@@ -2651,17 +2652,40 @@ async function autoBuildEpisodeFromStory(){
     for(let wait=0;wait<60&&motionLayers.length<6;wait++)await new Promise(resolve=>setTimeout(resolve,100));
     const characterBase=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
     if(characterBase.length<6)throw new Error('شخصیت کارتونی کامل ساخته نشد؛ لطفاً دوباره تلاش کن.');
-    const head=characterBase.find(layer=>layer.rigRole==='head');
-    if(head){head.characterName='شخصیت اصلی';head.characterId='auto-main-character';}
+    const speakerNames=Array.from(new Set(nextScenes.flatMap(scene=>scene.dialogues.map(item=>item.speaker||'شخصیت اصلی')))).slice(0,3);
+    if(!speakerNames.length)speakerNames.push('شخصیت اصلی');
+    const rigs=[];
+    for(let speakerIndex=0;speakerIndex<speakerNames.length;speakerIndex++){
+      const speakerName=speakerNames[speakerIndex],speakerId=speakerIdFor(speakerName),position=speakerNames.length===1?50:(speakerIndex===0?34:speakerIndex===1?66:50);
+      const rigId='auto-rig-'+speakerIndex+'-'+Date.now().toString(36);
+      const rig=[];
+      for(const original of characterBase){
+        const layer={...original,motionKeys:Array.isArray(original.motionKeys)?original.motionKeys.map(key=>({...key})):undefined};
+        const oldRigId=original.rigId;
+        if(oldRigId)layer.rigId=rigId+'-'+String(original.rigRole||original.name||'part').replace(/[^a-z0-9-]/gi,'-');
+        if(original.parentLayerId)layer.parentLayerId=rigId+'-body';
+        layer.startX=position;layer.endX=position;
+        layer.name=speakerName+' · '+(original.name||'بخش شخصیت');
+        layer.characterName=speakerName;
+        if(layer.rigRole==='head'){layer.characterId=speakerId;layer.mouthMode='smile';}
+        if(speakerIndex>0&&layer.image&&layer.image.naturalWidth){
+          const tint=document.createElement('canvas');tint.width=layer.image.naturalWidth;tint.height=layer.image.naturalHeight;
+          const tintContext=tint.getContext('2d');
+          if(tintContext){tintContext.filter='hue-rotate('+(speakerIndex*112)+'deg) saturate(1.12)';tintContext.drawImage(layer.image,0,0);const variant=new Image();variant.src=tint.toDataURL('image/png');await variant.decode();layer.image=variant;layer.url='';}
+        }
+        rig.push(layer);
+      }
+      rigs.push({speakerName,speakerId,layers:rig});
+    }
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index],plan=scene.autoDirection;
-      scene.layers=characterBase.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+      scene.layers=rigs.flatMap(rig=>rig.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})));
       scene.layers.forEach(layer=>{
         if(layer.rigRole==='body'||String(layer.rigId||'').endsWith('-body'))layer.motion=plan.action;
-        if(layer.rigRole==='head'){layer.faceExpression=plan.emotion;if(scene.dialogues.length)layer.mouthMode='talk';}
+        if(layer.rigRole==='head'){layer.faceExpression=plan.emotion;if(scene.dialogues.some(dialogue=>dialogue.speakerId===layer.characterId))layer.mouthMode='talk';}
         if(layer.rigRole&&layer.rigRole.startsWith('arm-')&&plan.gesture!=='neutral'){
           const sign=layer.rigRole.endsWith('left')?-1:1,swing=sign*(plan.gesture==='wave'?42:24);
-          layer.motionKeys=[{at:0,x:50,y:60,rotation:0},{at:35,x:50,y:60,rotation:swing},{at:65,x:50,y:60,rotation:-swing*.5},{at:100,x:50,y:60,rotation:0}];
+          layer.motionKeys=[{at:0,x:layer.startX,y:60,rotation:0},{at:35,x:layer.startX,y:60,rotation:swing},{at:65,x:layer.startX,y:60,rotation:-swing*.5},{at:100,x:layer.startX,y:60,rotation:0}];
         }
       });
       scene.cameraMotion=plan.camera;
@@ -2887,7 +2911,7 @@ function renderMotionCharacters(){
     const addLayer=document.createElement('button');addLayer.type='button';addLayer.className='secondary';addLayer.textContent='افزودن به صحنه فعلی';addLayer.disabled=!character.imageBlob;
     addLayer.addEventListener('click',async()=>{
       if(!character.imageBlob)return;
-      if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه این صحنه پر است.','var(--warn)');return;}
+      if(motionLayers.length>=48){setStatus('ظرفیت ۴۸ لایه این صحنه پر است.','var(--warn)');return;}
       try{
         const url=URL.createObjectURL(character.imageBlob),image=new Image();image.src=url;await image.decode();
         const layer={image,url,name:character.name+(character.imageName?' · '+character.imageName:''),motion:'still',startAt:0,endAt:100,startX:50,startY:50,endX:50,endY:50};
@@ -3435,7 +3459,7 @@ function makeLocalSvgImage(svg,name){
 }
 $('createProceduralCharacter').addEventListener('click',async()=>{
   const button=$('createProceduralCharacter');
-  if(motionLayers.length+6>8){setStatus('برای ساخت شخصیت کامل باید دست‌کم ۶ جای خالی در لایه‌های صحنه داشته باشی. ابتدا چند لایه را حذف کن.','var(--warn)');return;}
+  if(motionLayers.length+6>48){setStatus('ظرفیت ۴۸ لایه این صحنه پر است. ابتدا چند لایه را حذف کن.','var(--warn)');return;}
   button.disabled=true;
   try{
     const id='local-rig-'+Date.now().toString(36);
@@ -3473,7 +3497,7 @@ $('motionLayerFiles').addEventListener('change', async event => {
   const files = Array.from(event.target.files || []);
   for (const file of files) {
     if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 12 * 1024 * 1024) continue;
-    if (motionLayers.length >= 8) break;
+    if (motionLayers.length >= 48) break;
     const url = URL.createObjectURL(file);
     try {
       const image = new Image();
