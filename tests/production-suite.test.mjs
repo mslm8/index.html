@@ -56,3 +56,15 @@ test('continuity audit checks missing scene fields and character/location refere
   assert.match(suite, /شناسنامه‌ای برای شخصیت/);
   assert.match(suite, /مکان در کتابخانه مکان‌ها ثبت نشده/);
 });
+
+test('manual rig editor exposes the existing layered rig controls', () => {
+  assert.ok(html.includes('id="rigEditorPanel"'));
+  assert.ok(html.includes('id="toggleRigEditor"'));
+  assert.match(html, /src="\.\/rig-editor\.js" defer/);
+  const rig = readFileSync(new URL('../rig-editor.js', import.meta.url), 'utf8');
+  for (const token of ["motionLayerFiles", "motionLayerList", "motionLivePreview", "animate", "aria-expanded"]) {
+    assert.ok(rig.includes(token), 'Rig editor does not expose: ' + token);
+  }
+  assert.match(html, /اتصال به والد \(ریگ‌بندی اولیه\)/);
+  assert.match(html, /نقطه اتصال افقی روی والد/);
+});
