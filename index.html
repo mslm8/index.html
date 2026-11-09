@@ -377,7 +377,7 @@ body.authenticated .viewPanel select,
 body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 .filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
-</style>
+.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}@media(max-width:420px){.motion-transform-controls{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -2358,14 +2358,15 @@ function renderMotionPreview() {
     if(progress<from||progress>to||to<=from)return;
     const p=Math.max(0,Math.min(1,(progress-from)/(to-from))),e=p*p*(3-2*p);
     const scale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
-    const w=layer.image.naturalWidth*scale,h=layer.image.naturalHeight*scale;
+    const layerScale=Math.max(.4,Math.min(2,Number(layer.scale)||1));
+    const w=layer.image.naturalWidth*scale*layerScale,h=layer.image.naturalHeight*scale*layerScale;
     let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*e)*canvas.width/100;
     let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*e)*canvas.height/100;
-    let angle=0,alpha=1;
+    let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1;
     if(layer.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
-    if(layer.motion==='rotate')angle=p*Math.PI*2;
+    if(layer.motion==='rotate')angle+=(p*Math.PI*2);
     if(layer.motion==='fade')alpha=Math.sin(p*Math.PI);
     ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
     ctx.drawImage(layer.image,-w/2,-h/2,w,h);
@@ -2391,9 +2392,16 @@ function renderMotionLayerList() {
     [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
     select.value=layer.motion;select.addEventListener('click',event=>event.stopPropagation());
     select.addEventListener('change',()=>{layer.motion=select.value;renderMotionPreview();});
+    const actions=document.createElement('div');actions.className='motion-layer-actions';
+    const moveUp=document.createElement('button');moveUp.type='button';moveUp.className='secondary';moveUp.textContent='↑';moveUp.title='انتقال به جلو';moveUp.disabled=index===motionLayers.length-1;
+    moveUp.addEventListener('click',event=>{event.stopPropagation();if(index<motionLayers.length-1){[motionLayers[index],motionLayers[index+1]]=[motionLayers[index+1],motionLayers[index]];renderMotionLayerList();}});
+    const moveDown=document.createElement('button');moveDown.type='button';moveDown.className='secondary';moveDown.textContent='↓';moveDown.title='انتقال به عقب';moveDown.disabled=index===0;
+    moveDown.addEventListener('click',event=>{event.stopPropagation();if(index>0){[motionLayers[index],motionLayers[index-1]]=[motionLayers[index-1],motionLayers[index]];renderMotionLayerList();}});
+    const duplicate=document.createElement('button');duplicate.type='button';duplicate.className='secondary';duplicate.textContent='کپی';
+    duplicate.addEventListener('click',event=>{event.stopPropagation();if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه پر است.','var(--warn)');return;}const copy={...layer,name:layer.name+' (کپی)',url:'',scale:Number(layer.scale)||1,rotation:Number(layer.rotation)||0};motionLayers.splice(index+1,0,copy);selectedMotionLayer=copy;renderMotionLayerList();});
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
-    remove.addEventListener('click',event=>{event.stopPropagation();URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
-    head.append(name,select,remove);
+    remove.addEventListener('click',event=>{event.stopPropagation();if(layer.url)URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
+    actions.append(moveUp,moveDown,duplicate,remove);head.append(name,select,actions);
     const details=document.createElement('details');details.className='motion-keyframes';
     const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
     const controls=document.createElement('div');controls.className='motion-keyframe-grid';
@@ -2415,7 +2423,20 @@ function renderMotionLayerList() {
     });
     const track=document.createElement('div');track.className='motion-timeline-track';
     const segment=document.createElement('div');segment.className='motion-timeline-segment';segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
-    track.appendChild(segment);details.append(controls,track);row.append(head,details);host.appendChild(row);
+    track.appendChild(segment);
+    const transform=document.createElement('div');transform.className='motion-transform-controls';
+    [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°']].forEach(([key,label,min,max,unit])=>{
+      if(typeof layer[key]!=='number')layer[key]=key==='scale'?1:0;
+      const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
+      const caption=document.createElement('span');caption.textContent=label;
+      const line=document.createElement('div');line.className='motion-range-line';
+      const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=1;input.value=key==='scale'?Math.round(layer.scale*100):layer.rotation;
+      const value=document.createElement('output');value.textContent=input.value+unit;
+      input.addEventListener('click',event=>event.stopPropagation());
+      input.addEventListener('input',event=>{event.stopPropagation();layer[key]=key==='scale'?Number(input.value)/100:Number(input.value);value.textContent=input.value+unit;renderMotionPreview();});
+      line.append(input,value);wrap.append(caption,line);transform.append(wrap);
+    });
+    details.append(controls,transform,track);row.append(head,details);host.appendChild(row);
   });
   renderMotionPreview();
 }
