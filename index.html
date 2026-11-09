@@ -388,6 +388,18 @@ body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 .filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
 .motion-scene-background-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}
+/* Exposed manual character rig workspace */
+.rig-editor-panel{margin:16px 0;padding:14px;border:1px solid rgba(114,231,208,.28);border-radius:15px;background:rgba(8,14,29,.42)}
+.rig-editor-panel h3{margin:0 0 8px;font-size:15px}
+.rig-editor-panel p{font-size:12px;line-height:1.8}
+.rig-editor-panel #rigEditorWorkspace{margin-top:12px}
+.rig-editor-tip{padding:9px 11px;border-radius:10px;background:rgba(66,224,193,.07)}
+#rigEditorMount #motionLayerFiles{display:block!important}
+#rigEditorMount #motionLayerList{display:grid!important}
+#rigEditorMount #motionLivePreview{display:block!important}
+#rigEditorMount #animate{display:block!important}
+#rigEditorMount label[for="motionLayerFiles"]{display:block!important}
+#rigEditorMount .motion-preview-panel{margin-top:12px}
 /* Story-only animation workflow */
 #motionCard>.grid,
 #motionCard>.motion-scene-panel:not(#storyToScenesPanel),
@@ -800,6 +812,15 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
     <small>گویندگی دیالوگ‌ها در پیش‌نمایش با صدای داخلی مرورگر انجام می‌شود؛ این صدا فعلاً در فایل ویدیوی خروجی ضبط نمی‌شود.</small>
 <section id="liveProduction" class="live-production" hidden aria-live="polite"><div class="live-head"><span class="live-dot"></span><strong>پشت‌صحنهٔ زندهٔ ساخت انیمیشن</strong><span id="liveElapsed">۰۰:۰۰</span></div><div class="live-visual"><div class="live-orbit"><i></i><i></i><i></i><b>AI</b></div><div class="live-visual-copy"><strong id="liveStageTitle">آماده‌سازی پروژه</strong><small id="liveStageDetail">در حال آماده‌سازی...</small></div></div><div class="live-progress"><div><span>پیشرفت واقعی ساخت</span><strong id="livePercent">۰٪</strong></div><div class="live-track"><i id="liveProgressBar"></i></div></div><ol id="liveSteps" class="live-steps"><li>تحلیل داستان و تقسیم صحنه‌ها</li><li>ساخت شخصیت‌ها و ریگ</li><li>آماده‌سازی پس‌زمینه‌ها</li><li>متحرک‌سازی و زمان‌بندی</li><li>رندر و ضبط ویدیو</li><li>آماده‌سازی فایل نهایی</li></ol><div class="live-log-title">گزارش زندهٔ عملیات</div><div id="liveLog" class="live-log"><p>هنوز ساختی شروع نشده است.</p></div></section>
+    <section id="rigEditorPanel" class="rig-editor-panel">
+      <h3>استودیوی ریگ و حرکت دستی</h3>
+      <p>برای ساخت ریگ، تصویر شفاف هر عضو را جداگانه اضافه کن؛ سپس والد، نقش عضو، نقطه اتصال و زاویه مفصل را تنظیم کن. این ابزار ریگ دستی دوبعدی است و جداسازی خودکار اعضای یک تصویر را انجام نمی‌دهد.</p>
+      <button id="toggleRigEditor" type="button" class="secondary" aria-expanded="false">باز کردن ابزار ریگ شخصیت</button>
+      <div id="rigEditorWorkspace" hidden>
+        <p class="rig-editor-tip">ترتیب پیشنهادی: تنه را اضافه کن، سپس سر، دست چپ و راست و پاها را جداگانه اضافه کن. هر عضو را به تنه یا مفصل والد متصل کن و نقطه اتصال را تنظیم کن.</p>
+        <div id="rigEditorMount"></div>
+      </div>
+    </section>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت ویدیو</button>
     <button id="retrySceneImagesButton" type="button" class="secondary" hidden>بازیابی تصاویر ناموفق</button>
     
@@ -5142,5 +5163,6 @@ $('cancel').addEventListener('click', cancelRequest);
 <script src="./production-rescue.js" defer></script>
 <script src="./manager.js" defer></script>
 <script src="./production-suite.js" defer></script>
+<script src="./rig-editor.js" defer></script>
 </body>
 </html>
