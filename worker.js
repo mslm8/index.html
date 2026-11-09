@@ -1,16 +1,25 @@
+// Prefer current FLUX models, then try additional Cloudflare-hosted image models
+// while they remain available in the Workers AI catalog.
 const MODEL_CANDIDATES = [
-  "@cf/black-forest-labs/flux-2-klein-9b",
   "@cf/black-forest-labs/flux-2-klein-4b",
   "@cf/black-forest-labs/flux-1-schnell",
-  "@cf/black-forest-labs/flux-2-dev"
+  "@cf/black-forest-labs/flux-2-klein-9b",
+  "@cf/black-forest-labs/flux-2-dev",
+  "@cf/bytedance/stable-diffusion-xl-lightning",
+  "@cf/lykon/dreamshaper-8-lcm",
+  "@cf/stabilityai/stable-diffusion-xl-base-1.0"
 ];
 
 function errorText(error) {
   return String(error && error.message ? error.message : error).slice(0, 700);
 }
 
-function isModelAccessError(message) {
-  return /model.{0,40}(not allowed|not available|invalid|unsupported)|not allowed.{0,40}model|does not have access/i.test(message);
+function isModelAccessError(message, error) {
+  const status = Number(error && (error.status || error.statusCode));
+  const code = String(error && (error.code || error.errorCode) || "");
+  return status === 401 || status === 403 ||
+    /^(10013|5035|permission_denied|unauthorized|forbidden)$/i.test(code) ||
+    /model.{0,60}(not allowed|not available|invalid|unsupported|not enabled|not authorized|not permitted)|(?:not allowed|not authorized|not permitted|permission denied|access denied).{0,60}model|does not have access|not enabled for (?:this|your) account|account.{0,50}(?:not authorized|no access)/i.test(message);
 }
 
 async function imagePayload(result) {
@@ -109,7 +118,7 @@ export default {
         failures.push({ model, detail });
         // Only rotate models when access/model compatibility is the issue.
         // Quota, billing, timeout and upstream failures are surfaced immediately.
-        if (!isModelAccessError(detail)) {
+        if (!isModelAccessError(detail, error)) {
           const status = /quota|allocation|billing|payment/i.test(detail) ? 402 :
             /rate.?limit|too many/i.test(detail) ? 429 : 502;
           return Response.json({
@@ -126,7 +135,8 @@ export default {
       error: "No configured Cloudflare image model is allowed for this account.",
       code: "NO_ALLOWED_IMAGE_MODEL",
       attemptedModels: failures.map(item => item.model),
-      details: failures.map(item => item.detail)
+      details: failures.map(item => item.detail),
+      guidance: "Workers AI image inference is not enabled or permitted for this Cloudflare account. Enable Workers AI for the account and confirm that the account has access to at least one listed image model, then retry."
     }, { status: 503, headers: cors });
   }
 };
