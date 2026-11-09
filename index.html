@@ -156,6 +156,8 @@ body.authenticated .viewPanel:not([hidden]){animation:appPageEnter .2s ease-out 
 body.authenticated main>header:not([hidden]){animation:appPageEnter .2s ease-out both}
 body.authenticated main>footer{display:none}
 
+.viewHeading{padding:5px 4px 12px;color:#eef1ff}.viewHeading h1{font-size:22px;margin:2px 0 5px}.viewHeading p{font-size:12px;line-height:1.6;color:var(--muted);margin:0}.viewPanel{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+
 /* Persistent bottom navigation; each tab displays its own full page */
 @media(min-width:0px){
  body.authenticated>main{padding-bottom:76px}
@@ -372,6 +374,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 </section>
 
 <div id="toolsPanel" class="viewPanel" hidden>
+<div class="viewHeading"><h1>ویرایش تصویر</h1><p>ابزارهای برش، اصلاح و ساخت حرکت از تصویر</p></div>
 <section class="card" id="cropCard" hidden>
   <h2>برش و چرخش تصویر</h2>
   <p><small>تصویر را ۹۰ درجه بچرخان یا نسبت برش را انتخاب کن. نسخه اصلی در تاریخچه باقی می‌ماند.</small></p>
@@ -464,6 +467,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 </div>
 
 <div id="projectsPanel" class="viewPanel" hidden>
+<div class="viewHeading"><h1>پروژه‌ها</h1><p>ذخیره، بازیابی و مدیریت تنظیمات پروژه‌ها</p></div>
 <section class="card" id="projectCard">
   <h2>ذخیره و بازیابی پروژه</h2>
   <p><small>تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.</small></p>
@@ -486,6 +490,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 </div>
 
 <div id="historyPanel" class="viewPanel" hidden>
+<div class="viewHeading"><h1>تاریخچه تصاویر</h1><p>تصاویر ساخته‌شده و نسخه‌های ذخیره‌شده در این مرورگر</p></div>
 <section class="card" id="historyCard">
   <div class="row" style="justify-content:space-between">
     <h2>تاریخچه تصاویر</h2>
@@ -499,6 +504,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 
 
 <div id="guidePanel" class="viewPanel" hidden>
+<div class="viewHeading"><h1>راهنما و اطلاعات</h1><p>آشنایی با امکانات و محدودیت‌های برنامه</p></div>
 <section class="card">
   <h2>وضعیت ساخت ویدئو</h2>
   <p>تولید ویدئوی هوش مصنوعی هنوز به این سایت وصل نشده است. سرویس‌های ویدئویی متصل به ChatGPT از داخل صفحه عمومی سایت قابل‌فراخوانی نیستند و موتورهای ابری فعلی هزینه دارند. تا پیدا شدن راه‌حل رایگان و امن، دکمه ویدئو را فعال نمی‌کنم.</p>
