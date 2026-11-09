@@ -68,3 +68,15 @@ test('manual rig editor exposes the existing layered rig controls', () => {
   assert.match(html, /اتصال به والد \(ریگ‌بندی اولیه\)/);
   assert.match(html, /نقطه اتصال افقی روی والد/);
 });
+
+test('rig profiles provide bounded local save, restore, and delete workflows', () => {
+  for (const id of ['rigProfileName', 'rigProfileSelect', 'saveRigProfile', 'loadRigProfile', 'deleteRigProfile', 'rigProfileStatus']) {
+    assert.ok(html.includes('id="' + id + '"'), 'Missing rig profile control: ' + id);
+  }
+  const rig = readFileSync(new URL('../rig-editor.js', import.meta.url), 'utf8');
+  for (const token of ['aiAnimatorRigProfilesV1', 'MAX_PROFILES = 10', 'MAX_TOTAL_BYTES', 'fileToDataUrl', 'safeLayerData', 'renderMotionLayerList', 'URL.revokeObjectURL']) {
+    assert.ok(rig.includes(token), 'Rig profile workflow missing: ' + token);
+  }
+  assert.match(rig, /localStorage\.setItem\(STORAGE_KEY/);
+  assert.match(rig, /image\.decode\(\)/);
+});
