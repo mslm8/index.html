@@ -407,6 +407,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 #downloadVideo{font-size:16px}
 
 #studioNav{display:none!important}
+.live-production{margin:14px 0;padding:15px;border:1px solid rgba(112,139,255,.38);border-radius:16px;background:linear-gradient(145deg,#111a35,#17152d 65%,#102b37);color:#f3f5ff;box-shadow:0 12px 34px rgba(0,0,0,.22)}.live-head{display:flex;align-items:center;gap:9px;font-size:14px}.live-head>strong{flex:1}.live-head>span:last-child{font-variant-numeric:tabular-nums}.live-dot{width:9px;height:9px;border-radius:50%;background:#58e2ae;animation:livePulse 1.4s infinite}.live-visual{display:flex;align-items:center;gap:17px;padding:17px 8px 12px}.live-orbit{width:72px;height:72px;position:relative;display:grid;place-items:center;flex:none;border:1px solid #758ce9;border-radius:50%;animation:liveSpin 8s linear infinite}.live-orbit:before,.live-orbit:after{content:"";position:absolute;border:1px solid #758ce9;border-radius:50%;inset:9px;transform:rotate(60deg) scaleX(.55)}.live-orbit:after{transform:rotate(-60deg) scaleX(.55)}.live-orbit b{font-size:19px;color:#a9c8ff}.live-orbit i{position:absolute;width:6px;height:6px;border-radius:50%;background:#61e5c0;top:3px;left:32px}.live-orbit i:nth-child(2){top:auto;left:auto;right:8px;bottom:13px;background:#ffcf75}.live-orbit i:nth-child(3){top:17px;left:5px;background:#c49cff}.live-visual-copy strong,.live-visual-copy small{display:block}.live-visual-copy strong{font-size:16px;margin-bottom:5px}.live-visual-copy small{color:#b7c2e5;line-height:1.7}.live-progress>div:first-child{display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px}.live-track{height:8px;background:#ffffff20;border-radius:20px;overflow:hidden}.live-track i{display:block;width:0;height:100%;border-radius:20px;background:linear-gradient(90deg,#5a9cff,#63e4bc);transition:width .35s}.live-steps{list-style:none;padding:0;margin:14px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}.live-steps li{font-size:11px;color:#8491b5;padding:8px;border-radius:9px;background:#ffffff0b}.live-steps li:before{content:"○";margin-left:6px}.live-steps li.active{color:white;background:#5b97ff2b}.live-steps li.active:before{content:"◉";color:#8bbaff}.live-steps li.done{color:#91e8c9}.live-steps li.done:before{content:"✓";color:#67e2b5}.live-log-title{font-size:12px;color:#b9c6eb;margin:8px 0}.live-log{max-height:112px;overflow:auto;border-top:1px solid #ffffff18;padding-top:5px}.live-log p{font-size:11px;color:#aab7d8;margin:7px 0;line-height:1.6}@keyframes livePulse{50%{opacity:.35}}@keyframes liveSpin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -720,6 +721,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
     <small>گویندگی دیالوگ‌ها در پیش‌نمایش با صدای داخلی مرورگر انجام می‌شود؛ این صدا فعلاً در فایل ویدیوی خروجی ضبط نمی‌شود.</small>
+<section id="liveProduction" class="live-production" hidden aria-live="polite"><div class="live-head"><span class="live-dot"></span><strong>پشت‌صحنهٔ زندهٔ ساخت انیمیشن</strong><span id="liveElapsed">۰۰:۰۰</span></div><div class="live-visual"><div class="live-orbit"><i></i><i></i><i></i><b>AI</b></div><div class="live-visual-copy"><strong id="liveStageTitle">آماده‌سازی پروژه</strong><small id="liveStageDetail">در حال آماده‌سازی...</small></div></div><div class="live-progress"><div><span>پیشرفت واقعی ساخت</span><strong id="livePercent">۰٪</strong></div><div class="live-track"><i id="liveProgressBar"></i></div></div><ol id="liveSteps" class="live-steps"><li>تحلیل داستان و تقسیم صحنه‌ها</li><li>ساخت شخصیت‌ها و ریگ</li><li>آماده‌سازی پس‌زمینه‌ها</li><li>متحرک‌سازی و زمان‌بندی</li><li>رندر و ضبط ویدیو</li><li>آماده‌سازی فایل نهایی</li></ol><div class="live-log-title">گزارش زندهٔ عملیات</div><div id="liveLog" class="live-log"><p>هنوز ساختی شروع نشده است.</p></div></section>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت ویدیو</button>
     
     <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
@@ -2583,12 +2585,13 @@ async function makeLocalEpisodeBackground(scene,index){
   if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
   return image;
 }
+let liveBuildStartedAt=0,liveBuildTimer=null,liveBuildProgress=0;const liveStepNames=['تحلیل داستان و تقسیم صحنه‌ها','ساخت شخصیت‌ها و ریگ','آماده‌سازی پس‌زمینه‌ها','متحرک‌سازی و زمان‌بندی','رندر و ضبط ویدیو','آماده‌سازی فایل نهایی'];function liveBuildLog(message){const log=$('liveLog');if(!log)return;const p=document.createElement('p');p.textContent='• '+new Date().toLocaleTimeString('fa-IR')+' — '+message;log.prepend(p);while(log.children.length>12)log.lastChild.remove();}function liveBuildUpdate(step,detail,progress){const panel=$('liveProduction');if(!panel)return;panel.hidden=false;const n=Math.max(0,Math.min(5,step));$('liveStageTitle').textContent=liveStepNames[n];$('liveStageDetail').textContent=detail||'در حال انجام...';if(Number.isFinite(progress))liveBuildProgress=Math.max(liveBuildProgress,Math.min(99,progress));$('livePercent').textContent=Math.round(liveBuildProgress).toLocaleString('fa-IR')+'٪';$('liveProgressBar').style.width=liveBuildProgress+'%';Array.from($('liveSteps').children).forEach((item,index)=>{item.classList.toggle('done',index<n);item.classList.toggle('active',index===n);});liveBuildLog(detail||liveStepNames[n]);}function liveBuildStart(){liveBuildStartedAt=Date.now();liveBuildProgress=2;$('liveLog').replaceChildren();$('liveProduction').hidden=false;liveBuildUpdate(0,'داستان دریافت شد؛ آماده‌سازی شروع شد.',2);if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=setInterval(()=>{const sec=Math.floor((Date.now()-liveBuildStartedAt)/1000);$('liveElapsed').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');},1000);$('liveProduction').scrollIntoView({behavior:'smooth',block:'nearest'});}function liveBuildFinish(ok,message){if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=null;if(ok){liveBuildProgress=100;$('livePercent').textContent='۱۰۰٪';$('liveProgressBar').style.width='100%';Array.from($('liveSteps').children).forEach(item=>{item.classList.remove('active');item.classList.add('done');});$('liveStageTitle').textContent='ویدیو آماده شد';$('liveStageDetail').textContent=message||'فایل آمادهٔ پیش‌نمایش و ذخیره است.';liveBuildLog('ساخت با موفقیت پایان یافت.');}else{$('liveStageTitle').textContent='ساخت متوقف شد';$('liveStageDetail').textContent=message||'خطا در ساخت ویدیو';liveBuildLog(message||'خطا در ساخت ویدیو');}}
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
-  const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;
+  const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
   if(!freeEngineManagerState.canvas){button.disabled=false;setStatus('ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
   smartTextModelChoices=[];smartModelChoices=[];
@@ -2599,12 +2602,14 @@ async function autoBuildEpisodeFromStory(){
     let plans=null;
     // Fast path: never wait in volunteer AI Horde queues during one-click episode creation.
     if(!plans){
+      liveBuildUpdate(0,'داستان به صحنه‌های روایی تقسیم شد.',10);
       const paragraphs=raw.split(/\n+|(?<=[.!؟?])\s+(?=\S)/u).map(part=>part.trim()).filter(Boolean);
       const count=Math.min(6,Math.max(1,paragraphs.length));
       const groups=Array.from({length:count},()=>[]);
       paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
       plans=groups.map((parts,index)=>{const visual=parts.join(' ');const direction=inferSceneDirection({storyText:visual,dialogues:[]},index);return {visual,dialogues:[],action:direction.action,emotion:direction.emotion,gesture:direction.gesture,camera:direction.camera};});
     }
+    liveBuildUpdate(1,'در حال ساخت شخصیت کارتونی و اجزای قابل حرکت.',20);
     const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
     const nextScenes=plans.map((plan,index)=>({
       name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>{const speaker=String(item.speaker||'شخصیت اصلی').slice(0,40);return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};}),
@@ -2658,6 +2663,7 @@ async function autoBuildEpisodeFromStory(){
       scene.cameraMotion=plan.camera;
     }
     $('style').value='anime';$('framing').value='medium';
+    liveBuildUpdate(2,'شخصیت‌ها آماده شدند؛ پس‌زمینه‌های صحنه در حال آماده‌سازی‌اند.',48);
     let useLocalBackgrounds=!freeEngineManagerState.image;
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];
@@ -2683,14 +2689,17 @@ async function autoBuildEpisodeFromStory(){
         scene.backgroundUrl='';scene.backgroundName='پس‌زمینه داخلی '+scene.name;
       }
       renderMotionSceneList();renderMotionPreview();
+      liveBuildUpdate(2,'پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+' آماده شد.',48+((index+1)/nextScenes.length)*18);
     }
+    liveBuildUpdate(3,'حرکت شخصیت‌ها، حالت چهره و دوربین تنظیم شد.',70);
     $('motionDuration').value='60';activeMotionScene=0;
     motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    status.textContent='صحنه‌ها آماده شدند؛ مدیر هوشمند در حال رندر ویدیوی ۶۰ ثانیه‌ای است...';
+    status.textContent='صحنه‌ها آماده شدند؛ رندر ویدیوی ۶۰ ثانیه‌ای آغاز شد.';liveBuildUpdate(4,'در حال رندر و ضبط فریم‌های ویدیو.',76);
     $('motionDuration').value='60';
     createMotionClip();
   }catch(error){
+    liveBuildFinish(false,error.message||String(error));
     renderMotionSceneList();renderMotionPreview();
     setStatus('ساخت خودکار قسمت کامل نشد: '+(error.message||String(error))+'؛ صحنه‌های آماده‌شده حفظ شدند.','var(--warn)');
   }finally{
@@ -3563,9 +3572,10 @@ function createMotionClip() {
     if(audioContext)audioContext.close().catch(()=>{});
     const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
     if(!blob.size){button.disabled=false;setStatus('فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.','var(--bad)');return;}
+    liveBuildUpdate(5,'فریم‌ها ضبط شدند؛ فایل WebM در حال آماده‌سازی است.',98);
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
     $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
-    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است.');
+    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است.');liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد.');
   };
   const totalDuration=Number($('motionDuration').value)*1000;
   const sceneDuration=totalDuration/exportScenes.length;
@@ -3606,6 +3616,7 @@ function createMotionClip() {
     const sceneIndex=Math.min(exportScenes.length-1,Math.floor(elapsed/sceneDuration));
     const sceneProgress=Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration));
     const scene=exportScenes[sceneIndex];
+    if(draw._lastScene!==sceneIndex){draw._lastScene=sceneIndex;liveBuildUpdate(4,'در حال رندر صحنه '+(sceneIndex+1)+' از '+exportScenes.length+'.',76+(elapsed/totalDuration)*20);}
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
     const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:sourceImage;
     if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
