@@ -2430,11 +2430,24 @@ let nextMotionCharacterId = 1;
 const motionScenes = [{name:'صحنه ۱',layers:[],dialogues:[],backgroundImage:null,backgroundUrl:''}];
 let activeMotionScene = 0;
 function saveActiveMotionScene() {
-  const scene=motionScenes[activeMotionScene];
-  if(scene){scene.layers=motionLayers.slice();scene.selectedIndex=motionLayers.indexOf(selectedMotionLayer);if(!Array.isArray(scene.dialogues))scene.dialogues=[];}
+  let scene=motionScenes[activeMotionScene];
+  if(!scene||typeof scene!=='object'){
+    scene={name:'صحنه '+(activeMotionScene+1),layers:[],dialogues:[],backgroundImage:null,backgroundUrl:''};
+    motionScenes[activeMotionScene]=scene;
+  }
+  scene.layers=motionLayers.slice();scene.selectedIndex=motionLayers.indexOf(selectedMotionLayer);
+  if(!Array.isArray(scene.dialogues))scene.dialogues=[];
 }
 function renderMotionSceneList() {
   const host=$('motionSceneList');if(!host)return;
+  for(let i=motionScenes.length-1;i>=0;i--)if(!motionScenes[i]||typeof motionScenes[i]!=='object')motionScenes.splice(i,1);
+  if(!motionScenes.length)motionScenes.push({name:'صحنه ۱',layers:[],dialogues:[],backgroundImage:null,backgroundUrl:''});
+  activeMotionScene=Math.max(0,Math.min(Number.isInteger(activeMotionScene)?activeMotionScene:0,motionScenes.length-1));
+  motionScenes.forEach(scene=>{
+    if(!Array.isArray(scene.layers))scene.layers=[];
+    if(!Array.isArray(scene.dialogues))scene.dialogues=[];
+    if(!Object.prototype.hasOwnProperty.call(scene,'backgroundImage'))scene.backgroundImage=null;
+  });
   host.innerHTML='';
   motionScenes.forEach((scene,index)=>{
     const chip=document.createElement('button');chip.type='button';chip.className='motion-scene-chip'+(index===activeMotionScene?' active':'');
@@ -2453,9 +2466,10 @@ function renderMotionSceneList() {
   renderMotionDialogueEditor();
 }
 function switchMotionScene(index) {
-  if(index<0||index>=motionScenes.length||index===activeMotionScene)return;
+  if(!Number.isInteger(index)||index<0||index>=motionScenes.length||index===activeMotionScene||!motionScenes[index])return;
   saveActiveMotionScene();activeMotionScene=index;
   const scene=motionScenes[index];
+  if(!Array.isArray(scene.layers))scene.layers=[];
   motionLayers.splice(0,motionLayers.length,...scene.layers);
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
