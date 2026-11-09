@@ -2964,28 +2964,71 @@ async function generateFalBackground(prompt,status){
 }
 
 async function generateCloudflareBackground(prompt,status){
-  const client=window.__aiAnimatorSupabaseClient;
-  if(!client)throw Object.assign(new Error('اتصال Supabase برای موتور Cloudflare در دسترس نیست.'),{code:'SUPABASE_CLIENT_MISSING'});
-  status.textContent='در حال تولید تصویر با Cloudflare Workers AI · FLUX.1 Schnell...';
-  const response=await client.functions.invoke('fal-gateway',{body:{action:'cloudflare-image',prompt:String(prompt||'').slice(0,2048)}});
-  if(response.error){
-    const context=response.error.context||{};
-    const httpStatus=Number(context.status||response.error.status||0);
-    const detail=typeof context.body==='string'?context.body:response.error.message||'درخواست Cloudflare ناموفق بود.';
-    const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':
-      httpStatus===429?'CLOUDFLARE_RATE_LIMIT':
-      httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':
-      httpStatus>=500?'CLOUDFLARE_UPSTREAM':
-      /failed to fetch|network/i.test(detail)?'NETWORK_ERROR':
-      /cors/i.test(detail)?'CORS_ERROR':'CLOUDFLARE_REQUEST';
-    const error=new Error('خطای '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,260));
-    error.code=code;error.status=httpStatus;error.retryable=['CLOUDFLARE_RATE_LIMIT','CLOUDFLARE_TIMEOUT','CLOUDFLARE_UPSTREAM','NETWORK_ERROR'].includes(code);
-    throw error;
+  const cleanPrompt=String(prompt||'').trim().slice(0,2048);
+  if(cleanPrompt.length<4)throw Object.assign(new Error('توضیح پس‌زمینه برای تولید تصویر کافی نیست.'),{code:'INVALID_PROMPT'});
+  const workerUrl='https://shiny-field-9b69.mslmadelt8.workers.dev/generate';
+  const attempts=[];
+  const toDataUrl=blob=>new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>typeof reader.result==='string'?resolve(reader.result):reject(new Error('تبدیل تصویر Worker ناموفق بود.'));
+    reader.onerror=()=>reject(new Error('خواندن تصویر Worker ناموفق بود.'));
+    reader.readAsDataURL(blob);
+  });
+  // First route: dedicated Cloudflare Worker, avoiding the Supabase request-body
+  // streaming path that previously remained open until the Edge runtime dropped it.
+  try{
+    status.textContent='مسیر مستقیم تصویر: Cloudflare Worker...';
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort('worker-timeout'),50000);
+    let response;
+    try{
+      response=await fetch(workerUrl,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:cleanPrompt}),signal:controller.signal,cache:'no-store'});
+    }finally{clearTimeout(timer);}
+    if(!response.ok){
+      const detail=(await response.text()).slice(0,350);
+      throw Object.assign(new Error('Worker HTTP '+response.status+' · '+detail),{status:response.status,code:response.status===503?'WORKER_NOT_READY':response.status===429?'WORKER_RATE_LIMIT':'WORKER_HTTP'});
+    }
+    const type=String(response.headers.get('content-type')||'').toLowerCase();
+    if(!type.startsWith('image/'))throw Object.assign(new Error('Worker پاسخ تصویری برنگرداند: '+type),{code:'WORKER_INVALID_CONTENT'});
+    const blob=await response.blob();
+    if(blob.size<1000||blob.size>12*1024*1024)throw Object.assign(new Error('اندازه تصویر Worker معتبر نیست.'),{code:'WORKER_IMAGE_SIZE'});
+    const dataUrl=await toDataUrl(blob);
+    if(!/^data:image\/(?:jpeg|png|webp);base64,/i.test(dataUrl))throw Object.assign(new Error('فرمت تصویر Worker پشتیبانی نمی‌شود.'),{code:'WORKER_INVALID_IMAGE'});
+    liveBuildLog('تصویر با مسیر مستقیم Worker تولید شد.');
+    return dataUrl;
+  }catch(workerError){
+    attempts.push('Worker: '+String(workerError?.message||workerError).slice(0,220));
+    liveBuildLog('مسیر مستقیم Worker در دسترس نبود؛ مسیر پشتیبان Supabase امتحان می‌شود.');
   }
-  const imageUrl=response.data?.image_data_url;
-  if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl))throw Object.assign(new Error('Cloudflare تصویر معتبر یا قابل‌خواندن برنگرداند.'),{code:'INVALID_IMAGE_RESPONSE'});
-  if(imageUrl.length<1000)throw Object.assign(new Error('پاسخ تصویر بسیار کوچک است و احتمالاً تصویر واقعی نیست.'),{code:'EMPTY_IMAGE_RESPONSE'});
-  return imageUrl;
+  // Second route: authenticated Supabase Edge Function, bounded on the client.
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw Object.assign(new Error('هر دو مسیر تصویر در دسترس نیستند. '+attempts.join(' | ')),{code:'IMAGE_ROUTES_UNAVAILABLE'});
+  status.textContent='مسیر پشتیبان: Supabase Edge Function و FLUX.1 Schnell...';
+  let timer;
+  try{
+    const invoke=client.functions.invoke('fal-gateway',{body:{action:'cloudflare-image',prompt:cleanPrompt}});
+    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(new Error('پاسخ درگاه Supabase بیش از ۵۰ ثانیه طول کشید.'),{code:'EDGE_GATEWAY_TIMEOUT',retryable:true})),50000);});
+    const response=await Promise.race([invoke,timeout]);
+    if(response.error){
+      const context=response.error.context||{};
+      let detail=response.error.message||'درخواست Supabase ناموفق بود.';
+      try{
+        if(context.body&&typeof context.body==='string')detail=context.body;
+        else if(context.json)detail=JSON.stringify(context.json);
+        else if(typeof context.text==='function')detail=await context.text();
+      }catch(_){}
+      const httpStatus=Number(context.status||response.error.status||0);
+      const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':httpStatus===429?'CLOUDFLARE_RATE_LIMIT':httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':httpStatus>=500?'CLOUDFLARE_UPSTREAM':/failed to fetch|network/i.test(detail)?'NETWORK_ERROR':'CLOUDFLARE_REQUEST';
+      throw Object.assign(new Error('Supabase '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,320)),{code,status:httpStatus,retryable:httpStatus===429||httpStatus>=500});
+    }
+    const imageUrl=response.data?.image_data_url;
+    if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl)||imageUrl.length<1000)throw Object.assign(new Error('Supabase تصویر معتبر برنگرداند.'),{code:'INVALID_IMAGE_RESPONSE'});
+    liveBuildLog('تصویر با مسیر پشتیبان Supabase تولید شد.');
+    return imageUrl;
+  }catch(edgeError){
+    attempts.push('Supabase: '+String(edgeError?.message||edgeError).slice(0,320));
+    throw Object.assign(new Error('تولید تصویر از هر دو مسیر ناموفق بود. '+attempts.join(' | ')),{code:edgeError?.code||'IMAGE_ROUTES_FAILED',status:edgeError?.status||0,retryable:true});
+  }finally{clearTimeout(timer);}
 }
 
 async function generateCloudflareReferenceBackground(prompt,status,referenceImage){
