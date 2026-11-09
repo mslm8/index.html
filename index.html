@@ -2968,7 +2968,8 @@ async function autoBuildEpisodeFromStory(){
           liveBuildLog('Cloudflare برای صحنه '+(index+1)+' ناموفق بود؛ موتور جایگزین بررسی می‌شود: '+String(error?.message||error).slice(0,240));
         }
       }
-      if(!generatedUrl&&imageModels.length){
+      // When Cloudflare is configured, never fall back to anonymous AI Horde: its shared quota can be exhausted and repeated retries only waste time. Use Horde only when Cloudflare is not configured.
+      if(!generatedUrl&&imageModels.length&&!cloudflareImageReady){
         for(let sceneAttempt=0;sceneAttempt<3;sceneAttempt++){
           try{
             if(sceneAttempt>0){
