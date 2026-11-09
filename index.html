@@ -747,7 +747,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <input id="motionPlayhead" type="range" min="0" max="100" value="0">
       <output id="motionPlayheadValue">۰٪</output>
     </div>
-    <small>حرکت‌های «تاب خوردن بدن»، «قدم زدن درجا» و «تپش نرم» به لایه اضافه شده‌اند. این حرکت‌ها کل تصویر لایه را متحرک می‌کنند و هنوز ریگ‌بندی جداگانه دست‌وپا و صورت نیستند.</small>
+    <small>حرکت‌های ایستادن و نفس‌کشیدن، قدم‌زدن، دویدن، پرش و حرکت مستقل لایه‌ها در دسترس‌اند. در شخصیت‌های ریگ‌شده، حرکت قدم‌زدن و دویدن به مفصل دست‌ها و پاها نیز منتقل می‌شود.</small>
 <small>هر قسمت می‌تواند تا ۶۰ ثانیه باشد. زمان انتخاب‌شده در پیش‌نمایش و خروجی WebM اعمال می‌شود. می‌توانی چند صحنه و دیالوگ زمان‌بندی‌شده بسازی؛ خروجی فعلی WebM لایه‌ای است، نه ویدئوی تولیدشده با هوش مصنوعی.</small>
     <small>برای هر عضو، زاویه شروع و پایان را جداگانه تعیین کن تا در طول تایم‌لاین بچرخد. محور چرخش را نزدیک مفصل تنظیم کن. این ابزار ریگ خودکار نیست و اعضا باید به‌صورت تصویرهای جداگانه و شفاف وارد شوند.</small>
     <small>برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.</small>
@@ -2857,22 +2857,27 @@ function getRigWorldTransform(layer,layers,progress,canvas){
     let angle=((Number(item.rotation)||0)+state.rotation)*Math.PI/180;
     if(item.motion==='rotate')angle+=p*Math.PI*2;
     if(item.motion==='sway')angle+=Math.sin(p*Math.PI*4)*.14;
-    if(item.motion==='walk')angle+=Math.sin(p*Math.PI*6)*.055;
+    if(item.motion==='walk'||item.motion==='run')angle+=Math.sin(p*Math.PI*(item.motion==='run'?10:6))*(item.motion==='run'?.085:.055);
+    if(item.motion==='idle')angle+=Math.sin(p*Math.PI*2)*.018;
     let x=state.x*canvas.width/100,y=state.y*canvas.height/100;
     if(item.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
     if(item.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
     if(item.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
     if(item.motion==='sway')y+=Math.sin(p*Math.PI*4)*5;
     if(item.motion==='walk')y-=Math.abs(Math.sin(p*Math.PI*6))*10;
+    if(item.motion==='run')y-=Math.abs(Math.sin(p*Math.PI*10))*17;
+    if(item.motion==='jump')y-=Math.sin(p*Math.PI)*105;
+    if(item.motion==='idle')y+=Math.sin(p*Math.PI*2)*2.5;
     const baseAngle=((Number(item.rotation)||0)+Number(first?.rotation??item.rotationStart??0))*Math.PI/180;
     let jointRotation=(Number(item.jointRotation)||0)*Math.PI/180;
     const ownScale=Math.max(.4,Math.min(2,Number(item.scale)||1));
     let inheritedScale=1,inheritedDelta=0;
     const parent=item.parentLayerId?byId(item.parentLayerId):null;
-    if(parent&&parent.motion==='walk'){
+    if(parent&&(parent.motion==='walk'||parent.motion==='run')){
       const role=item.rigRole||'none';
-      const limbAmplitude=role.startsWith('leg-')?24:role.startsWith('arm-')?16:0;
-      if(limbAmplitude){const phase=role.endsWith('right')?Math.PI:0;jointRotation+=Math.sin(p*Math.PI*6+phase)*limbAmplitude*Math.PI/180;}
+      const running=parent.motion==='run';
+      const limbAmplitude=role.startsWith('leg-')?(running?38:24):role.startsWith('arm-')?(running?29:16):0;
+      if(limbAmplitude){const phase=role.endsWith('right')?Math.PI:0;jointRotation+=Math.sin(p*Math.PI*(running?10:6)+phase)*limbAmplitude*Math.PI/180;}
     }
     const localDelta=angle-baseAngle+jointRotation;
     if(parent&&!seen.has(parent.rigId)){
@@ -3008,7 +3013,7 @@ function renderMotionLayerList() {
     const head=document.createElement('div');head.className='motion-layer-row';
     const name=document.createElement('span');name.textContent=layer.name;name.title=layer.name;
     const select=document.createElement('select');select.setAttribute('aria-label','حرکت '+layer.name);
-    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['sway','تاب خوردن بدن'],['walk','قدم زدن درجا'],['pulse','تپش نرم'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
+    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['jump','پرش شخصیت'],['rotate','چرخش'],['sway','تاب خوردن بدن'],['idle','ایستادن و نفس‌کشیدن'],['walk','قدم زدن درجا'],['run','دویدن درجا'],['pulse','تپش نرم'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
     select.value=layer.motion;select.addEventListener('click',event=>event.stopPropagation());
     select.addEventListener('change',()=>{layer.motion=select.value;renderMotionPreview();});
     const actions=document.createElement('div');actions.className='motion-layer-actions';
