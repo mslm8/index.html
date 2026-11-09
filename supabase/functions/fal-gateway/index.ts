@@ -71,13 +71,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const declaredLength = Number(req.headers.get("content-length") || 0);
-    if (declaredLength > 16 * 1024) {
+    if (declaredLength > 2 * 1024 * 1024) {
       return json({ error: "Request body is too large.", code: "REQUEST_TOO_LARGE", request_id: requestId }, 413);
     }
     let body: Record<string, unknown>;
     try {
       const rawBody = await req.text();
-      if (rawBody.length > 16 * 1024) {
+      if (rawBody.length > 2 * 1024 * 1024) {
         return json({ error: "Request body is too large.", code: "REQUEST_TOO_LARGE", request_id: requestId }, 413);
       }
       const parsed = rawBody ? JSON.parse(rawBody) : {};
@@ -104,6 +104,8 @@ Deno.serve(async (req: Request) => {
         cloudflareImageCredentialState: cloudflareAccountId && cloudflareToken ? "configured_unverified" : "missing",
         cloudflareImageHealthNote: "Secret presence is checked here; actual token permissions are verified only by a real image request.",
         cloudflareImageModel: "@cf/black-forest-labs/flux-1-schnell",
+        cloudflareReferenceEditModel: "@cf/black-forest-labs/flux-2-klein-4b",
+        cloudflareReferenceEditConfigured: Boolean(cloudflareAccountId && cloudflareToken),
         request_id: requestId
       });
     }
@@ -149,6 +151,62 @@ Deno.serve(async (req: Request) => {
         const detail = String(error instanceof Error ? error.message : error).slice(0, 300);
         console.error("fal-gateway Cloudflare network failure", { requestId, detail });
         return json({ error: "Cloudflare image request failed.", code: /abort|timeout/i.test(detail) ? "CLOUDFLARE_TIMEOUT" : "CLOUDFLARE_NETWORK", detail, request_id: requestId }, 502);
+      }
+    }
+    if (action === "cloudflare-reference-background") {
+      if (!cloudflareAccountId || !cloudflareToken) {
+        return json({ error: "Cloudflare Workers AI is not configured.", code: "CLOUDFLARE_NOT_CONFIGURED", request_id: requestId }, 503);
+      }
+      const prompt = String(body.prompt || "").trim();
+      const reference = String(body.reference_image || "");
+      const match = reference.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
+      if (prompt.length < 4 || prompt.length > 2048) {
+        return json({ error: "Prompt must contain 4 to 2048 characters.", code: "INVALID_PROMPT", request_id: requestId }, 400);
+      }
+      if (!match || match[2].length > 1800000 || match[2].length % 4 !== 0) {
+        return json({ error: "Reference image must be a valid, resized base64 image.", code: "INVALID_REFERENCE_IMAGE", request_id: requestId }, 400);
+      }
+      try {
+        const binary = atob(match[2]);
+        if (binary.length < 256 || binary.length > 1024 * 1024) {
+          return json({ error: "Reference image size is outside the allowed range.", code: "REFERENCE_IMAGE_SIZE", request_id: requestId }, 413);
+        }
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const form = new FormData();
+        form.append("prompt", prompt);
+        form.append("width", "1024");
+        form.append("height", "576");
+        form.append("input_image_0", new Blob([bytes], { type: "image/" + match[1].toLowerCase() }), "background-reference." + (match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase()));
+        const upstream = await fetchWithTimeout(
+          "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(cloudflareAccountId) + "/ai/run/@cf/black-forest-labs/flux-2-klein-4b",
+          { method: "POST", headers: { "Authorization": "Bearer " + cloudflareToken }, body: form },
+          90000
+        );
+        const raw = await upstream.text();
+        let payload: Record<string, unknown>;
+        try { payload = raw ? JSON.parse(raw) : {}; }
+        catch {
+          return json({ error: "Cloudflare reference model returned invalid JSON.", code: "CLOUDFLARE_INVALID_RESPONSE", request_id: requestId }, 502);
+        }
+        const result = payload.result && typeof payload.result === "object" ? payload.result as Record<string, unknown> : {};
+        const image = typeof result.image === "string" ? result.image.trim() : "";
+        const validImage = image.length >= 1000 && image.length <= 16 * 1024 * 1024 && image.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(image);
+        if (!upstream.ok || payload.success === false || !validImage) {
+          const errors = Array.isArray(payload.errors) ? payload.errors : [];
+          const detail = String((errors[0] as Record<string, unknown> | undefined)?.message || payload.message || upstream.statusText || "No valid image returned").slice(0, 400);
+          const status = !upstream.ok ? (upstream.status >= 500 ? 502 : upstream.status) : 502;
+          return json({
+            error: "Cloudflare reference image generation failed.",
+            code: upstream.status === 401 || upstream.status === 403 ? "CLOUDFLARE_AUTH" : upstream.status === 429 ? "CLOUDFLARE_RATE_LIMIT" : upstream.status >= 500 ? "CLOUDFLARE_UPSTREAM" : "CLOUDFLARE_REFERENCE_FAILED",
+            detail: detail.slice(0, 400), upstream_status: upstream.status, request_id: requestId
+          }, status, upstream.headers.get("retry-after") ? { "Retry-After": upstream.headers.get("retry-after")! } : {});
+        }
+        return json({ ok: true, engine: "Cloudflare Workers AI · FLUX.2 Klein 4B (reference guided)", image_data_url: "data:image/png;base64," + image, request_id: requestId });
+      } catch (error) {
+        const detail = String(error instanceof Error ? error.message : error).slice(0, 300);
+        console.error("fal-gateway Cloudflare reference image failed", { requestId, detail });
+        return json({ error: "Cloudflare reference image request failed.", code: /abort|timeout/i.test(detail) ? "CLOUDFLARE_TIMEOUT" : "CLOUDFLARE_NETWORK", detail, request_id: requestId }, 502);
       }
     }
     if (!falKey) return json({ error: "Optional FAL_KEY is not configured; the free animation path does not require it.", code: "OPTIONAL_PROVIDER_NOT_CONFIGURED", request_id: requestId }, 503);
