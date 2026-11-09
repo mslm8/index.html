@@ -115,7 +115,7 @@ small{font-size:12px}
 
 
 /* Compact app-like tab navigation: avoid long page scrolling */
-#studioNav{position:sticky;top:6px;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;overflow:visible;padding:8px;margin:0 0 14px;border:1px solid rgba(142,160,210,.2);border-radius:16px;background:rgba(9,15,29,.94);backdrop-filter:blur(18px);box-shadow:0 8px 28px rgba(0,0,0,.25)}
+#studioNav{position:sticky;top:6px;z-index:30;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;overflow:visible;padding:8px;margin:0 0 14px;border:1px solid rgba(142,160,210,.2);border-radius:16px;background:rgba(9,15,29,.94);backdrop-filter:blur(18px);box-shadow:0 8px 28px rgba(0,0,0,.25)}
 #studioNav button{min-width:0;padding:10px 5px;background:rgba(120,135,175,.09);border:1px solid transparent;box-shadow:none;color:#b9c4df;font-size:13px;white-space:nowrap}
 #studioNav button.active{background:linear-gradient(135deg,rgba(136,117,255,.32),rgba(66,224,193,.13));border-color:rgba(157,143,255,.42);color:#fff;box-shadow:inset 0 0 0 1px rgba(157,143,255,.08)}
 .viewPanel[hidden]{display:none!important}
@@ -148,7 +148,7 @@ small{font-size:12px}
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 <div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
-<nav id="studioNav" aria-label="بخش‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ابزارهای ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button></nav>
+<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button></nav>
 
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
@@ -443,6 +443,7 @@ small{font-size:12px}
 
 
 
+<div id="guidePanel" class="viewPanel" hidden>
 <section class="card">
   <h2>وضعیت ساخت ویدئو</h2>
   <p>تولید ویدئوی هوش مصنوعی هنوز به این سایت وصل نشده است. سرویس‌های ویدئویی متصل به ChatGPT از داخل صفحه عمومی سایت قابل‌فراخوانی نیستند و موتورهای ابری فعلی هزینه دارند. تا پیدا شدن راه‌حل رایگان و امن، دکمه ویدئو را فعال نمی‌کنم.</p>
@@ -456,6 +457,7 @@ small{font-size:12px}
   <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">صفحه رسمی تولید تصویر AI Horde</a> در دسترس است.</small></p>
 </section>
 <footer><small>AI Animator Studio</small></footer>
+</div>
 </main>
 
 <script>
@@ -1741,7 +1743,7 @@ $('cancel').addEventListener('click', cancelRequest);
  const nav=document.getElementById("studioNav");
  if(!nav || nav.dataset.ready) return;
  nav.dataset.ready="1";
- const views={generation:document.getElementById("generationCard"),tools:document.getElementById("toolsPanel"),projects:document.getElementById("projectsPanel"),history:document.getElementById("historyPanel")};
+ const views={generation:document.getElementById("generationCard"),tools:document.getElementById("toolsPanel"),projects:document.getElementById("projectsPanel"),history:document.getElementById("historyPanel"),guide:document.getElementById("guidePanel")};
  nav.addEventListener("click",event=>{
   const button=event.target.closest("button[data-view]");
   if(!button) return;
