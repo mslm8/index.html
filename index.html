@@ -36,6 +36,7 @@ small{color:var(--muted);line-height:1.8}
 @media(max-width:520px){.grid{grid-template-columns:1fr}h1{font-size:22px}}
 #maskEditor{position:relative;width:100%;margin-top:12px;background:#0b1020;border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none}#maskPreview{display:block;width:100%;height:auto;max-height:65vh;object-fit:contain}#maskOverlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}#authGate{max-width:480px;margin:12vh auto;padding:22px 18px;background:var(--panel);border:1px solid var(--line);border-radius:18px;text-align:center}
 #authGate button{width:100%;margin-top:14px}
+.network-card{max-width:480px;margin:12px auto}#networkCard button{width:100%;margin:8px 0}#networkResults{font-size:13px;line-height:2;white-space:pre-wrap;margin:8px 0}
 #authError{color:var(--bad);white-space:pre-wrap;font-size:13px;line-height:1.8}
 #accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;background:#171d30;border:1px solid var(--line);border-radius:12px}#accountEmail{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 body:not(.authenticated)>main{display:none!important}
@@ -51,6 +52,13 @@ body:not(.authenticated)>main{display:none!important}
   <p>برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.</p>
   <button id="googleLogin" type="button">ورود با گوگل</button>
   <p id="authError" role="alert"></p>
+</section>
+<section id="networkCard" class="card network-card">
+  <h2>آزمایش اتصال اینترنت</h2>
+  <p>قبل از ورود، بررسی کن سرویس‌های لازم از اینترنت فعلی‌ات در دسترس هستند یا نه.</p>
+  <button id="testNetwork" type="button">بررسی اتصال سرویس‌ها</button>
+  <div id="networkResults" role="status" aria-live="polite"></div>
+  <small>این آزمایش از همین مرورگر انجام می‌شود. خطای شبکه ممکن است ناشی از محدودیت شبکه یا سیاست CORS سرویس باشد و به‌تنهایی دلیل قطعی فیلترینگ نیست.</small>
 </section>
 <main>
 <header>
@@ -291,6 +299,32 @@ let currentImageUrl = null;
 let previousImages = [];
 let smartModelChoices = [];
 
+async function checkNetworkService(name, url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const response = await fetch(url, {method:'GET', cache:'no-store', signal:controller.signal});
+    return name + ': ' + (response.ok ? 'قابل دسترسی' : 'پاسخ HTTP ' + response.status);
+  } catch (error) {
+    return name + ': اتصال ناموفق (' + (error.name === 'AbortError' ? 'پایان زمان انتظار' : 'خطای شبکه یا CORS') + ')';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+const networkButton = document.getElementById('testNetwork');
+if (networkButton) networkButton.addEventListener('click', async () => {
+  const output = document.getElementById('networkResults');
+  networkButton.disabled = true;
+  output.textContent = 'در حال بررسی؛ لطفاً چند لحظه صبر کن...';
+  const checks = await Promise.all([
+    checkNetworkService('میزبانی سایت', window.location.href),
+    checkNetworkService('ورود و پایگاه داده Supabase', 'https://zgqqbwwjcyndlfcccpih.supabase.co/auth/v1/health'),
+    checkNetworkService('تولید و ویرایش تصویر AI Horde', 'https://aihorde.net/api/v2/status/models?type=image'),
+    checkNetworkService('ترجمه MyMemory', 'https://api.mymemory.translated.net/get?q=hello%7C%D8%B3%D9%84%D8%A7%D9%85&langpair=en%7Cfa')
+  ]);
+  output.textContent = checks.join('\\n') + '\\n\\nبرای آزمایش ورود گوگل، دکمه «ورود با گوگل» را جداگانه امتحان کن.';
+  networkButton.disabled = false;
+});
 function setStatus(message, color) {
   $('status').textContent = message;
   $('status').style.color = color || 'var(--b)';
