@@ -953,6 +953,7 @@ function clearPendingRequest(id) {
   } catch (_) {}
 }
 let pendingRecoveryStarted = false;
+let preservePendingRequestOnError = false;
 let currentImageUrl = null;
 let previousImages = [];
 let smartModelChoices = [];
@@ -989,7 +990,7 @@ async function retrySafeGet(path, attempts = 3) {
       lastError = error;
       const status = Number(error && error.status || 0);
       const retryable = !status || status === 408 || status === 429 || status >= 500;
-      if (!retryable || attempt === attempts - 1) throw error;
+      if (!retryable || attempt === attempts - 1) { if (retryable) error.recoverableRequest = true; throw error; }
       await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
     }
   }
@@ -1345,9 +1346,10 @@ async function generateImageUnlocked() {
     setStatus('درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.');
     await pollRequest(submitted.id);
   } catch (error) {
+    preservePendingRequestOnError = !!error.recoverableRequest;
     setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
   } finally {
-    clearPendingRequest(activeRequestId);
+    if (!preservePendingRequestOnError) clearPendingRequest(activeRequestId);
     activeRequestId = null;
     polling = false;
     generationInProgress = false;
@@ -1372,7 +1374,9 @@ async function pollRequest(id) {
     } catch (error) {
       consecutiveCheckErrors += 1;
       if (consecutiveCheckErrors >= 4) {
-        throw new Error('ارتباط با سرویس چند بار پیاپی قطع شد؛ درخواست متوقف شد: ' + error.message);
+        const recoveryError = new Error('ارتباط با سرویس چند بار پیاپی قطع شد؛ درخواست متوقف شد: ' + error.message);
+        recoveryError.recoverableRequest = true;
+        throw recoveryError;
       }
       setStatus('ارتباط موقتاً ناپایدار است؛ تلاش دوباره ' + consecutiveCheckErrors + ' از ۳...');
       continue;
@@ -1398,7 +1402,9 @@ async function pollRequest(id) {
     if (wait > 0) message += '\nزمان تخمینی صف: حدود ' + Math.ceil(wait / 60) + ' دقیقه';
     setStatus(message);
   }
-  throw new Error('درخواست بیش از ۳۰ دقیقه منتظر ماند و متوقف شد. احتمالاً پردازشگر سازگار آزاد نبوده است؛ مدل‌های فعال را دوباره بررسی کن.');
+  const timeoutError = new Error('درخواست بیش از ۳۰ دقیقه منتظر ماند و متوقف شد. احتمالاً پردازشگر سازگار آزاد نبوده است؛ مدل‌های فعال را دوباره بررسی کن.');
+  timeoutError.recoverableRequest = true;
+  throw timeoutError;
 }
 
 let historyDbPromise = null;
@@ -2159,10 +2165,11 @@ async function editCurrentImageUnlocked() {
     await pollRequest(submitted.id);
     $('editHint').textContent = 'نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس یا انتخاب را پاک کن.';
   } catch (error) {
+    preservePendingRequestOnError = !!error.recoverableRequest;
     setStatus('ویرایش تصویر انجام نشد: ' + error.message, 'var(--warn)');
     $('editHint').textContent = 'اگر پردازشگر از inpainting یا img2img پشتیبانی نکند، یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود. برای تغییر کل تصویر، انتخاب قرمز را پاک کن.';
   } finally {
-    clearPendingRequest(activeRequestId);
+    if (!preservePendingRequestOnError) clearPendingRequest(activeRequestId);
     activeRequestId = null;
     polling = false;
     generationInProgress = false;
@@ -2432,6 +2439,7 @@ $('cancel').addEventListener('click', cancelRequest);
       return;
     }
     pendingRecoveryStarted = true;
+    preservePendingRequestOnError = false;
     activeRequestId = id;
     generationInProgress = true;
     polling = false;
@@ -2445,9 +2453,10 @@ $('cancel').addEventListener('click', cancelRequest);
         setStatus('درخواست قبلی بازیابی شد و نتیجه دریافت شد.');
       }
     } catch (error) {
+      preservePendingRequestOnError = !!error.recoverableRequest;
       setStatus('بازیابی درخواست قبلی ناموفق بود: ' + error.message, 'var(--warn)');
     } finally {
-      clearPendingRequest(id);
+      if (!preservePendingRequestOnError) clearPendingRequest(id);
       if (activeRequestId === id) activeRequestId = null;
       polling = false;
       generationInProgress = false;
