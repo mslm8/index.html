@@ -86,6 +86,8 @@ small{font-size:12px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 
+/* Production asset library */
+.production-asset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}.production-asset{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:13px;background:rgba(8,14,29,.5);min-width:0}.production-asset img{width:100%;height:130px;object-fit:contain;background:#080d19;border-radius:9px}.production-asset small{overflow-wrap:anywhere}
 /* Studio navigation and section hierarchy */
 #studioNav{position:sticky;top:8px;z-index:20;display:flex;gap:8px;overflow-x:auto;padding:9px;margin:0 0 16px;border:1px solid rgba(142,160,210,.18);border-radius:15px;background:rgba(10,16,31,.88);backdrop-filter:blur(16px);scrollbar-width:none}
 #studioNav::-webkit-scrollbar{display:none}
@@ -955,13 +957,27 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <div id="productionLocationList" class="production-location-list"></div>
     <datalist id="productionLocationHints"></datalist>
   </section>
+  <section class="card" id="productionAssetLibrary">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2>۵. کتابخانه دارایی‌های تصویری</h2><span id="productionAssetCount" class="pill">۰ دارایی</span></div>
+    <p>تصویر مرجع شخصیت، لباس، وسیله و پس‌زمینه را به پروژه پیوست کن تا هنگام ساخت صحنه‌ها مرجع تداوم داشته باشی. فایل‌ها فقط در همین مرورگر ذخیره می‌شوند و خودکار به موتور تصویر ارسال نمی‌شوند.</p>
+    <div class="production-form-grid">
+      <label class="production-field"><span>نام دارایی</span><input id="productionAssetName" maxlength="80" placeholder="مثلاً نمای روبه‌روی شخصیت اصلی"></label>
+      <label class="production-field"><span>دسته‌بندی</span><select id="productionAssetKind"><option value="character">مرجع شخصیت</option><option value="background">پس‌زمینه</option><option value="prop">وسیله و شیء</option><option value="costume">لباس</option><option value="color">راهنمای رنگ</option></select></label>
+      <label class="production-field"><span>صحنه مرتبط (اختیاری)</span><input id="productionAssetScene" maxlength="80" placeholder="مثلاً صحنه ۳"></label>
+      <label class="production-field"><span>یادداشت تداوم</span><input id="productionAssetNotes" maxlength="240" placeholder="رنگ، زاویه، جزئیات ثابت..."></label>
+      <label class="production-field"><span>فایل تصویر (حداکثر ۵۰۰ کیلوبایت)</span><input id="productionAssetFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+    </div>
+    <button id="productionAddAsset" type="button" class="secondary">افزودن به کتابخانه</button>
+    <small id="productionAssetStatus" role="status" aria-live="polite"></small>
+    <div id="productionAssetList" class="production-asset-grid"></div>
+  </section>
   <section class="card">
-    <h2>۵. چک‌لیست کنترل کیفیت تولید</h2>
+    <h2>۶. چک‌لیست کنترل کیفیت تولید</h2>
     <div id="productionChecklist" class="production-checklist"></div>
     <p id="productionChecklistProgress" class="muted"></p>
   </section>
   <section class="card">
-    <h2>۶. اتصال به موتور انیمیشن فعلی</h2>
+    <h2>۷. اتصال به موتور انیمیشن فعلی</h2>
     <p>با ارسال طرح، شرح صحنه‌ها به بخش انیمیشن‌سازی منتقل می‌شود تا بتوانی پس‌زمینه، لایه‌ها، شخصیت‌های چندتکه، حرکت دوربین، دیالوگ و خروجی WebM را در استودیوی فعلی تکمیل کنی.</p>
     <p class="muted">محدودیت مهم: استودیوی فعلی حداکثر ۶ صحنه را در یک نوبت به موتور صحنه منتقل می‌کند. ابزارهای این اتاق، برنامه‌ریزی تولید هستند و هنوز ریگ خودکار حرفه‌ای، لب‌خوانی خودکار، ضبط صدای نهایی و رندر MP4 را جایگزین نمی‌کنند.</p>
   </section>
