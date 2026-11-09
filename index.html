@@ -749,7 +749,7 @@ function maskToWebpBase64() {
   if (!maskCanvas || !maskHasPaint) return '';
   const pixels = maskContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
   let hasWhite = false;
-  for (let i = 0; i < pixels.length; i += 64) {
+  for (let i = 0; i < pixels.length; i += 4) {
     if (pixels[i] > 200) { hasWhite = true; break; }
   }
   if (!hasWhite) return '';
@@ -780,14 +780,14 @@ async function editCurrentImage() {
   $('download').hidden = true;
   setStatus('در حال آماده‌سازی تصویر اصلی برای ویرایش...');
   try {
-    const useInpainting = maskHasPaint;
     const [sourceImage, sourceMask, translatedInstruction, translatedNegative, candidates] = await Promise.all([
       imageToWebpBase64(currentImageUrl),
-      Promise.resolve(useInpainting ? maskToWebpBase64() : ''),
+      Promise.resolve(maskHasPaint ? maskToWebpBase64() : ''),
       translateToEnglish(instruction),
       $('negative').value.trim() ? translateToEnglish($('negative').value.trim()) : Promise.resolve(''),
       loadModels(true)
     ]);
+    const useInpainting = !!sourceMask;
     if (!candidates.length) throw new Error('هیچ مدل فعالی برای پردازش پیدا نشد.');
     const editPrompt = translatedNegative
       ? translatedInstruction + ' ### ' + translatedNegative
