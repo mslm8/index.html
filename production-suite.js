@@ -190,7 +190,7 @@
     const file = $('productionAssetFile').files?.[0];
     const name = $('productionAssetName').value.trim();
     if (!file || !name) { $('productionAssetStatus').textContent = 'نام و فایل تصویر را انتخاب کن.'; return; }
-    if (!/^image\\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 500 * 1024) {
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 500 * 1024) {
       $('productionAssetStatus').textContent = 'فقط PNG/JPEG/WebP/GIF تا ۵۰۰ کیلوبایت پذیرفته می‌شود.';
       return;
     }
