@@ -709,7 +709,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <input id="motionPlayhead" type="range" min="0" max="100" value="0">
       <output id="motionPlayheadValue">۰٪</output>
     </div>
-    <small>هر قسمت می‌تواند تا ۶۰ ثانیه باشد. زمان انتخاب‌شده در پیش‌نمایش و خروجی WebM اعمال می‌شود؛ ساخت صحنه‌های داستانی متعدد و دیالوگ هنوز در مراحل توسعه است.</small>
+    <small>حرکت‌های «تاب خوردن بدن»، «قدم زدن درجا» و «تپش نرم» به لایه اضافه شده‌اند. این حرکت‌ها کل تصویر لایه را متحرک می‌کنند و هنوز ریگ‌بندی جداگانه دست‌وپا و صورت نیستند.</small>
+<small>هر قسمت می‌تواند تا ۶۰ ثانیه باشد. زمان انتخاب‌شده در پیش‌نمایش و خروجی WebM اعمال می‌شود؛ ساخت صحنه‌های داستانی متعدد و دیالوگ هنوز در مراحل توسعه است.</small>
     <small>برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.</small>
   </section>
   <button id="animate" class="primary" type="button" disabled>ساخت انیمیشن چندلایه</button>
@@ -2427,14 +2428,17 @@ function renderMotionPreview() {
     const w=layer.image.naturalWidth*scale*layerScale,h=layer.image.naturalHeight*scale*layerScale;
     let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*e)*canvas.width/100;
     let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*e)*canvas.height/100;
-    let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1;
+    let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1,dynamicScale=1;
     if(layer.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
     if(layer.motion==='rotate')angle+=(p*Math.PI*2);
+    if(layer.motion==='sway'){angle+=Math.sin(p*Math.PI*4)*.14;y+=Math.sin(p*Math.PI*4)*5;}
+    if(layer.motion==='walk'){y-=Math.abs(Math.sin(p*Math.PI*6))*10;angle+=Math.sin(p*Math.PI*6)*.055;}
+    if(layer.motion==='pulse')dynamicScale=1+Math.sin(p*Math.PI*4)*.055;
     if(layer.motion==='fade')alpha=Math.sin(p*Math.PI);
     ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
-    ctx.drawImage(layer.image,-w/2,-h/2,w,h);
+    ctx.drawImage(layer.image,-w*dynamicScale/2,-h*dynamicScale/2,w*dynamicScale,h*dynamicScale);
     if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2,-h/2,w,h);}
     ctx.restore();
   });
@@ -2454,7 +2458,7 @@ function renderMotionLayerList() {
     const head=document.createElement('div');head.className='motion-layer-row';
     const name=document.createElement('span');name.textContent=layer.name;name.title=layer.name;
     const select=document.createElement('select');select.setAttribute('aria-label','حرکت '+layer.name);
-    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
+    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['sway','تاب خوردن بدن'],['walk','قدم زدن درجا'],['pulse','تپش نرم'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
     select.value=layer.motion;select.addEventListener('click',event=>event.stopPropagation());
     select.addEventListener('change',()=>{layer.motion=select.value;renderMotionPreview();});
     const actions=document.createElement('div');actions.className='motion-layer-actions';
@@ -2631,13 +2635,16 @@ function createMotionClip() {
       const width=layer.image.naturalWidth*baseScale*layerScale,height=layer.image.naturalHeight*baseScale*layerScale;
       let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*eased)*canvas.width/100;
       let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*eased)*canvas.height/100;
-      let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1;
+      let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1,dynamicScale=1;
       if(layer.motion==='move-right')x+=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='move-left')x-=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='bounce')y-=Math.sin(localProgress*Math.PI*2)*58;
       if(layer.motion==='rotate')angle+=localProgress*Math.PI*2;
+      if(layer.motion==='sway'){angle+=Math.sin(localProgress*Math.PI*4)*.14;y+=Math.sin(localProgress*Math.PI*4)*5;}
+      if(layer.motion==='walk'){y-=Math.abs(Math.sin(localProgress*Math.PI*6))*10;angle+=Math.sin(localProgress*Math.PI*6)*.055;}
+      if(layer.motion==='pulse')dynamicScale=1+Math.sin(localProgress*Math.PI*4)*.055;
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(layer.image,-width/2,-height/2,width,height);ctx.restore();
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(layer.image,-width*dynamicScale/2,-height*dynamicScale/2,width*dynamicScale,height*dynamicScale);ctx.restore();
     });
     if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
   }
