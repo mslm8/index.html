@@ -38,9 +38,16 @@ small{color:var(--muted);line-height:1.8}
 #authGate button{width:100%;margin-top:14px}
 #authError{color:var(--bad);white-space:pre-wrap;font-size:13px;line-height:1.8}
 #accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px}
+body:not(.authenticated)>main{display:none!important}
 </style>
 </head>
 <body>
+<section id="authGate" class="card">
+  <h2>ورود به AI Animator</h2>
+  <p>برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.</p>
+  <button id="googleLogin" type="button">ورود با گوگل</button>
+  <p id="authError" role="alert"></p>
+</section>
 <main>
 <header>
   <span class="pill">نسخه آزمایشی · بدون کلید API</span>
@@ -450,6 +457,55 @@ $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
 $('cancel').addEventListener('click', cancelRequest);
 loadModels();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  const gate = document.getElementById('authGate');
+  const login = document.getElementById('googleLogin');
+  const errorBox = document.getElementById('authError');
+  if (!window.supabase || !gate || !login) {
+    if (errorBox) errorBox.textContent = 'بارگذاری سرویس ورود ناموفق بود. صفحه را دوباره بارگذاری کن.';
+    return;
+  }
+  const client = window.supabase.createClient(
+    'https://zgqqbwwjcyndlfcccpih.supabase.co',
+    'sb_publishable_K3RzdaV_uKJGZDiYDXfAbg_9jzODuvl'
+  );
+  async function refreshSession() {
+    const { data, error } = await client.auth.getSession();
+    if (error) {
+      errorBox.textContent = 'خطا در بررسی ورود: ' + error.message;
+      return;
+    }
+    if (data.session) {
+      document.body.classList.add('authenticated');
+      gate.hidden = true;
+    } else {
+      document.body.classList.remove('authenticated');
+      gate.hidden = false;
+    }
+  }
+  login.addEventListener('click', async () => {
+    login.disabled = true;
+    errorBox.textContent = '';
+    const { error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) {
+      errorBox.textContent = 'ورود ناموفق بود: ' + error.message;
+      login.disabled = false;
+    }
+  });
+  client.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      document.body.classList.add('authenticated');
+      gate.hidden = true;
+    }
+  });
+  refreshSession();
+})();
 </script>
 </body>
 </html>
