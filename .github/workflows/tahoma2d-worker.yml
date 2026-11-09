@@ -53,14 +53,27 @@ jobs:
             https://github.com/tahoma2d/tahoma2d.git "$RUNNER_TEMP/tahoma2d-source"
           git -C "$RUNNER_TEMP/tahoma2d-source" sparse-checkout set stuff
           test -d "$RUNNER_TEMP/tahoma2d-source/stuff/config"
-          mkdir -p "$APPDIR/usr/share/tahoma2d"
-          cp -a "$RUNNER_TEMP/tahoma2d-source/stuff" "$APPDIR/usr/share/tahoma2d/stuff"
-          test -d "$APPDIR/usr/share/tahoma2d/stuff/config"
-          echo "TAHOMA_ROOT=$APPDIR/usr/share/tahoma2d" >> "$GITHUB_ENV"
-          echo "Restored official stuff resources from tag v1.6.3"
+          mkdir -p "$HOME/.config/Tahoma2D"
+          cp -a "$RUNNER_TEMP/tahoma2d-source/stuff" "$HOME/.config/Tahoma2D/stuff"
+          test -d "$HOME/.config/Tahoma2D/stuff/config"
+          TAHOMA_ROOT="$HOME/.config/Tahoma2D/stuff"
+          mkdir -p "$TAHOMA_ROOT/cache"
+          cat > "$HOME/.config/Tahoma2D/SystemVar.ini" <<EOF
+          [General]
+          TAHOMA2DROOT="$TAHOMA_ROOT"
+          TAHOMA2DPROFILES="$TAHOMA_ROOT/profiles"
+          TAHOMA2DCACHEROOT="$TAHOMA_ROOT/cache"
+          TAHOMA2DCONFIG="$TAHOMA_ROOT/config"
+          TAHOMA2DFXPRESETS="$TAHOMA_ROOT/fxs"
+          TAHOMA2DLIBRARY="$TAHOMA_ROOT/library"
+          TAHOMA2DPROJECTS="$TAHOMA_ROOT/projects"
+          TAHOMA2DSTUDIOPALETTE="$TAHOMA_ROOT/studiopalette"
+          EOF
+          echo "TAHOMA_ROOT=$TAHOMA_ROOT" >> "$GITHUB_ENV"
+          echo "Restored official stuff resources and created documented Linux SystemVar.ini"
           echo "AppImage root: $APPDIR"
-          echo "Resource root: $APPDIR/usr/share/tahoma2d"
-          find "$APPDIR/usr/share/tahoma2d/stuff" -maxdepth 2 -type d -print | head -100
+          echo "Resource root: $TAHOMA_ROOT"
+          find "$TAHOMA_ROOT" -maxdepth 2 -type d -print | head -100
 
       - name: Inspect Tahoma2D runtime and resource paths
         shell: bash
@@ -76,8 +89,10 @@ jobs:
           echo "help_exit_code=$?" >> "$LOG"
           echo "--- resources ---" >> "$LOG"
           find "$TAHOMA_ROOT" -maxdepth 6 -type d -print >> "$LOG" 2>&1
+          echo "--- SystemVar.ini ---" >> "$LOG"
+          cat "$HOME/.config/Tahoma2D/SystemVar.ini" >> "$LOG"
           echo "--- script files ---" >> "$LOG"
-          find "$TAHOMA_ROOT/stuff" -type f -iname '*.js' -print | head -100 >> "$LOG" 2>&1
+          find "$TAHOMA_ROOT" -type f -iname '*.js' -print | head -100 >> "$LOG" 2>&1
           cat "$LOG"
           set -e
 
@@ -95,7 +110,7 @@ jobs:
           EOF
           set +e
           cd "$TAHOMA_APPDIR"
-          timeout --signal=TERM 35s xvfb-run -a ./AppRun -TAHOMA2DROOT "$TAHOMA_ROOT" "$SCRIPT" > "$LOG" 2>&1
+          timeout --signal=TERM 35s xvfb-run -a ./AppRun "$SCRIPT" > "$LOG" 2>&1
           code=$?
           set -e
           cat "$LOG"
@@ -113,7 +128,7 @@ jobs:
           set +e
           cd "$TAHOMA_APPDIR"
           timeout --signal=TERM 20s xvfb-run -a \
-            ./AppRun -TAHOMA2DROOT "$TAHOMA_ROOT" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
+            ./AppRun > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
           code=$?
           set -e
           cat "$RUNNER_TEMP/tahoma2d-startup.log"
