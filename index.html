@@ -3127,29 +3127,6 @@ async function generateFalBackground(prompt,status){
   throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
 }
 
-async function generateHuggingFaceBackground(prompt,status){
-  const client=window.__aiAnimatorSupabaseClient;
-  if(!client)throw Object.assign(new Error('نشست Supabase برای موتور جایگزین در دسترس نیست.'),{code:'SUPABASE_CLIENT_MISSING'});
-  status.textContent='مسیر جایگزین تصویر: Hugging Face · FLUX.1-dev...';
-  const response=await client.functions.invoke('fal-gateway',{body:{action:'huggingface-image',prompt:String(prompt||'').trim().slice(0,3000)}});
-  if(response.error){
-    const context=response.error.context||{};
-    let detail=response.error.message||'درخواست Hugging Face ناموفق بود.';
-    try{
-      if(context.body&&typeof context.body==='string')detail=context.body;
-      else if(context.json)detail=JSON.stringify(context.json);
-      else if(typeof context.text==='function')detail=await context.text();
-    }catch(_){}
-    const statusCode=Number(context.status||response.error.status||0);
-    const code=statusCode===401||statusCode===403?'HUGGINGFACE_AUTH':statusCode===402?'HUGGINGFACE_CREDITS_EXHAUSTED':statusCode===429?'HUGGINGFACE_RATE_LIMIT':statusCode>=500?'HUGGINGFACE_UPSTREAM':'HUGGINGFACE_REQUEST';
-    throw Object.assign(new Error('Hugging Face '+code+' · '+String(detail).slice(0,320)),{code,status:statusCode,retryable:statusCode===429||statusCode>=500});
-  }
-  const imageUrl=response.data?.image_data_url;
-  if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl)||imageUrl.length<1000)throw Object.assign(new Error('Hugging Face تصویر معتبر برنگرداند.'),{code:'HUGGINGFACE_INVALID_IMAGE'});
-  liveBuildLog('تصویر از مسیر جایگزین Hugging Face · FLUX.1-dev دریافت شد.');
-  return imageUrl;
-}
-
 async function generateCloudflareBackground(prompt,status){
   const cleanPrompt=String(prompt||'').trim().slice(0,2048);
   if(cleanPrompt.length<4)throw Object.assign(new Error('توضیح پس‌زمینه برای تولید تصویر کافی نیست.'),{code:'INVALID_PROMPT'});
@@ -3196,12 +3173,8 @@ async function generateCloudflareBackground(prompt,status){
       workerCode=parsed.code||workerCode;
     }catch(_){}
     if(workerCode==='NO_ALLOWED_IMAGE_MODEL'||/no configured cloudflare image model|no allowed cloudflare image model|model.{0,40}(not allowed|not available)|not allowed.{0,40}model/i.test(workerDetail)){
-      liveBuildLog('مجوز مدل‌های تصویری Cloudflare در دسترس نیست؛ انتقال به Hugging Face انجام می‌شود.');
-      try{return await generateHuggingFaceBackground(cleanPrompt,status);}
-      catch(hfError){
-        attempts.push('Hugging Face: '+String(hfError?.message||hfError).slice(0,320));
-        throw Object.assign(new Error('Cloudflare مجوز مدل تصویری ندارد و مسیر جایگزین Hugging Face هم آماده/موفق نیست. '+attempts.join(' | ')),{code:hfError?.code||'IMAGE_ALTERNATIVE_FAILED',retryable:false});
-      }
+      liveBuildLog('مدل تصویر Cloudflare برای این حساب مجاز نیست؛ از تلاش تکراری در Supabase جلوگیری شد.');
+      throw Object.assign(new Error('مدل‌های تصویری Cloudflare برای این حساب فعال نیستند. مسیر تکراری اجرا نشد.'),{code:'NO_ALLOWED_IMAGE_MODEL',retryable:false});
     }
     liveBuildLog('مسیر مستقیم Worker ناموفق بود؛ مسیر پشتیبان فقط برای خطاهای اتصال یا سرویس بررسی می‌شود.');
   }
