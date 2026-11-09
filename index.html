@@ -2657,7 +2657,9 @@ function renderMotionPreview() {
     const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
     const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
     const fit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
-    if(baseIsSprite){
+    if(background&&background.naturalWidth){
+      drawSceneBackground(ctx,background,progress,baseMotion);
+    }else if(baseIsSprite){
       const w=source.naturalWidth*fit,h=source.naturalHeight*fit;
       let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
       if(baseMotion==='move-right')x=-w/2+(canvas.width+w)*progress;
@@ -2667,10 +2669,7 @@ function renderMotionPreview() {
       if(baseMotion==='fade')alpha=Math.abs(Math.sin(progress*Math.PI));
       ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(source,-w/2,-h/2,w,h);ctx.restore();
     }else{
-      const zoom=baseMotion==='zoom-out'?1.12-.12*progress:1+.12*progress;
-      const w=source.naturalWidth*scale*zoom,h=source.naturalHeight*scale*zoom;
-      let pan=0;if(baseMotion==='pan-right')pan=(progress-.5)*64;if(baseMotion==='pan-left')pan=(.5-progress)*64;
-      ctx.drawImage(source,(canvas.width-w)/2+pan,(canvas.height-h)/2,w,h);
+      drawSceneBackground(ctx,source,progress,baseMotion);
     }
   }
   motionLayers.forEach(layer=>{
