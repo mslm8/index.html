@@ -3409,6 +3409,10 @@ async function autoBuildEpisodeFromStory(){
       liveBuildLog('موتورهای متن پاسخ ندادند؛ تقسیم‌بندی محلی داستان به‌عنوان مسیر پشتیبان فعال شد: '+(error.message||String(error)));
       screenplay=buildLocalFallbackScreenplay(raw);
     }
+    if(window.AIAnimatorDirector){
+      screenplay=window.AIAnimatorDirector.enrichScreenplay(screenplay,raw);
+      liveBuildLog('کارگردان هوشمند: تداوم شخصیت، کنش، احساس، قاب دوربین و زمان‌بندی نماها تحلیل شد.');
+    }
     const plans=screenplay.scenes;
     const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
     const speakerNames=Array.from(new Set([
@@ -5219,6 +5223,6 @@ $('cancel').addEventListener('click', cancelRequest);
 <script src="./production-rescue.js" defer></script>
 <script src="./manager.js" defer></script>
 <script src="./production-suite.js" defer></script>
-<script src="./rig-editor.js" defer></script>
+<script src="./rig-editor.js" defer></script>\n<script src="./auto-director.js" defer></script>
 </body>
 </html>
