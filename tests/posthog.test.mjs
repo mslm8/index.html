@@ -17,7 +17,7 @@ test('analytics initializes only from deployment-injected PostHog configuration'
 test('analytics disables autocapture and session replay to avoid collecting form content', () => {
   assert.match(analytics, /autocapture\s*:\s*false/);
   assert.match(analytics, /disable_session_recording\s*:\s*true/);
-  assert.doesNotMatch(analytics, /\\.startSessionRecording\\s*\\(/);
+  assert.doesNotMatch(analytics, /\.startSessionRecording\s*\(/);
   assert.doesNotMatch(analytics, /\.value\b|\.innerText\b|\.textContent\b/);
 });
 
