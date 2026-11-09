@@ -87,6 +87,18 @@ small{font-size:12px}
 @media(max-width:520px){main{padding:12px 11px 42px}header{padding:22px 17px;border-radius:19px}.card{padding:16px;border-radius:17px;margin:12px 0}h1{font-size:25px}.grid{grid-template-columns:1fr}button{min-height:44px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
+
+/* Studio navigation and section hierarchy */
+#studioNav{position:sticky;top:8px;z-index:20;display:flex;gap:8px;overflow-x:auto;padding:9px;margin:0 0 16px;border:1px solid rgba(142,160,210,.18);border-radius:15px;background:rgba(10,16,31,.88);backdrop-filter:blur(16px);scrollbar-width:none}
+#studioNav::-webkit-scrollbar{display:none}
+#studioNav a{flex:0 0 auto;text-decoration:none;color:#c5cce4;font-size:13px;font-weight:800;padding:9px 15px;border-radius:10px;background:rgba(120,135,175,.09);border:1px solid transparent;transition:background .18s,color .18s,border-color .18s}
+#studioNav a:hover,#studioNav a:focus-visible{color:#fff;background:rgba(126,107,255,.2);border-color:rgba(157,143,255,.34)}
+#generationCard,#projectCard,#historyCard{scroll-margin-top:82px}
+#generationCard>h2:before{content:"✦";color:#9b8cff;margin-left:9px}
+#projectCard>h2:before{content:"▣";color:#66dbc8;margin-left:9px}
+#historyCard>h2:before{content:"◷";color:#9b8cff;margin-left:9px}
+@media(max-width:520px){#studioNav{top:5px;margin-left:-2px;margin-right:-2px}#studioNav a{padding:9px 13px}}
+
 </style>
 </head>
 <body>
@@ -110,8 +122,9 @@ small{font-size:12px}
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 <div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
+<nav id="studioNav" aria-label="میانبرهای استودیو"><a href="#generationCard">تولید تصویر</a><a href="#projectCard">پروژه‌ها</a><a href="#historyCard">تاریخچه</a></nav>
 
-<section class="card">
+<section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
   <label for="prompt">توضیح صحنه</label>
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
