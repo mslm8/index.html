@@ -805,7 +805,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 <footer><small>AI Animator Studio</small></footer>
 <section class="card" id="aboutStudioCard"><h2>AI Animator Studio</h2><p>این بخش فقط برای ساخت سوژه، شخصیت و پس‌زمینه است؛ خروجی آن با یک دکمه مستقیماً وارد لایه‌های استودیوی انیمیشن می‌شود. تولید تصویر به‌تنهایی انیمیشن نیست.</p></section>
 </div>
-<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">ساخت دارایی تصویری</button><button type="button" data-view="animation">انیمیشن‌سازی</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button><button type="button" data-view="account">حساب</button></nav>
+<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="animation" class="active">انیمیشن‌سازی</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button><button type="button" data-view="account">حساب</button></nav>
 </main>
 
 <script>
@@ -3576,8 +3576,8 @@ $('cancel').addEventListener('click', cancelRequest);
   const activePanel=views[selected];
   if(activePanel) activePanel.scrollTop=0;
  });
- nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="generation")));
- let lastView="generation";
+ nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="animation")));
+ let lastView="animation";
  try{const saved=localStorage.getItem("aiAnimatorLastViewV1");if(saved&&Object.prototype.hasOwnProperty.call(views,saved)&&views[saved])lastView=saved;}catch(_){}
  if(lastView!=="generation"){const savedButton=nav.querySelector('button[data-view="'+lastView+'"]');if(savedButton)savedButton.click();}
 })();
