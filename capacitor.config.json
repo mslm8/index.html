@@ -1,0 +1,17 @@
+{
+  "appId": "com.mslm8.aianimator",
+  "appName": "AI Animator Studio",
+  "webDir": "www",
+  "server": {
+    "url": "https://mslm8.github.io/index.html/",
+    "cleartext": false,
+    "allowNavigation": [
+      "mslm8.github.io",
+      "zgqqbwwjcyndlfcccpih.supabase.co",
+      "accounts.google.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
