@@ -691,6 +691,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
+    <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
     <small>این ابزار بدون اینترنت، متن را به حداکثر ۶ صحنه و دیالوگ‌های اولیه تقسیم می‌کند. برای تصویر و حرکت هر صحنه باید لایه‌های تصویری اضافه یا تنظیم شوند.</small>
   </section>
   <section class="motion-scene-panel">
@@ -2409,6 +2410,30 @@ function switchMotionScene(index) {
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
 }
+$('autoTimeDialoguesButton').addEventListener('click',()=>{
+  saveActiveMotionScene();
+  let scheduled=0;
+  const sceneDuration=(Number($('motionDuration').value)||60)/Math.max(1,motionScenes.length);
+  motionScenes.forEach(scene=>{
+    const items=(scene.dialogues||[]).filter(item=>String(item.text||'').trim());
+    if(!items.length)return;
+    const gapSeconds=Math.min(.35,sceneDuration*.04);
+    const available=Math.max(.5,sceneDuration-gapSeconds*(items.length-1));
+    const weights=items.map(item=>Math.max(1.6,Math.min(8,String(item.text).trim().length/13)));
+    const total=weights.reduce((sum,value)=>sum+value,0);
+    let cursor=0;
+    items.forEach((item,index)=>{
+      const span=available*weights[index]/total;
+      item.startAt=Math.max(0,Math.min(99,Math.round(cursor/sceneDuration*100)));
+      cursor+=span;
+      item.endAt=Math.max(item.startAt+1,Math.min(100,Math.round(cursor/sceneDuration*100)));
+      cursor+=gapSeconds;
+      scheduled++;
+    });
+  });
+  renderMotionDialogueEditor();renderMotionPreview();
+  setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
+});
 $('storyToScenesButton').addEventListener('click',()=>{
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
