@@ -347,7 +347,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   <p id="authError" role="alert"></p>
 </section>
 <main>
-<div class="viewPanel" id="accountPanel" hidden><div class="viewHeading"><h1>حساب کاربری</h1><p>اطلاعات حساب متصل‌شده به برنامه</p></div><section class="card"><div class="note" style="margin:0 0 16px"><strong>وضعیت حساب: متصل</strong><p style="margin:6px 0 0">حساب گوگل شما برای ورود به برنامه استفاده می‌شود.</p></div><label>نام نمایشی</label><p id="accountName">—</p><label>ایمیل حساب</label><p id="accountEmail">در حال دریافت اطلاعات…</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section><div class="note" style="margin-top:16px;text-align:center"><span class="pill">نسخه آزمایشی · بدون کلید API</span></div></div>
+<div class="viewPanel" id="accountPanel" hidden><div class="viewHeading"><h1>حساب کاربری</h1><p>اطلاعات حساب متصل‌شده به برنامه</p></div><section class="card" style="padding:12px"><label for="appLanguage">زبان برنامه / App language</label><select id="appLanguage"><option value="fa">فارسی</option><option value="en">English</option></select><small>زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.</small></section><section class="card"><div class="note" style="margin:0 0 16px"><strong>وضعیت حساب: متصل</strong><p style="margin:6px 0 0">حساب گوگل شما برای ورود به برنامه استفاده می‌شود.</p></div><label>نام نمایشی</label><p id="accountName">—</p><label>ایمیل حساب</label><p id="accountEmail">در حال دریافت اطلاعات…</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section><div class="note" style="margin-top:16px;text-align:center"><span class="pill">نسخه آزمایشی · بدون کلید API</span></div></div>
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
   <div class="promptPresetBox">
@@ -701,6 +701,24 @@ const API = 'https://aihorde.net/api/v2';
 const ANON_KEY = '0000000000';
 const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
+const currentLanguageKey='aiAnimatorLanguageV1';
+let currentLanguage=localStorage.getItem(currentLanguageKey)==='en'?'en':'fa';
+const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.":"Sign in with your Google account to use the site.","ورود با گوگل":"Sign in with Google","حساب کاربری":"Account","اطلاعات حساب متصل‌شده به برنامه":"Connected account information","وضعیت حساب: متصل":"Account status: Connected","حساب گوگل شما برای ورود به برنامه استفاده می‌شود.":"Your Google account is used to sign in.","نام نمایشی":"Display name","ایمیل حساب":"Account email","در حال دریافت اطلاعات…":"Loading account information…","خروج از حساب":"Sign out","نسخه آزمایشی · بدون کلید API":"Experimental · No API key","تولید تصویر":"Generate image","قالب‌های آماده برای شروع":"Starter templates","انتخاب یک قالب...":"Choose a template...","پرتره حرفه‌ای":"Professional portrait","صحنه سینمایی":"Cinematic scene","دنیای فانتزی":"Fantasy world","عکاسی محصول":"Product photography","طبیعت و منظره":"Nature and landscape","شخصیت انیمه":"Anime character","معماری و فضای داخلی":"Architecture and interior","عکاسی غذا":"Food photography","استفاده از قالب":"Apply template","توضیح صحنه":"Describe your scene","کپی متن درخواست":"Copy prompt","قالب‌های شخصی من":"My saved prompts","قالب ذخیره‌شده‌ای انتخاب نشده":"No saved template selected","ذخیره متن فعلی":"Save current text","بارگذاری انتخاب‌شده":"Load selected","حذف انتخاب‌شده":"Delete selected","بهینه‌سازی ساختاری متن":"Improve prompt structure","مواردی که نباید در تصویر باشند (اختیاری)":"Things to exclude (optional)","بررسی دوباره مدل‌های سریع":"Refresh available models","اندازه تصویر":"Image size","نسبت تصویر":"Aspect ratio","مربع · ۱:۱":"Square · 1:1","افقی · ۴:۳":"Landscape · 4:3","عمودی · ۳:۴":"Portrait · 3:4","عریض · ۱۶:۹":"Wide · 16:9","بلند · ۹:۱۶":"Tall · 9:16","تعادل سرعت و جزئیات":"Speed and detail","سریع‌تر · ۱۵ مرحله":"Faster · 15 steps","متعادل · ۲۰ مرحله":"Balanced · 20 steps","جزئیات بیشتر · ۲۶ مرحله":"More detail · 26 steps","کادربندی دوربین":"Camera framing","خودکار و متناسب با صحنه":"Automatic","نمای نزدیک · جزئیات سوژه":"Close-up · Subject details","نمای متوسط · سوژه و محیط":"Medium · Subject and surroundings","نمای کامل · تمام سوژه‌ها":"Full shot · Entire subjects","نمای باز · محیط گسترده":"Wide shot · Broad environment","نمای از بالا":"Top-down view","نورپردازی":"Lighting","نور طبیعی روز":"Natural daylight","نور گرم غروب":"Warm sunset light","نور نرم استودیویی":"Soft studio light","نورپردازی دراماتیک":"Dramatic lighting","نور نئونی رنگی":"Colorful neon","نور مهتابی شب":"Cool moonlight","فضای رنگی":"Color palette","رنگ‌های طبیعی":"Natural colors","رنگ‌های گرم":"Warm colors","رنگ‌های سرد":"Cool colors","رنگ‌های پاستلی":"Pastel colors","رنگ‌های زنده و اشباع":"Vivid saturated colors","سیاه‌وسفید":"Black and white","عمق میدان و وضوح پس‌زمینه":"Depth of field","پس‌زمینه واضح · عمق میدان زیاد":"Sharp background · Deep focus","پس‌زمینه محو · عمق میدان کم":"Blurred background · Shallow focus","بوکه نرم و هنری":"Soft artistic bokeh","نمای ماکرو با پس‌زمینه محو":"Macro with blurred background","نقطه فوکوس دوربین":"Focus target","فوکوس روی سوژه اصلی":"Focus on main subject","فوکوس دقیق روی چشم‌ها":"Focus on eyes","فوکوس روی پیش‌زمینه":"Focus on foreground","فوکوس روی پس‌زمینه":"Focus on background","فوکوس در مرکز کادر":"Focus on image center","زاویه دوربین":"Camera angle","هم‌سطح چشم · روبه‌رو":"Eye-level · Front view","زاویه پایین · نمای قدرتمند":"Low angle","زاویه بالا · نگاه از بالا":"High angle","سه‌ربع · پرسپکتیو طبیعی":"Three-quarter · Natural perspective","نمای جانبی · نیم‌رخ":"Side profile","نمای کاملاً از بالا":"Directly overhead","فاصله دوربین از سوژه":"Camera distance","سبک هنری":"Art style","بدون تغییر سبک":"No style change","واقع‌گرایانه و عکاسی":"Photorealistic","سینمایی":"Cinematic","انیمه":"Anime","سه‌بعدی و کارتونی":"3D cartoon","آبرنگ":"Watercolor","نقاشی رنگ‌روغن":"Oil painting","پیکسل‌آرت":"Pixel art","فانتزی":"Fantasy","Seed اختیاری (برای تکرارپذیری)":"Optional seed (for reproducible results)","ساخت نسخه متفاوت با همین تنظیمات":"Generate another variation","لغو درخواست":"Cancel request","یا تصویر خودت را بارگذاری کن":"Or upload your own image","انتخاب تصویر از گوشی یا رایانه":"Choose an image from your device","بارگذاری تصویر برای ویرایش":"Load image for editing","پیش‌نمایش خروجی":"Output preview","نتیجه زنده":"Live result","ذخیره تصویر":"Save image","بازگشت به تصویر قبلی":"Undo image","مقایسه قبل و بعد":"Before and after","نسخه جدید":"New version","نسخه قبلی":"Previous version","ویرایش تصویر":"Image editing","ابزارهای برش، اصلاح و ساخت حرکت از تصویر":"Crop, refine, and create motion from an image","برش و چرخش تصویر":"Crop and rotate","نسبت برش":"Crop ratio","بدون برش · اندازه اصلی":"No crop · Original size","چرخش چپ ۹۰°":"Rotate left 90°","چرخش راست ۹۰°":"Rotate right 90°","اعمال برش و چرخش":"Apply crop and rotation","بازنشانی پیش‌نمایش":"Reset preview","ویرایش هوشمند تصویر":"AI image editing","چه چیزی تغییر کند؟":"What should change?","شدت تغییر":"Edit strength","کم · حفظ بیشتر تصویر":"Low · Preserve more","متوسط · تعادل تغییر و حفظ":"Medium · Balanced","زیاد · تغییر محسوس‌تر":"High · More change","ساخت نسخه ویرایش‌شده":"Create edited version","ویرایش موضعی":"Inpainting","اندازه قلم انتخاب":"Brush size","پاک‌کن: خاموش":"Eraser: Off","پاک‌کردن انتخاب":"Clear selection","ساخت کلیپ حرکتی از تصویر":"Create a motion clip","نوع حرکت":"Motion type","نزدیک شدن آرام":"Slow zoom in","دور شدن آرام":"Slow zoom out","حرکت به راست":"Pan right","حرکت به چپ":"Pan left","مدت کلیپ":"Clip duration","۴ ثانیه":"4 seconds","۶ ثانیه":"6 seconds","۸ ثانیه":"8 seconds","ساخت کلیپ حرکتی":"Create motion clip","ذخیره ویدئو (WebM)":"Save video (WebM)","پروژه‌ها":"Projects","ذخیره و بازیابی پروژه":"Save and restore project","نام پروژه":"Project name","ذخیره پروژه در این مرورگر":"Save project in this browser","خروجی فایل JSON":"Export JSON file","پروژه‌های ذخیره‌شده":"Saved projects","پروژه‌ای انتخاب نشده":"No project selected","باز کردن پروژه":"Open project","حذف پروژه":"Delete project","ورود فایل JSON":"Import JSON file","تاریخچه تصاویر":"Image history","پاک کردن تاریخچه":"Clear history","هنوز تصویری ذخیره نشده است.":"No images saved yet.","راهنما و اطلاعات":"Help and information","آشنایی با امکانات و محدودیت‌های برنامه":"Learn about app features and limitations","وضعیت ساخت ویدئو":"Video generation status","محدودیت‌های سرویس رایگان تصویر":"Free image service limitations","راهنما":"Help","تاریخچه":"History","ویرایش":"Edit","حساب":"Account","زبان برنامه / App language":"App language","زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.":"Your language choice is saved in this browser."};
+const uiPersian=Object.fromEntries(Object.entries(uiEnglish).map(([fa,en])=>[en,fa]));
+function translateUIText(value,language){return language==='en'?(uiEnglish[value]||value):(uiPersian[value]||value);}
+function applyAppLanguage(language){
+ currentLanguage=language==='en'?'en':'fa';
+ try{localStorage.setItem(currentLanguageKey,currentLanguage);}catch(_){}
+ document.documentElement.lang=currentLanguage;
+ document.documentElement.dir=currentLanguage==='fa'?'rtl':'ltr';
+ const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ nodes.forEach(node=>{const raw=node.nodeValue,trimmed=raw.trim();if(!trimmed)return;const translated=translateUIText(trimmed,currentLanguage);if(translated!==trimmed)node.nodeValue=raw.replace(trimmed,translated);});
+ document.querySelectorAll('[placeholder],[aria-label],[title]').forEach(el=>['placeholder','aria-label','title'].forEach(attr=>{const value=el.getAttribute(attr);if(value)el.setAttribute(attr,translateUIText(value,currentLanguage));}));
+ updatePromptCounter();
+}
+function updatePromptCounter(){const count=$('prompt').value.length;$('promptCount').textContent=currentLanguage==='en'?count.toLocaleString('en-US')+' of 1800 characters':count.toLocaleString('fa-IR')+' از ۱۸۰۰ نویسه';}
+
 let activeRequestId = null;
 let polling = false;
 let generationInProgress = false;
@@ -710,7 +728,7 @@ let smartModelChoices = [];
 let lastGenerationSettings = null;
 
 function setStatus(message, color) {
-  $('status').textContent = message;
+  $('status').textContent = typeof translateUIText === 'function' ? translateUIText(message, currentLanguage) : message;
   $('status').style.color = color || 'var(--b)';
 }
 async function apiFetch(path, options = {}) {
@@ -1881,9 +1899,7 @@ $('copyPrompt').addEventListener('click', async () => {
     setStatus('کپی خودکار در این مرورگر در دسترس نیست؛ متن را انتخاب و دستی کپی کن.', 'var(--warn)');
   }
 });
-$('prompt').addEventListener('input', () => {
-  $('promptCount').textContent = $('prompt').value.length.toLocaleString('fa-IR') + ' از ۱۸۰۰ نویسه';
-});
+$('prompt').addEventListener('input', updatePromptCounter);
 const SAVED_PROMPTS_KEY = 'aiAnimatorSavedPromptsV1';
 function readSavedPrompts() {
   try {
@@ -1941,6 +1957,10 @@ $('deleteSavedPrompt').addEventListener('click', () => {
   } catch (_) { setStatus('حذف قالب انجام نشد.', 'var(--warn)'); }
 });
 refreshSavedPromptList();
+$('appLanguage').value=currentLanguage;
+$('appLanguage').addEventListener('change',()=>applyAppLanguage($('appLanguage').value));
+applyAppLanguage(currentLanguage);
+$('prompt').addEventListener('input',updatePromptCounter);
 $('generate').addEventListener('click', generateImage);
 $('generateVariation').addEventListener('click', () => {
   if (!lastGenerationSettings || generationInProgress) return;
