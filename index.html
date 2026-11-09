@@ -935,6 +935,17 @@ function updatePromptCounter(){const count=$('prompt').value.length;$('promptCou
 let activeRequestId = null;
 let polling = false;
 let generationInProgress = false;
+const pendingRequestStorageKey = 'aiAnimatorPendingHordeRequestV1';
+function savePendingRequest(id) {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{8,128}$/.test(id)) return;
+  try { sessionStorage.setItem(pendingRequestStorageKey, id); } catch (_) {}
+}
+function clearPendingRequest(id) {
+  try {
+    if (!id || sessionStorage.getItem(pendingRequestStorageKey) === id) sessionStorage.removeItem(pendingRequestStorageKey);
+  } catch (_) {}
+}
+let pendingRecoveryStarted = false;
 let currentImageUrl = null;
 let previousImages = [];
 let smartModelChoices = [];
@@ -1289,12 +1300,14 @@ async function generateImage() {
     });
     if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
     activeRequestId = submitted.id;
+    savePendingRequest(submitted.id);
     $('cancel').disabled = false;
     setStatus('درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.');
     await pollRequest(submitted.id);
   } catch (error) {
     setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
   } finally {
+    clearPendingRequest(activeRequestId);
     activeRequestId = null;
     polling = false;
     generationInProgress = false;
@@ -2101,6 +2114,7 @@ async function editCurrentImage() {
     setStatus('ویرایش تصویر انجام نشد: ' + error.message, 'var(--warn)');
     $('editHint').textContent = 'اگر پردازشگر از inpainting یا img2img پشتیبانی نکند، یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود. برای تغییر کل تصویر، انتخاب قرمز را پاک کن.';
   } finally {
+    clearPendingRequest(activeRequestId);
     activeRequestId = null;
     polling = false;
     generationInProgress = false;
@@ -2114,6 +2128,7 @@ async function cancelRequest() {
   if (!activeRequestId) return;
   const id = activeRequestId;
   activeRequestId = null;
+  clearPendingRequest(id);
   $('cancel').disabled = true;
   setStatus('در حال لغو درخواست...');
   try {
@@ -2352,6 +2367,38 @@ $('cancel').addEventListener('click', cancelRequest);
     } catch (_) {}
   }
 
+  async function resumePendingRequest() {
+    if (pendingRecoveryStarted || generationInProgress || activeRequestId) return;
+    let id = '';
+    try { id = sessionStorage.getItem(pendingRequestStorageKey) || ''; } catch (_) { return; }
+    if (!/^[a-zA-Z0-9-]{8,128}$/.test(id)) {
+      clearPendingRequest(id);
+      return;
+    }
+    pendingRecoveryStarted = true;
+    activeRequestId = id;
+    generationInProgress = true;
+    polling = false;
+    $('generate').disabled = true;
+    $('editImage').disabled = true;
+    $('cancel').disabled = false;
+    setStatus('درخواست قبلی پیدا شد؛ در حال بررسی وضعیت و تلاش برای بازیابی نتیجه...');
+    try {
+      await pollRequest(id);
+      setStatus('درخواست قبلی بازیابی شد و نتیجه دریافت شد.');
+    } catch (error) {
+      setStatus('بازیابی درخواست قبلی ناموفق بود: ' + error.message, 'var(--warn)');
+    } finally {
+      clearPendingRequest(id);
+      if (activeRequestId === id) activeRequestId = null;
+      polling = false;
+      generationInProgress = false;
+      $('generate').disabled = smartModelChoices.length === 0;
+      $('editImage').disabled = false;
+      $('cancel').disabled = true;
+    }
+  }
+
   function showSignedIn(session) {
     document.body.classList.add('authenticated');
     gate.hidden = true;
@@ -2366,6 +2413,7 @@ $('cancel').addEventListener('click', cancelRequest);
       modelsLoaded = true;
       loadModels();
     }
+    resumePendingRequest();
   }
 
   async function refreshSession() {
