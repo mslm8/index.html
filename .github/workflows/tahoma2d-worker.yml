@@ -122,11 +122,12 @@ jobs:
           if [ ! -s "$OUTPUT" ]; then
             echo "ToonzScript did not create a non-empty .tnz scene inside the default sandbox project."
             echo "Sandbox project files:"
-  find "$PROJECT" -maxdepth 3 -type f -print | sort | head -80
-  echo "Tahoma2D script runner exit code: $code"
+            find "$PROJECT" -maxdepth 3 -type f -print | sort | head -80
+            echo "Tahoma2D script runner exit code: $code"
             exit 1
           fi
           echo "Verified scene file: $OUTPUT ($(stat -c%s "$OUTPUT") bytes)"
+          cp "$OUTPUT" "$RUNNER_TEMP/tahoma2d-smoke.tnz"
           echo "Tahoma2D script runner exit code: $code (CLI may return 1 after script dispatch)"
           echo "TAHOMA_SCRIPT_TEST=passed" >> "$GITHUB_ENV"
 
@@ -158,6 +159,6 @@ jobs:
             ${{ runner.temp }}/tahoma2d-startup.log
             ${{ runner.temp }}/tahoma2d-cli-probe.log
             ${{ runner.temp }}/tahoma2d-script.log
-            $HOME/.config/Tahoma2D/stuff/sandbox/+scenes/tahoma2d-smoke.tnz
+            ${{ runner.temp }}/tahoma2d-smoke.tnz
           if-no-files-found: ignore
           retention-days: 3
