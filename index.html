@@ -1582,25 +1582,32 @@ async function pollRequest(id, historySettings = null) {
       // the first empty generations array.
       let generation = null;
       let lastResultError = null;
-      const resultDeadline = Date.now() + 90000;
+      // Keep trying the result endpoint for up to five minutes. Some workers
+      // publish the completed image noticeably later than the completion flag.
+      const resultDeadline = Date.now() + 5 * 60 * 1000;
+      let resultAttempt = 0;
       while (Date.now() < resultDeadline) {
         if (activeRequestId !== id) return;
+        resultAttempt += 1;
         try {
-          const finalResult = await retrySafeGet('/generate/status/' + encodeURIComponent(id), 2);
-          generation = finalResult && Array.isArray(finalResult.generations)
-            ? finalResult.generations[0]
-            : null;
+          const finalResult = await retrySafeGet('/generate/status/' + encodeURIComponent(id), 3);
+          const generations = finalResult && Array.isArray(finalResult.generations)
+            ? finalResult.generations
+            : [];
+          generation = generations.find(item => item && typeof item.img === 'string' && item.img.trim()) || null;
           if (generation && generation.img) break;
           lastResultError = new Error('پاسخ نهایی هنوز تصویر ندارد.');
         } catch (error) {
           lastResultError = error;
         }
-        setStatus('موتور پردازش پایان کار را اعلام کرد؛ نتیجه هنوز آماده دریافت نیست. دریافت دوباره در حال انجام است...');
+        const remainingSeconds = Math.max(0, Math.ceil((resultDeadline - Date.now()) / 1000));
+        setStatus('پردازش تمام شده؛ در حال دریافت و بازیابی تصویر از سرویس...\nتلاش دریافت: ' + resultAttempt +
+          '\nزمان باقی‌مانده برای بازیابی: ' + remainingSeconds + ' ثانیه');
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
       if (activeRequestId !== id) return;
       if (!generation || !generation.img) {
-        const resultError = new Error('موتور پردازش پایان کار را اعلام کرد، اما تصویر در پاسخ نهایی دریافت نشد.' +
+        const resultError = new Error('پس از پنج دقیقه تلاش مجدد، تصویر از پاسخ نهایی سرویس دریافت نشد؛ شناسه درخواست برای امکان بازیابی حفظ می‌شود.' +
           (lastResultError && lastResultError.message ? ' جزئیات: ' + lastResultError.message : ''));
         resultError.recoverableRequest = true;
         throw resultError;
