@@ -2678,7 +2678,9 @@ function getRigWorldTransform(layer,layers,progress,canvas){
       const parentHeight=(parent.image?.naturalHeight||0)*parentFit*parentScale;
       const anchorX=(Math.max(0,Math.min(100,Number(item.jointX??50)))/100-.5)*parentWidth;
       const anchorY=(Math.max(0,Math.min(100,Number(item.jointY??50)))/100-.5)*parentHeight;
-      const dx=x-bx+anchorX,dy=y-by+anchorY,c=Math.cos(pt.delta),sn=Math.sin(pt.delta);
+      const childOffsetX=Math.max(-100,Math.min(100,Number(item.jointOffsetX)||0))*parentWidth/100;
+      const childOffsetY=Math.max(-100,Math.min(100,Number(item.jointOffsetY)||0))*parentHeight/100;
+      const dx=x-bx+anchorX+childOffsetX,dy=y-by+anchorY+childOffsetY,c=Math.cos(pt.delta),sn=Math.sin(pt.delta);
       x=pt.x+dx*c-dy*sn;y=pt.y+dx*sn+dy*c;
       angle+=pt.delta;
     }
@@ -2765,7 +2767,7 @@ function renderMotionLayerList() {
     const moveDown=document.createElement('button');moveDown.type='button';moveDown.className='secondary';moveDown.textContent='↓';moveDown.title='انتقال به عقب';moveDown.disabled=index===0;
     moveDown.addEventListener('click',event=>{event.stopPropagation();if(index>0){[motionLayers[index],motionLayers[index-1]]=[motionLayers[index-1],motionLayers[index]];renderMotionLayerList();}});
     const duplicate=document.createElement('button');duplicate.type='button';duplicate.className='secondary';duplicate.textContent='کپی';
-    duplicate.addEventListener('click',event=>{event.stopPropagation();if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه پر است.','var(--warn)');return;}const copy={...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined,name:layer.name+' (کپی)',url:'',scale:Number(layer.scale)||1,rotation:Number(layer.rotation)||0};motionLayers.splice(index+1,0,copy);selectedMotionLayer=copy;renderMotionLayerList();});
+    duplicate.addEventListener('click',event=>{event.stopPropagation();if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه پر است.','var(--warn)');return;}const copy={...layer,rigId:'rig-'+Math.random().toString(36).slice(2,12),motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined,name:layer.name+' (کپی)',url:'',scale:Number(layer.scale)||1,rotation:Number(layer.rotation)||0};motionLayers.splice(index+1,0,copy);selectedMotionLayer=copy;renderMotionLayerList();});
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
     remove.addEventListener('click',event=>{event.stopPropagation();if(layer.url)URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
     actions.append(moveUp,moveDown,duplicate,remove);head.append(name,select,actions);
@@ -2785,6 +2787,17 @@ function renderMotionLayerList() {
       const caption=document.createElement('span');caption.textContent=label;
       const line=document.createElement('div');line.className='motion-range-line';
       const input=document.createElement('input');input.type='range';input.min=0;input.max=100;input.step=1;input.value=layer[key];
+      const output=document.createElement('output');output.textContent=layer[key]+'%';
+      input.addEventListener('click',event=>event.stopPropagation());
+      input.addEventListener('input',event=>{event.stopPropagation();layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
+      line.append(input,output);wrap.append(caption,line);controls.appendChild(wrap);
+    });
+    [['jointOffsetX','جابجایی افقی عضو نسبت به مفصل'],['jointOffsetY','جابجایی عمودی عضو نسبت به مفصل']].forEach(([key,label])=>{
+      if(!Number.isFinite(Number(layer[key])))layer[key]=0;
+      const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
+      const caption=document.createElement('span');caption.textContent=label;
+      const line=document.createElement('div');line.className='motion-range-line';
+      const input=document.createElement('input');input.type='range';input.min=-100;input.max=100;input.step=1;input.value=layer[key];
       const output=document.createElement('output');output.textContent=layer[key]+'%';
       input.addEventListener('click',event=>event.stopPropagation());
       input.addEventListener('input',event=>{event.stopPropagation();layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
