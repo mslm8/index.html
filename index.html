@@ -109,6 +109,17 @@ body:not(.authenticated)>main{display:none!important}
       </select>
     </div>
     <div>
+      <label for="framing">کادربندی دوربین</label>
+      <select id="framing">
+        <option value="auto">خودکار و متناسب با صحنه</option>
+        <option value="close">نمای نزدیک · جزئیات سوژه</option>
+        <option value="medium">نمای متوسط · سوژه و محیط</option>
+        <option value="full">نمای کامل · تمام سوژه‌ها</option>
+        <option value="wide">نمای باز · محیط گسترده</option>
+        <option value="top">نمای از بالا</option>
+      </select>
+    </div>
+    <div>
       <label for="style">سبک هنری</label>
       <select id="style">
         <option value="none">بدون تغییر سبک</option>
@@ -511,7 +522,16 @@ async function generateImage() {
     fantasy: 'Whimsical fantasy illustration, imaginative atmosphere, intricate environmental details and luminous lighting.'
   };
   const selectedStyle = stylePrompts[$('style').value] || '';
-  const styledPrompt = selectedStyle ? translatedPrompt + '. ' + selectedStyle : translatedPrompt;
+  const framingPrompts = {
+    close: 'Camera framing: close-up shot, emphasize the main subject details.',
+    medium: 'Camera framing: medium shot, show the subject clearly with some surrounding context.',
+    full: 'Camera framing: full shot, keep every main subject fully visible inside the frame.',
+    wide: 'Camera framing: wide establishing shot, show the environment and spatial context.',
+    top: 'Camera angle: high-angle overhead view looking down at the scene.'
+  };
+  const selectedFraming = framingPrompts[$('framing').value] || '';
+  const promptParts = [translatedPrompt, selectedStyle, selectedFraming].filter(Boolean);
+  const styledPrompt = promptParts.join('. ');
   const fullPrompt = translatedNegative
     ? styledPrompt + ' ### ' + translatedNegative
     : styledPrompt;
@@ -711,7 +731,7 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  const allowed = ['prompt','negative','size','ratio','style','framing','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
   for (const id of allowed) {
     if (typeof data.fields[id] !== 'string') continue;
     const el = $(id);
@@ -777,7 +797,7 @@ function projectFields() {
     format: 'ai-animator-project',
     version: 1,
     savedAt: new Date().toISOString(),
-    fields: ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
+    fields: ['prompt','negative','size','ratio','style','framing','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
       .reduce((out,id) => {
         const el = $(id);
         if (el) out[id] = el.value;
