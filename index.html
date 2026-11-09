@@ -309,6 +309,9 @@ async function pollRequest(id) {
       const finalResult = await apiFetch('/generate/status/' + encodeURIComponent(id));
       const generation = finalResult.generations && finalResult.generations[0];
       if (!generation || !generation.img) throw new Error('درخواست تمام شد اما تصویر در پاسخ وجود نداشت.');
+      if (generation.img === 'CENSORED' || (typeof generation.img === 'string' && generation.img.trim().toUpperCase() === 'CENSORED')) {
+        throw new Error('فیلتر ایمنی سرویس تصویر را مسدود کرد. این تشخیص ممکن است اشتباه باشد؛ متن درخواست را ساده‌تر و کاملاً غیرحساس بنویس و دوباره امتحان کن.');
+      }
       displayImage(generation.img, generation.seed, generation.model);
       return;
     }
