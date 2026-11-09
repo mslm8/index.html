@@ -1467,27 +1467,49 @@ $('cropRatio').addEventListener('change', drawCropPreview);
 $('resetCrop').addEventListener('click', openCropTool);
 $('applyCrop').addEventListener('click', applyCropTransform);
 
+let currentDownloadObjectUrl = null;
 function displayImage(imageValue, seed, model) {
   const url = imageSource(imageValue);
+  if (!url) {
+    setStatus('داده تصویر از سرویس خالی یا نامعتبر است؛ نتیجه قابل نمایش نیست.', 'var(--bad)');
+    return;
+  }
   if (currentImageUrl && currentImageUrl !== url) {
     previousImages.push({url: currentImageUrl});
     if (previousImages.length > 5) previousImages.shift();
   }
   $('undoImage').hidden = previousImages.length === 0;
   updateComparison();
-  if (currentImageUrl && currentImageUrl.startsWith('blob:')) URL.revokeObjectURL(currentImageUrl);
   currentImageUrl = url;
   const img = $('result');
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    $('download').href = url;
-    $('download').hidden = false;
+  const download = $('download');
+  // Keep a direct fallback download available even if the preview cannot render.
+  download.href = url;
+  download.download = 'ai-animator-result.webp';
+  download.hidden = false;
+  $('generateVariation').hidden = true;
+  img.onload = async () => {
     $('generateVariation').hidden = false;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Image data could not be read');
+      const blob = await response.blob();
+      if (currentDownloadObjectUrl) URL.revokeObjectURL(currentDownloadObjectUrl);
+      currentDownloadObjectUrl = URL.createObjectURL(blob);
+      download.href = currentDownloadObjectUrl;
+      download.download = 'ai-animator-result.' + ((blob.type.split('/')[1] || 'webp').replace('jpeg','jpg'));
+    } catch (_) {
+      // The original data URL remains available as the download target.
+    }
     resetMaskCanvas();
     openCropTool();
-    setStatus('تصویر آماده شد.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
+    setStatus('تصویر آماده شد و لینک ذخیره فعال است.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
   };
-  img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
+  img.onerror = () => {
+    download.hidden = false;
+    $('generateVariation').hidden = true;
+    setStatus('تصویر دریافت شد اما پیش‌نمایش مرورگر نتوانست آن را باز کند. لینک «ذخیره تصویر» همچنان فعال است؛ اگر آن هم کار نکرد، درخواست را دوباره بساز.', 'var(--warn)');
+  };
   img.src = url;
   img.hidden = false;
   $('outputEmpty').hidden = true;
