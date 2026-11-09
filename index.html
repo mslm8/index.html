@@ -628,12 +628,28 @@ async function renderHistory() {
       download.href = entry.src;
       download.download = 'ai-animator-' + String(entry.id).replace(/[^a-zA-Z0-9-]/g, '') + '.webp';
       download.textContent = 'ذخیره';
+      const editAgain = document.createElement('button');
+      editAgain.type = 'button';
+      editAgain.className = 'secondary';
+      editAgain.textContent = 'ویرایش دوباره';
+      editAgain.addEventListener('click', () => {
+        if (generationInProgress) {
+          setStatus('تا پایان پردازش فعلی صبر کن.', 'var(--warn)');
+          return;
+        }
+        displayImage(entry.src, entry.seed, entry.model || 'تاریخچه');
+        $('editCard').hidden = false;
+        $('cropCard').hidden = false;
+        $('editPrompt').focus();
+        setStatus('تصویر از تاریخچه بارگذاری شد؛ حالا می‌توانی آن را ویرایش کنی.');
+        $('editCard').scrollIntoView({behavior:'smooth', block:'start'});
+      });
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'danger';
       remove.textContent = 'حذف';
       remove.addEventListener('click', () => deleteHistoryItem(entry.id).catch(err => setStatus('حذف از تاریخچه ناموفق بود: ' + err.message, 'var(--warn)')));
-      actions.append(download, remove);
+      actions.append(download, editAgain, remove);
       item.append(image, details, actions);
       list.append(item);
     }
