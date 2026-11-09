@@ -3528,7 +3528,7 @@ function createMotionClip() {
   saveActiveMotionScene();
   const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice(),dialogues:(scene.dialogues||[]).map(item=>({...item})),backgroundImage:scene.backgroundImage||null,cameraMotion:scene.cameraMotion||$('motion').value}));
   // Automatic story episodes can use locally rendered scene backgrounds without any generated source image.
-  const sourceImage=source&&source.complete&&sourceImage.naturalWidth?source:exportScenes.find(scene=>scene.backgroundImage&&scene.backgroundImage.naturalWidth)?.backgroundImage;
+  const sourceImage=source&&source.complete&&source.naturalWidth?source:exportScenes.find(scene=>scene.backgroundImage&&scene.backgroundImage.naturalWidth)?.backgroundImage;
   if(!sourceImage){setStatus('پس‌زمینه یا تصویر صحنه برای ساخت ویدیو آماده نیست؛ دوباره ساخت ویدیو را اجرا کن.','var(--warn)');return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
