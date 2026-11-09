@@ -272,6 +272,7 @@ function displayImage(imageValue, seed, model) {
   if (currentImageUrl && currentImageUrl.startsWith('blob:')) URL.revokeObjectURL(currentImageUrl);
   currentImageUrl = url;
   const img = $('result');
+  img.crossOrigin = 'anonymous';
   img.onload = () => {
     $('download').href = url;
     $('download').hidden = false;
