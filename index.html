@@ -719,7 +719,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
-    <small>برای افزودن گویندگی خودکار، فقط متن دیالوگ‌ها به سرویس بیرونی TTS.ai ارسال می‌شود؛ سهمیهٔ رایگان و دسترسی سرویس ممکن است محدود باشد.</small>
+    <small>گویندگی دیالوگ‌ها در پیش‌نمایش با صدای داخلی مرورگر انجام می‌شود؛ این صدا فعلاً در فایل ویدیوی خروجی ضبط نمی‌شود.</small>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت ویدیو</button>
     
     <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
@@ -2567,65 +2567,13 @@ function autoScheduleSceneDialogues(scene){
   const total=weights.reduce((a,b)=>a+b,0);let cursor=0;
   items.forEach((item,index)=>{item.startAt=Math.round(cursor/total*100);cursor+=weights[index];item.endAt=Math.max(item.startAt+1,Math.min(100,Math.round(cursor/total*100)));});
 }
-async function generateAutomaticPersianDialogueAudio(scenes,status){
-  const lines=[];
-  scenes.forEach((scene,sceneIndex)=>(scene.dialogues||[]).forEach((dialogue,dialogueIndex)=>{
-    if(dialogue.text&&String(dialogue.text).trim()&&!dialogue.audioBuffer)lines.push({sceneIndex,dialogueIndex,item:dialogue});
-  }));
-  if(!lines.length)return {generated:0,skipped:0};
-  status.textContent='در حال آماده‌سازی صدای فارسی دیالوگ‌ها با موتور رایگان؛ متن دیالوگ‌ها برای ساخت صدا به سرویس TTS.ai فرستاده می‌شود...';
-  const api='https://api.tts.ai/v1';
-  const voiceResponse=await fetch(api+'/voices/?language=fa');
-  if(!voiceResponse.ok)throw new Error('فهرست صداهای فارسی در سرویس TTS در دسترس نیست.');
-  const voiceData=await voiceResponse.json();
-  const voices=Array.isArray(voiceData.voices)?voiceData.voices:[];
-  const voice=voices.find(item=>String(item.language||'').toLowerCase().startsWith('fa')&&String(item.model||'').toLowerCase()==='piper')||voices.find(item=>String(item.language||'').toLowerCase().startsWith('fa'));
-  if(!voice||!voice.id)throw new Error('صدای فارسی رایگان در فهرست سرویس پیدا نشد.');
-  const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  if(!AudioCtx)throw new Error('مرورگر از پردازش فایل صوتی پشتیبانی نمی‌کند.');
-  const decoder=new AudioCtx();let generated=0,failed=0;
-  try{
-    for(let index=0;index<Math.min(lines.length,12);index++){
-      const entry=lines[index],textValue=String(entry.item.text).trim().slice(0,450);
-      status.textContent='ساخت صدای دیالوگ '+(index+1)+' از '+Math.min(lines.length,12)+' با صدای فارسی...';
-      const response=await fetch(api+'/tts/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'piper',language:'fa',voice:voice.id,text:textValue,format:'wav'})});
-      if(!response.ok)throw new Error('موتور TTS درخواست صدا را نپذیرفت (HTTP '+response.status+').');
-      const contentType=response.headers.get('content-type')||'';
-      let audioBlob=null;
-      if(contentType.includes('audio/'))audioBlob=await response.blob();
-      else{
-        const job=await response.json();const uuid=job.uuid||job.job_id;
-        if(!uuid)throw new Error('شناسهٔ کار صوتی از سرویس دریافت نشد.');
-        let result=null;
-        for(let attempt=0;attempt<40;attempt++){
-          await new Promise(resolve=>setTimeout(resolve,1500));
-          const poll=await fetch(api+'/speech/results/?uuid='+encodeURIComponent(uuid));
-          if(!poll.ok)throw new Error('پیگیری ساخت صدا ناموفق بود (HTTP '+poll.status+').');
-          result=await poll.json();
-          if(result.status==='completed')break;
-          if(result.status==='failed')throw new Error(result.error||'ساخت صدای دیالوگ ناموفق بود.');
-        }
-        if(!result||result.status!=='completed'||!result.result_url)throw new Error('ساخت صدای دیالوگ بیش از زمان مجاز طول کشید.');
-        const audioResponse=await fetch(result.result_url);
-        if(!audioResponse.ok)throw new Error('دریافت فایل صوتی نهایی ناموفق بود.');
-        audioBlob=await audioResponse.blob();
-      }
-      if(!audioBlob||!audioBlob.size)throw new Error('فایل صوتی خالی دریافت شد.');
-      const buffer=await audioBlob.arrayBuffer();
-      entry.item.audioBuffer=await decoder.decodeAudioData(buffer.slice(0));
-      entry.item.audioName='TTS.ai · '+(voice.name||'Persian');
-      entry.item.ttsGenerated=true;generated++;
-    }
-    failed=Math.max(0,lines.length-generated);
-  }finally{await decoder.close().catch(()=>{});}
-  return {generated,skipped:failed};
-}
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;
+  try{await refreshFreeEngineManager(status);}catch(engineError){button.disabled=false;setStatus('بررسی موتورهای رایگان ناموفق بود: '+engineError.message,'var(--warn)');return;}
   const saved={prompt:$('prompt').value,style:$('style').value,framing:$('framing').value};
   const sceneStyle='Create a clean, high-quality 2D animated cartoon background plate for an original science-fiction comedy. Environment only, no people, no characters, no text, no lettering, no speech bubbles. ';
   try{
@@ -2644,8 +2592,6 @@ async function autoBuildEpisodeFromStory(){
       backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),autoDirection:{action:plan.action||'idle',emotion:plan.emotion||'none',gesture:plan.gesture||'neutral',camera:plan.camera||'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
-    let ttsResult={generated:0,skipped:0};
-    try{ttsResult=await generateAutomaticPersianDialogueAudio(nextScenes,status);}catch(ttsError){status.textContent='گویندگی خودکار فعلاً در دسترس نیست؛ انیمیشن بدون صدای تولیدشده ادامه پیدا می‌کند. '+ttsError.message;}
     saveActiveMotionScene();motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
     renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
     $('createProceduralCharacter').click();
@@ -2709,7 +2655,7 @@ async function autoBuildEpisodeFromStory(){
     $('motionDuration').value='60';activeMotionScene=0;
     motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    status.textContent=ttsResult.generated?'صدای '+ttsResult.generated+' دیالوگ آماده شد؛ در حال رندر ویدئوی ۶۰ ثانیه‌ای...':'صحنه‌ها آماده شدند؛ در حال رندر ویدئوی ۶۰ ثانیه‌ای...';
+    status.textContent='صحنه‌ها آماده شدند؛ مدیر هوشمند در حال رندر ویدیوی ۶۰ ثانیه‌ای است...';
     $('motionDuration').value='60';
     createMotionClip();
   }catch(error){
@@ -2721,6 +2667,36 @@ async function autoBuildEpisodeFromStory(){
 }
 $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
 
+let freeEngineManagerCheckedAt=0;
+let freeEngineManagerState={text:false,image:false,canvas:false,voicePreview:false};
+async function refreshFreeEngineManager(status){
+  if(status)status.textContent='مدیر هوشمند در حال بررسی هم‌زمان موتورهای رایگان متن، تصویر و رندر است...';
+  const [textResult,imageResult]=await Promise.allSettled([
+    apiFetch('/status/models?type=text'),
+    apiFetch('/status/models?type=image')
+  ]);
+  const active=list=>Array.isArray(list)?list.filter(model=>model&&model.name&&Number(model.count||model.worker_count||0)>0).sort((a,b)=>modelScore(a)-modelScore(b)):[];
+  const textModels=textResult.status==='fulfilled'?active(textResult.value):[];
+  const imageModels=imageResult.status==='fulfilled'?active(imageResult.value):[];
+  smartTextModelChoices=textModels.slice(0,3).map(model=>model.name);
+  smartModelChoices=imageModels.slice(0,3).map(model=>model.name);
+  freeEngineManagerState={
+    text:smartTextModelChoices.length>0,
+    image:smartModelChoices.length>0,
+    canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',
+    voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'
+  };
+  freeEngineManagerCheckedAt=Date.now();
+  const labels=[];
+  labels.push(freeEngineManagerState.text?'موتور متن آماده':'موتور متن فعلاً غیرفعال؛ تقسیم‌بندی داخلی جایگزین می‌شود');
+  labels.push(freeEngineManagerState.image?'موتور تصویر آماده':'موتور تصویر در دسترس نیست');
+  labels.push(freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود');
+  labels.push(freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست');
+  if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ');
+  if(!freeEngineManagerState.image)throw new Error('هیچ پردازشگر رایگان تصویر در AI Horde فعال نیست؛ مدیر هوشمند امکان ساخت پس‌زمینه‌ها را ندارد.');
+  if(!freeEngineManagerState.canvas)throw new Error('این مرورگر از ضبط ویدیوی Canvas با MediaRecorder پشتیبانی نمی‌کند.');
+  return {...freeEngineManagerState};
+}
 async function loadTextModels(){
   const models=await apiFetch('/status/models?type=text');
   const available=Array.isArray(models)?models.filter(m=>m&&m.name&&Number(m.count||m.worker_count||0)>0):[];
