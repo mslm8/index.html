@@ -50,19 +50,14 @@ small{color:var(--muted);line-height:1.8}
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
   <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
   <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
-  <div class="grid">
-    <div>
-      <label for="model">مدل تصویرسازی فعال</label>
-      <select id="model"><option value="">در حال دریافت فهرست مدل‌ها...</option></select>
-    </div>
-    <div>
-      <label for="size">اندازه تصویر</label>
-      <select id="size">
-        <option value="512">512 × 512 · سازگاری بیشتر</option>
-        <option value="768">768 × 768 · جزئیات بیشتر</option>
-        <option value="1024">1024 × 1024 · در صورت پشتیبانی کارگر</option>
-      </select>
-    </div>
+  <div class="note" id="autoModelInfo">موتور هوشمند در حال پیدا کردن سریع‌ترین مدل فعال است؛ انتخاب مدل به‌صورت خودکار انجام می‌شود.</div>
+  <div>
+    <label for="size">اندازه تصویر</label>
+    <select id="size">
+      <option value="512">512 × 512 · سریع‌تر و سازگارتر</option>
+      <option value="768">768 × 768 · جزئیات بیشتر</option>
+      <option value="1024">1024 × 1024 · در صورت پشتیبانی کارگر</option>
+    </select>
   </div>
   <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
   <div class="row">
@@ -124,6 +119,7 @@ const $ = id => document.getElementById(id);
 let activeRequestId = null;
 let polling = false;
 let currentImageUrl = null;
+let smartModelChoices = [];
 
 function setStatus(message, color) {
   $('status').textContent = message;
@@ -145,56 +141,83 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function loadModels() {
-  const select = $('model');
-  $('refreshModels').disabled = true;
-  select.innerHTML = '<option value="">در حال دریافت مدل‌های فعال...</option>';
-  setStatus('در حال بررسی اتصال و مدل‌های فعال...');
+function modelScore(model) {
+  const workers = Math.max(0, Number(model.count || model.worker_count || 0));
+  const queued = Math.max(0, Number(model.queued || model.queued_requests || 0));
+  const eta = Number(model.eta);
+  const hasEta = Number.isFinite(eta) && eta >= 0;
+  const queuePressure = workers > 0 ? queued / workers : Infinity;
+  const estimatedWait = hasEta ? eta : queuePressure * 30;
+  const qualityBonus = /XL|Juggernaut|Albedo|DreamShaper/i.test(model.name) ? 2 : 0;
+  return estimatedWait - Math.min(workers, 20) * 0.15 - qualityBonus;
+}
+
+async function loadModels(silent = false) {
+  if (!silent) {
+    $('refreshModels').disabled = true;
+    setStatus('در حال بررسی مدل‌های فعال و انتخاب سریع‌ترین گزینه...');
+  }
   try {
     const models = await apiFetch('/status/models?type=image');
-    const available = Array.isArray(models) ? models.filter(m => m && m.name && Number(m.count || 0) > 0) : [];
-    available.sort((a,b) => Number(b.count || 0) - Number(a.count || 0));
-    select.innerHTML = '';
-    if (!available.length) {
-      select.innerHTML = '<option value="">فعلاً مدل فعالی گزارش نشده</option>';
-      setStatus('اتصال برقرار است، اما در حال حاضر مدل فعالی برای تصویر گزارش نشده است.', 'var(--warn)');
+    const available = Array.isArray(models)
+      ? models.filter(m => m && m.name && Number(m.count || m.worker_count || 0) > 0)
+      : [];
+    available.sort((a,b) => modelScore(a) - modelScore(b));
+    smartModelChoices = available.slice(0, 3).map(m => m.name);
+    if (!smartModelChoices.length) {
       $('generate').disabled = true;
-      return;
+      $('autoModelInfo').textContent = 'فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.';
+      if (!silent) setStatus('مدل فعال در دسترس نیست.', 'var(--warn)');
+      return [];
     }
-    for (const item of available) {
-      const option = document.createElement('option');
-      option.value = item.name;
-      option.textContent = item.name + ' · ' + item.count + ' کارگر';
-      select.appendChild(option);
-    }
-    const preferred = available.find(m => /AlbedoBase XL 3.1|Juggernaut XL|DreamShaper XL/i.test(m.name));
-    if (preferred) select.value = preferred.name;
+    const first = available[0];
+    const workers = Number(first.count || first.worker_count || 0);
+    const queued = Number(first.queued || first.queued_requests || 0);
+    const eta = Number(first.eta);
+    const waitText = Number.isFinite(eta) && eta >= 0
+      ? 'زمان تخمینی صف: ' + Math.ceil(eta / 60) + ' دقیقه'
+      : 'صف نسبی: ' + queued + ' درخواست برای ' + workers + ' پردازشگر';
+    $('autoModelInfo').textContent =
+      'انتخاب خودکار فعال است. سریع‌ترین گزینه فعلی: ' + first.name +
+      ' · ' + waitText +
+      (smartModelChoices.length > 1 ? ' · ' + (smartModelChoices.length - 1) + ' گزینه جایگزین هم آماده است.' : '');
     $('generate').disabled = false;
-    setStatus('اتصال برقرار است؛ ' + available.length + ' مدل فعال پیدا شد. درخواست ناشناس ممکن است در صف بماند.');
+    if (!silent) setStatus('موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.');
+    return smartModelChoices;
   } catch (error) {
-    select.innerHTML = '<option value="">فهرست مدل‌ها دریافت نشد</option>';
+    smartModelChoices = [];
     $('generate').disabled = true;
-    setStatus('اتصال به سرویس تصویر برقرار نشد: ' + error.message + ' اگر خطا ادامه داشت، از لینک رسمی پایین همین صفحه استفاده کن.', 'var(--warn)');
+    $('autoModelInfo').textContent = 'اتصال به فهرست مدل‌های فعال برقرار نشد. انتخاب خودکار فعلاً ممکن نیست.';
+    if (!silent) setStatus('بررسی مدل‌ها ناموفق بود: ' + error.message, 'var(--warn)');
+    return [];
   } finally {
-    $('refreshModels').disabled = false;
+    if (!silent) $('refreshModels').disabled = false;
   }
 }
 
 async function generateImage() {
   const prompt = $('prompt').value.trim();
-  const model = $('model').value;
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
-  if (!model) { setStatus('یک مدل فعال انتخاب کن.', 'var(--warn)'); return; }
   if (activeRequestId || polling) return;
 
-  const negative = $('negative').value.trim();
-  const fullPrompt = negative ? prompt + ' ### ' + negative : prompt;
-  const dimension = Number($('size').value);
   $('generate').disabled = true;
   $('cancel').disabled = true;
   $('result').hidden = true;
   $('download').hidden = true;
-  setStatus('در حال ارسال درخواست به صف رایگان...');
+  setStatus('در حال بررسی زنده صف‌ها و انتخاب سریع‌ترین مدل...');
+  const candidates = await loadModels(true);
+  if (!candidates.length) {
+    $('generate').disabled = true;
+    setStatus('هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.', 'var(--warn)');
+    return;
+  }
+
+  const negative = $('negative').value.trim();
+  const fullPrompt = negative ? prompt + ' ### ' + negative : prompt;
+  const dimension = Number($('size').value);
+  setStatus('مدل سریع‌تر انتخاب شد: ' + candidates[0] +
+    (candidates.length > 1 ? '\nگزینه‌های جایگزین هم به درخواست اضافه شدند.' : '') +
+    '\nدر حال ارسال به موتور رایگان...');
 
   try {
     const submitted = await apiFetch('/generate/async', {
@@ -210,7 +233,7 @@ async function generateImage() {
           sampler_name: 'k_euler_a',
           karras: true
         },
-        models: [model],
+        models: candidates,
         nsfw: false,
         censor_nsfw: true,
         trusted_workers: false,
@@ -225,14 +248,14 @@ async function generateImage() {
     if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
     activeRequestId = submitted.id;
     $('cancel').disabled = false;
-    setStatus('درخواست ثبت شد. در صف انتظار هستی؛ ممکن است چند دقیقه طول بکشد.');
+    setStatus('درخواست ثبت شد. موتور هوشمند سریع‌ترین گزینه‌های فعال را به‌صورت خودکار در نظر گرفته است؛ ممکن است صف کمی طول بکشد.');
     await pollRequest(submitted.id);
   } catch (error) {
     setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
   } finally {
     activeRequestId = null;
     polling = false;
-    $('generate').disabled = !$('model').value;
+    $('generate').disabled = smartModelChoices.length === 0;
     $('cancel').disabled = true;
   }
 }
@@ -384,7 +407,7 @@ function createMotionClip() {
 $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
 $('cancel').addEventListener('click', cancelRequest);
-$('refreshModels').addEventListener('click', loadModels);
+$('refreshModels').addEventListener('click', () => loadModels(false));
 loadModels();
 </script>
 </body>
