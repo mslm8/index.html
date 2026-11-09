@@ -1359,10 +1359,20 @@ function imageSource(value) {
   if (/^[a-z0-9+/]+={0,2}$/i.test(source) && source.length % 4 === 0) return 'data:image/webp;base64,' + source;
   return '';
 }
+function isValidHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  if (typeof entry.id !== 'string' || !/^\\d{10,16}-[a-z0-9]{4,12}$/i.test(entry.id)) return false;
+  if (typeof entry.src !== 'string' || !entry.src || entry.src.length > 24 * 1024 * 1024 || !imageSource(entry.src)) return false;
+  if (entry.seed !== undefined && (typeof entry.seed !== 'string' || entry.seed.length > 80)) return false;
+  if (entry.model !== undefined && (typeof entry.model !== 'string' || entry.model.length > 160)) return false;
+  if (entry.createdAt !== undefined && (typeof entry.createdAt !== 'string' || entry.createdAt.length > 80)) return false;
+  return true;
+}
 async function saveHistory(src, seed, model) {
   try {
     const db = await openHistoryDb();
     const entry = {id: Date.now() + '-' + Math.random().toString(36).slice(2,8), src, seed: seed || '', model: model || '', createdAt: new Date().toLocaleString('fa-IR')};
+    if (!isValidHistoryEntry(entry)) throw new Error('اطلاعات تصویر برای ذخیره در تاریخچه معتبر نیست.');
     await new Promise((resolve, reject) => {
       const tx = db.transaction('images', 'readwrite');
       tx.objectStore('images').add(entry);
@@ -1380,7 +1390,11 @@ async function getHistory() {
   const db = await openHistoryDb();
   return new Promise((resolve, reject) => {
     const request = db.transaction('images', 'readonly').objectStore('images').getAll();
-    request.onsuccess = () => resolve((request.result || []).sort((a,b) => String(b.id).localeCompare(String(a.id))));
+    request.onsuccess = () => {
+      const validEntries = (request.result || []).filter(isValidHistoryEntry);
+      validEntries.sort((a,b) => String(b.id).localeCompare(String(a.id)));
+      resolve(validEntries);
+    };
     request.onerror = () => reject(request.error);
   });
 }
