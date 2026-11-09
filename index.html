@@ -786,6 +786,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <small>گویندگی دیالوگ‌ها در پیش‌نمایش با صدای داخلی مرورگر انجام می‌شود؛ این صدا فعلاً در فایل ویدیوی خروجی ضبط نمی‌شود.</small>
 <section id="liveProduction" class="live-production" hidden aria-live="polite"><div class="live-head"><span class="live-dot"></span><strong>پشت‌صحنهٔ زندهٔ ساخت انیمیشن</strong><span id="liveElapsed">۰۰:۰۰</span></div><div class="live-visual"><div class="live-orbit"><i></i><i></i><i></i><b>AI</b></div><div class="live-visual-copy"><strong id="liveStageTitle">آماده‌سازی پروژه</strong><small id="liveStageDetail">در حال آماده‌سازی...</small></div></div><div class="live-progress"><div><span>پیشرفت واقعی ساخت</span><strong id="livePercent">۰٪</strong></div><div class="live-track"><i id="liveProgressBar"></i></div></div><ol id="liveSteps" class="live-steps"><li>تحلیل داستان و تقسیم صحنه‌ها</li><li>ساخت شخصیت‌ها و ریگ</li><li>آماده‌سازی پس‌زمینه‌ها</li><li>متحرک‌سازی و زمان‌بندی</li><li>رندر و ضبط ویدیو</li><li>آماده‌سازی فایل نهایی</li></ol><div class="live-log-title">گزارش زندهٔ عملیات</div><div id="liveLog" class="live-log"><p>هنوز ساختی شروع نشده است.</p></div></section>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت ویدیو</button>
+    <button id="retrySceneImagesButton" type="button" class="secondary" hidden>بازیابی تصاویر ناموفق</button>
     
     <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
     <button id="autoSceneMotionButton" type="button" class="secondary" hidden>هوشمندسازی حرکت از روی داستان</button>
@@ -1163,35 +1164,93 @@ function setStatus(message, color) {
   $('status').style.color = color || 'var(--b)';
 }
 async function apiFetch(path, options = {}) {
+  const base = new URL(API);
+  const target = new URL(String(path || ''), base);
+  if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) {
+    throw Object.assign(new Error('مسیر درخواست سرویس معتبر نیست.'), {code:'INVALID_API_PATH'});
+  }
   const headers = new Headers(options.headers || {});
   headers.set('apikey', ANON_KEY);
   headers.set('Client-Agent', CLIENT_AGENT);
-  if (options.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(API + path, {...options, headers});
-  const text = await response.text();
-  let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch {}
-  if (!response.ok) {
-    const message = data.message || data.rc || ('HTTP ' + response.status);
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const timeoutMs = Math.max(1000, Math.min(120000, Number(options.timeoutMs) || 20000));
+  const externalSignal = options.signal;
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort(externalSignal.reason || 'cancelled');
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener('abort', onExternalAbort, {once:true});
   }
-  return data;
+  const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  const requestOptions = {...options, headers, signal:controller.signal};
+  delete requestOptions.timeoutMs;
+  try {
+    let response;
+    try {
+      response = await fetch(target.href, requestOptions);
+    } catch (cause) {
+      const timedOut = controller.signal.aborted && !externalSignal?.aborted;
+      const error = new Error(timedOut ? 'مهلت پاسخ سرویس تمام شد.' : (cause?.message || 'ارتباط شبکه برقرار نشد.'));
+      error.code = timedOut ? 'REQUEST_TIMEOUT' : (externalSignal?.aborted ? 'REQUEST_CANCELLED' : 'NETWORK_ERROR');
+      error.retryable = timedOut || !externalSignal?.aborted;
+      error.cause = cause;
+      throw error;
+    }
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > 4 * 1024 * 1024) {
+      try { await response.body?.cancel(); } catch (_) {}
+      throw Object.assign(new Error('پاسخ سرویس بیش از اندازه بزرگ است.'), {code:'RESPONSE_TOO_LARGE'});
+    }
+    const responseText = await response.text();
+    let data = {};
+    if (responseText) {
+      try { data = JSON.parse(responseText); }
+      catch (_) {
+        if (response.ok) throw Object.assign(new Error('سرویس پاسخ JSON معتبر برنگرداند.'), {code:'INVALID_RESPONSE_JSON', status:response.status});
+        data = {message:responseText.slice(0,500)};
+      }
+    }
+    if (!response.ok) {
+      const message = data.message || data.rc || data.error || ('HTTP ' + response.status);
+      const error = new Error(String(message).slice(0,500));
+      error.status = response.status;
+      error.code = response.status === 401 || response.status === 403 ? 'AUTH' :
+        response.status === 404 ? 'NOT_FOUND' :
+        response.status === 408 || response.status === 504 ? 'TIMEOUT' :
+        response.status === 429 ? 'RATE_LIMIT' :
+        response.status >= 500 ? 'UPSTREAM_SERVER' : 'HTTP_ERROR';
+      error.retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+      const retryAfter = response.headers.get('retry-after');
+      if (retryAfter) {
+        const seconds = Number(retryAfter);
+        error.retryAfterMs = Number.isFinite(seconds) ? Math.max(0,seconds*1000) : Math.max(0,Date.parse(retryAfter)-Date.now());
+      }
+      error.response = data;
+      throw error;
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+  }
 }
 
-async function retrySafeGet(path, attempts = 3) {
+async function retrySafeGet(path, attempts = 3, options = {}) {
   let lastError;
-  const maxAttempts=Math.max(1,Math.min(3,Number(attempts)||3)); // one initial request + at most two retries
+  const maxAttempts = Math.max(1, Math.min(3, Math.floor(Number(attempts) || 3)));
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      return await apiFetch(path, {method:'GET'});
+      return await apiFetch(path, {method:'GET', timeoutMs:options.timeoutMs || 20000, signal:options.signal});
     } catch (error) {
       lastError = error;
-      const status = Number(error && error.status || 0);
-      const retryable = !status || status === 408 || status === 429 || status >= 500;
-      if (!retryable || attempt === attempts - 1) { if (retryable) error.recoverableRequest = true; throw error; }
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      const status = Number(error?.status || 0);
+      const retryable = error?.retryable === true || !status || status === 408 || status === 429 || status >= 500;
+      if (!retryable || attempt === maxAttempts - 1 || options.signal?.aborted) {
+        if (retryable) error.recoverableRequest = true;
+        throw error;
+      }
+      const backoff = Math.min(10000, Math.max(Number(error?.retryAfterMs)||0, 800 * (2 ** attempt)));
+      await new Promise(resolve => setTimeout(resolve, backoff + Math.floor(Math.random() * 350)));
     }
   }
   throw lastError || new Error('دریافت پاسخ سرویس ناموفق بود.');
@@ -2891,15 +2950,122 @@ async function generateFalBackground(prompt,status){
 
 async function generateCloudflareBackground(prompt,status){
   const client=window.__aiAnimatorSupabaseClient;
-  if(!client)throw new Error('اتصال Supabase برای موتور Cloudflare در دسترس نیست.');
+  if(!client)throw Object.assign(new Error('اتصال Supabase برای موتور Cloudflare در دسترس نیست.'),{code:'SUPABASE_CLIENT_MISSING'});
   status.textContent='در حال تولید تصویر با Cloudflare Workers AI · FLUX.1 Schnell...';
   const response=await client.functions.invoke('fal-gateway',{body:{action:'cloudflare-image',prompt:String(prompt||'').slice(0,2048)}});
-  if(response.error)throw new Error(response.error.message||'درخواست Cloudflare ناموفق بود.');
+  if(response.error){
+    const context=response.error.context||{};
+    const httpStatus=Number(context.status||response.error.status||0);
+    const detail=typeof context.body==='string'?context.body:response.error.message||'درخواست Cloudflare ناموفق بود.';
+    const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':
+      httpStatus===429?'CLOUDFLARE_RATE_LIMIT':
+      httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':
+      httpStatus>=500?'CLOUDFLARE_UPSTREAM':
+      /failed to fetch|network/i.test(detail)?'NETWORK_ERROR':
+      /cors/i.test(detail)?'CORS_ERROR':'CLOUDFLARE_REQUEST';
+    const error=new Error('خطای '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,260));
+    error.code=code;error.status=httpStatus;error.retryable=['CLOUDFLARE_RATE_LIMIT','CLOUDFLARE_TIMEOUT','CLOUDFLARE_UPSTREAM','NETWORK_ERROR'].includes(code);
+    throw error;
+  }
   const imageUrl=response.data?.image_data_url;
-  if(typeof imageUrl!=='string'||!imageUrl.startsWith('data:image/'))throw new Error('Cloudflare تصویر معتبر برنگرداند.');
+  if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl))throw Object.assign(new Error('Cloudflare تصویر معتبر یا قابل‌خواندن برنگرداند.'),{code:'INVALID_IMAGE_RESPONSE'});
+  if(imageUrl.length<1000)throw Object.assign(new Error('پاسخ تصویر بسیار کوچک است و احتمالاً تصویر واقعی نیست.'),{code:'EMPTY_IMAGE_RESPONSE'});
   return imageUrl;
 }
 
+function storyFingerprint(value){
+  const normalized=String(value||'').normalize('NFKC').replace(/\s+/gu,' ').trim();
+  let hash=2166136261;
+  for(let i=0;i<normalized.length;i++){hash^=normalized.charCodeAt(i);hash=Math.imul(hash,16777619);}
+  return (hash>>>0).toString(16).padStart(8,'0');
+}
+const SCENE_RETRY_QUEUE_KEY='aiAnimatorSceneRetryQueueV1';
+function readSceneRetryQueue(){
+  try{
+    const value=JSON.parse(localStorage.getItem(SCENE_RETRY_QUEUE_KEY)||'[]');
+    if(!Array.isArray(value))return [];
+    return value.filter(item=>item&&typeof item==='object'&&/^[a-f0-9]{8}$/.test(String(item.storyHash||''))&&Number.isInteger(item.sceneIndex)&&item.sceneIndex>=0&&typeof item.prompt==='string'&&item.prompt.length>=4&&item.prompt.length<=2048).slice(-30);
+  }catch(_){return [];}
+}
+function writeSceneRetryQueue(queue){
+  const safe=Array.isArray(queue)?queue.slice(-30):[];
+  try{localStorage.setItem(SCENE_RETRY_QUEUE_KEY,JSON.stringify(safe));}
+  catch(error){liveBuildLog('ذخیره صف بازیابی در مرورگر ممکن نشد: '+String(error?.message||error).slice(0,120));}
+  updateSceneRetryButton();
+}
+function updateSceneRetryButton(){
+  const button=$('retrySceneImagesButton');if(!button)return;
+  const all=readSceneRetryQueue();
+  const storyHash=storyFingerprint($('storyToScenesInput')?.value||'');
+  const matching=all.filter(item=>item.storyHash===storyHash);
+  button.hidden=all.length===0;
+  button.disabled=matching.length===0||sceneRetryInProgress;
+  button.textContent=matching.length?'بازیابی '+matching.length+' تصویر ناموفق':'تصاویر ذخیره‌شده برای داستان دیگری هستند';
+}
+function buildSceneImagePrompt(scene,index,total){
+  return [
+    'Create a polished original 2D animated television cartoon BACKGROUND PLATE with professional clean line art, rich painted environment, cinematic composition, coherent perspective and beautiful lighting.',
+    'ENVIRONMENT CONTINUITY: maintain a consistent visual direction, architecture, color palette, perspective and lighting language across all locations in this episode.',
+    'SCENE '+(index+1)+' OF '+total+': '+String(scene.storyText||''),
+    'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
+  ].join('\n\n').slice(0,2048);
+}
+function enqueueSceneImageRetries(storyHash,scenes,startIndex){
+  const queue=readSceneRetryQueue().filter(item=>!(item.storyHash===storyHash&&item.sceneIndex>=startIndex));
+  for(let index=startIndex;index<scenes.length;index++){
+    const scene=scenes[index];
+    queue.push({storyHash,sceneIndex:index,sceneName:scene.name||('صحنه '+(index+1)),storyText:String(scene.storyText||'').slice(0,1800),prompt:buildSceneImagePrompt(scene,index,scenes.length),createdAt:Date.now(),attempts:0,lastError:''});
+  }
+  writeSceneRetryQueue(queue);
+}
+let sceneRetryInProgress=false;
+async function retryQueuedSceneImages(){
+  if(sceneRetryInProgress)return;
+  const storyHash=storyFingerprint($('storyToScenesInput')?.value||'');
+  const queue=readSceneRetryQueue();
+  const pending=queue.filter(item=>item.storyHash===storyHash);
+  if(!pending.length){setStatus('برای بازیابی، همان داستانی را وارد کن که تصاویرش ناموفق شده بود.','var(--warn)');return;}
+  if(!motionScenes.length||pending.some(item=>!motionScenes[item.sceneIndex])){
+    setStatus('اطلاعات صحنه‌های این صف در جلسه فعلی موجود نیست؛ همان داستان را دوباره بساز تا صحنه‌ها بازسازی شوند.','var(--warn)');return;
+  }
+  const button=$('retrySceneImagesButton'),status=$('aiStoryEngineStatus');
+  sceneRetryInProgress=true;button.disabled=true;liveBuildStart();
+  let successes=0,failures=0;
+  try{
+    for(const item of pending.sort((a,b)=>a.sceneIndex-b.sceneIndex)){
+      const scene=motionScenes[item.sceneIndex];
+      if(scene.backgroundImage?.naturalWidth){successes++;continue;}
+      liveBuildUpdate(2,'در حال بازیابی تصویر '+(item.sceneIndex+1)+' از صف ذخیره‌شده.',76);
+      try{
+        const url=await generateCloudflareBackground(item.prompt,status);
+        const frame=new Image();frame.src=url;
+        if(typeof frame.decode==='function')await frame.decode();
+        else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+        if(!frame.naturalWidth||!frame.naturalHeight)throw new Error('تصویر بازیابی‌شده ابعاد معتبر ندارد.');
+        scene.backgroundImage=frame;scene.backgroundUrl=url;scene.backgroundName='تصویر بازیابی‌شده '+scene.name;
+        successes++;
+        writeSceneRetryQueue(readSceneRetryQueue().filter(entry=>!(entry.storyHash===storyHash&&entry.sceneIndex===item.sceneIndex)));
+      }catch(error){
+        failures++;
+        writeSceneRetryQueue(readSceneRetryQueue().map(entry=>entry.storyHash===storyHash&&entry.sceneIndex===item.sceneIndex?{...entry,attempts:(entry.attempts||0)+1,lastError:String(error?.message||error).slice(0,240)}:entry));
+        liveBuildLog('بازیابی '+item.sceneName+' ناموفق بود: '+String(error?.message||error).slice(0,180));
+      }
+    }
+    renderMotionSceneList();renderMotionPreview();
+    const remaining=readSceneRetryQueue().filter(item=>item.storyHash===storyHash);
+    if(!remaining.length&&motionScenes.every(scene=>scene.backgroundImage?.naturalWidth)){
+      liveBuildUpdate(4,'همه پس‌زمینه‌ها بازیابی شدند؛ رندر خروجی آغاز می‌شود.',90);
+      status.textContent='تصاویر بازیابی شدند؛ در حال رندر ویدیو...';
+      createMotionClip();
+    }else{
+      const message='بازیابی پایان یافت؛ موفق: '+successes+'، ناموفق: '+failures+'، باقی‌مانده: '+remaining.length+'.';
+      setStatus(message,failures?'var(--warn)':undefined);liveBuildFinish(failures===0,message);
+    }
+  }finally{
+    sceneRetryInProgress=false;updateSceneRetryButton();
+  }
+}
+$('retrySceneImagesButton').addEventListener('click',retryQueuedSceneImages);
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
@@ -3014,13 +3180,7 @@ async function autoBuildEpisodeFromStory(){
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];
       liveBuildUpdate(2,'در حال تصویرسازی سینمایی صحنه '+(index+1)+' از '+nextScenes.length+' با مدل رایگان؛ ممکن است صف طولانی باشد.',22+(index/nextScenes.length)*48);
-      const scenePrompt=[
-        'Create a polished original 2D animated television cartoon BACKGROUND PLATE with professional clean line art, rich painted environment, cinematic composition, coherent perspective and beautiful lighting.',
-        'ENVIRONMENT CONTINUITY: maintain a consistent visual direction, architecture, color palette, perspective and lighting language across all locations in this episode.',
-        'SCENE '+(index+1)+' OF '+nextScenes.length+': '+scene.storyText,
-        
-        'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
-      ].join('\n\n');
+      const scenePrompt=buildSceneImagePrompt(scene,index,nextScenes.length);
       $('prompt').value=scenePrompt;
       let generatedUrl='';
       let lastSceneError=null;
@@ -3035,19 +3195,16 @@ async function autoBuildEpisodeFromStory(){
       }
       if(!generatedUrl){
         const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر رایگان در دسترس نبود';
-        try{
-          const queueKey='aiAnimatorSceneRetryQueueV1';
-          const queue=JSON.parse(localStorage.getItem(queueKey)||'[]');
-          queue.push({sceneIndex:index,sceneName:scene.name,prompt:scenePrompt,createdAt:Date.now(),attempts:0});
-          localStorage.setItem(queueKey,JSON.stringify(queue.slice(-30)));
-        }catch(_){}
-        liveBuildLog('ساخت متوقف شد: تصویر واقعی صحنه '+(index+1)+' تولید نشد؛ از پس‌زمینهٔ ساختگی استفاده نمی‌شود. علت: '+reason);
+        enqueueSceneImageRetries(storyFingerprint(raw),nextScenes,index);
+        liveBuildLog('ساخت متوقف شد: تصویر واقعی صحنه '+(index+1)+' تولید نشد؛ '+(nextScenes.length-index)+' تصویر در صف بازیابی ذخیره شد. علت: '+reason);
         throw new Error('تصویر صحنه '+(index+1)+' با Cloudflare تولید نشد. AI Horde عمداً غیرفعال است تا خطای سهمیه ناشناس تکرار نشود. جزئیات اتصال/مجوز Cloudflare: '+reason);
       }
       const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
       if(typeof frame.decode==='function')await frame.decode();
       else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+      if(!frame.naturalWidth||!frame.naturalHeight)throw new Error('تصویر تولیدشده ابعاد معتبر ندارد.');
       scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویر هوش مصنوعی '+scene.name;
+      writeSceneRetryQueue(readSceneRetryQueue().filter(item=>!(item.storyHash===storyFingerprint(raw)&&item.sceneIndex===index)));
       renderMotionSceneList();renderMotionPreview();
       liveBuildUpdate(2,'تصویر واقعی صحنه '+(index+1)+' آماده شد؛ طراحی شخصیت‌ها برای نماهای بعدی حفظ می‌شود.',22+((index+1)/nextScenes.length)*48);
     }
@@ -3065,18 +3222,19 @@ async function autoBuildEpisodeFromStory(){
   }finally{
     for(const id of settingIds)$(id).value=saved[id];
     button.disabled=false;
+    updateSceneRetryButton();
   }
 }
 $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
+updateSceneRetryButton();
 
 let freeEngineManagerCheckedAt=0;
 let freeEngineManagerState={text:false,image:false,canvas:false,voicePreview:false};
 async function refreshFreeEngineManager(status){
   if(status)status.textContent='مدیر هوشمند در حال بررسی موتورهای رایگان است؛ حداکثر ۱۲ ثانیه...';
-  const bounded=(promise,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' بیش از ۱۲ ثانیه طول کشید')),12000))]);
   const [textResult,imageResult]=await Promise.allSettled([
-    bounded(apiFetch('/status/models?type=text'),'بررسی موتور متن'),
-    bounded(apiFetch('/status/models?type=image'),'بررسی موتور تصویر')
+    apiFetch('/status/models?type=text',{timeoutMs:12000}),
+    apiFetch('/status/models?type=image',{timeoutMs:12000})
   ]);
   const active=list=>Array.isArray(list)?list.filter(model=>model&&model.name&&Number(model.count||model.worker_count||0)>0).sort((a,b)=>modelScore(a)-modelScore(b)):[];
   const textModels=textResult.status==='fulfilled'?active(textResult.value):[];
@@ -3104,10 +3262,7 @@ async function loadTextModels(){
   // The model directory must never block the episode pipeline indefinitely.
   let models=[];
   try{
-    models=await Promise.race([
-      apiFetch('/status/models?type=text'),
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error('مهلت بررسی موتور متن تمام شد')),7000))
-    ]);
+    models=await apiFetch('/status/models?type=text',{timeoutMs:7000});
   }catch(error){
     smartTextModelChoices=[];
     liveBuildLog('فهرست مدل‌های متن در ۷ ثانیه پاسخ نداد؛ تقسیم‌بندی داخلی فوراً جایگزین می‌شود.');
