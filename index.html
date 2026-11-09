@@ -3604,57 +3604,110 @@ function makeBackgroundPrompt(scene,index,total){
   const compText={wide:'wide 16:9 establishing shot',establishing:'strong location establishing shot',medium:'medium-wide environmental composition',layered:'clear foreground midground and background depth for parallax animation',minimal:'clean uncluttered environment with open space for animated characters'}[composition];
   const paletteText={consistent:'cohesive animated-series color grading',warm:'warm color palette',cool:'cool color palette',pastel:'soft pastel palette',vivid:'vivid saturated palette',muted:'muted low-saturation palette'}[palette];
   const story=String(scene?.storyText||scene?.name||'').slice(0,650);
+  const hasReference=!!($('backgroundUseReference')?.checked&&backgroundReferenceDataUrl);
   return [
     'Create a standalone background plate for an original polished 2D animated television episode. '+presetText+'.',
     'SCENE CONTEXT '+(index+1)+' OF '+total+': '+story,
     'COMPOSITION: '+compText+'. Full-frame 16:9 landscape environment artwork, coherent perspective, detailed painted background, clean readable shapes, consistent visual direction.',
     'LIGHT AND COLOR: '+moodText+', '+paletteText+'.',
+    hasReference?'VISUAL REFERENCE: use input image 0 as the visual art-direction reference. Preserve its illustration medium, line quality, shading approach, palette relationships, texture density and overall design language. Create the new location described above; do not simply copy the old scene or introduce its characters.':'',
     $('backgroundNoCharacters').checked?'BACKGROUND ONLY: absolutely no people, no characters, no animals, no silhouettes, no foreground subject. Leave clear usable space for separately animated characters.':'Environment-first composition with unobtrusive distant details only.',
-    'Continuity: keep architecture, geography, weather and visual motifs coherent with the same episode. No text, no letters, no watermark, no logo, no panels, no collage.'
-  ].join('\n\n');
+    'Continuity: keep architecture, geography, weather, light direction, horizon height, perspective and visual motifs coherent with the same episode. No text, no letters, no watermark, no logo, no panels, no collage.'
+  ].filter(Boolean).join('\n\n');
 }
 async function generatePreparedBackground(index){
   const scene=motionScenes[index];if(!scene)throw new Error('صحنه مقصد پیدا نشد.');
-  const settings=['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
-  const saved=Object.fromEntries(settings.map(id=>[id,$(id)?.value]));
-  const previous=currentImageUrl||$('result')?.src||'';
-  try{
-    $('prompt').value=makeBackgroundPrompt(scene,index,motionScenes.length);
-    $('negative').value='people, characters, humans, animals, faces, text, subtitles, letters, watermark, logo, collage, storyboard panels, blurry, low quality';
-    $('style').value='anime';$('framing').value='wide';$('aspect').value='wide';$('size').value='768';$('quality').value='20';
-    $('lighting').value='dramatic';$('palette').value='vivid';$('depth').value='deep';$('focusTarget').value='background';
-    $('backgroundStudioStatus').textContent='در حال ارسال درخواست تصویر پس‌زمینه صحنه '+(index+1)+' از '+motionScenes.length+' به موتور رایگان...';
-    await generateImageUnlocked();
-    const result=$('result'),url=currentImageUrl||result?.src||'';
-    if(!result||!url||url===previous||!result.complete||!result.naturalWidth)throw new Error('تصویر پس‌زمینه صحنه '+(index+1)+' تولید نشد: '+String($('status')?.textContent||'پاسخ تصویر دریافت نشد').slice(0,160));
-    const image=new Image();image.src=result.src;
-    if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
-    const asset=addPreparedBackground(image,result.src,'پس‌زمینه صحنه '+(index+1),'ai');
-    applyPreparedBackgroundToScene(asset,index);return asset;
-  }finally{settings.forEach(id=>{if($(id)&&saved[id]!==undefined)$(id).value=saved[id];});}
+  const useReference=$('backgroundUseReference').checked;
+  if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
+  const prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
+  status.textContent='در حال ساخت پس‌زمینه صحنه '+(index+1)+' با موتور Cloudflare...';
+  const generatedUrl=useReference
+    ?await generateCloudflareReferenceBackground(prompt,status,backgroundReferenceDataUrl)
+    :await generateCloudflareBackground(prompt,status);
+  const image=new Image();image.src=generatedUrl;
+  if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
+  const report=inspectBackgroundImage(image);
+  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه صحنه '+(index+1),useReference?'cloudflare-flux2-reference':'cloudflare-flux1');
+  await persistPreparedBackground(asset);
+  if(!applyPreparedBackgroundToScene(asset,index))throw new Error('تصویر ساخته شد اما اختصاص آن به صحنه ناموفق بود.');
+  status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):' · بررسی اولیه کیفیت مناسب بود');
+  return asset;
 }
-$('generateSceneBackground').addEventListener('click',async()=>{
-  if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
+async function runBackgroundBatch(indices){
+  if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر دیگر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
-  const index=Number($('backgroundSceneSelect').value),button=$('generateSceneBackground');button.disabled=true;
-  try{await generatePreparedBackground(index);$('backgroundStudioStatus').textContent='پس‌زمینه ساخته و به صحنه '+(index+1)+' اعمال شد.';}
-  catch(error){$('backgroundStudioStatus').textContent=error.message||String(error);}
-  finally{button.disabled=false;refreshBackgroundSceneOptions();}
-});
-$('generateAllSceneBackgrounds').addEventListener('click',async()=>{
-  if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
-  if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
-  backgroundBatchRunning=true;const one=$('generateSceneBackground'),all=$('generateAllSceneBackgrounds');one.disabled=all.disabled=true;
+  const targets=[...new Set(indices)].filter(index=>Number.isInteger(index)&&index>=0&&index<motionScenes.length&&!motionScenes[index]?.backgroundImage);
+  if(!targets.length){$('backgroundStudioStatus').textContent='همه صحنه‌های انتخاب‌شده از قبل پس‌زمینه دارند.';return;}
+  const fingerprint=backgroundScenesFingerprint();
+  let pending=targets.map(index=>({index,attempts:0,lastError:'در انتظار ساخت'}));
+  writeBackgroundBatchQueue(fingerprint,pending);
+  backgroundBatchRunning=true;backgroundBatchCancelRequested=false;
+  const one=$('generateSceneBackground'),all=$('generateAllSceneBackgrounds'),retry=$('retryFailedBackgrounds'),cancel=$('cancelBackgroundBatch');
+  one.disabled=all.disabled=retry.disabled=false;retry.disabled=true;cancel.disabled=false;
+  let completed=0;
   try{
-    for(let i=0;i<motionScenes.length;i++){
-      $('backgroundSceneSelect').value=String(i);$('backgroundStudioStatus').textContent='ساخت گروهی: صحنه '+(i+1)+' از '+motionScenes.length;
-      await generatePreparedBackground(i);
+    for(let position=0;position<targets.length;position++){
+      const index=targets[position];
+      if(backgroundBatchCancelRequested){
+        pending=pending.map(item=>item.index>=index?{...item,lastError:'ساخت توسط کاربر متوقف شد'}:item);
+        break;
+      }
+      $('backgroundSceneSelect').value=String(index);
+      $('backgroundBatchProgress').textContent='پیشرفت ساخت پس‌زمینه: '+completed+' از '+targets.length+' · صحنه '+(index+1)+' از '+motionScenes.length;
+      let lastError=null,success=false;
+      for(let attempt=0;attempt<2;attempt++){
+        try{await generatePreparedBackground(index);success=true;break;}
+        catch(error){
+          lastError=error;
+          if(attempt===0&&error?.retryable!==false&&!['CLOUDFLARE_AUTH','CLOUDFLARE_NOT_CONFIGURED','INVALID_PROMPT','INVALID_REFERENCE_IMAGE'].includes(error?.code)){
+            $('backgroundBatchProgress').textContent='خطای موقت صحنه '+(index+1)+'؛ یک بار دیگر با مکث کوتاه تلاش می‌شود.';
+            await new Promise(resolve=>setTimeout(resolve,1300));
+          }else break;
+        }
+      }
+      if(success)pending=pending.filter(item=>item.index!==index);
+      else pending=pending.map(item=>item.index===index?{...item,attempts:(item.attempts||0)+1,lastError:String(lastError?.message||lastError||'خطای نامشخص').slice(0,220)}:item);
+      completed++;
+      writeBackgroundBatchQueue(fingerprint,pending);
+      $('backgroundBatchProgress').textContent='پیشرفت: '+completed+' از '+targets.length+' · باقی‌مانده برای بازیابی: '+pending.length;
     }
-    $('backgroundStudioStatus').textContent='پس‌زمینه تمام '+motionScenes.length+' صحنه ساخته و اختصاص داده شد.';
-  }catch(error){$('backgroundStudioStatus').textContent='تولید گروهی در صحنه '+(Number($('backgroundSceneSelect').value)+1)+' متوقف شد: '+(error.message||String(error));}
-  finally{backgroundBatchRunning=false;one.disabled=all.disabled=false;refreshBackgroundSceneOptions();renderMotionSceneList();renderMotionPreview();}
+    const stopped=backgroundBatchCancelRequested;
+    $('backgroundStudioStatus').textContent=pending.length
+      ?(stopped?'ساخت متوقف شد؛ ':'ساخت گروهی پایان یافت؛ ')+pending.length+' صحنه در صف بازیابی باقی مانده است.'
+      :'پس‌زمینه تمام '+completed+' صحنه با موفقیت ساخته و اختصاص داده شد.';
+    $('backgroundBatchProgress').textContent=pending.length
+      ?'برای ادامه، دکمه «تلاش دوباره برای صحنه‌های ناموفق» را بزن. خطاها جداگانه نگهداری شده‌اند.'
+      :'تمام صحنه‌های انتخاب‌شده آماده‌اند.';
+  }finally{
+    backgroundBatchRunning=false;backgroundBatchCancelRequested=false;
+    one.disabled=all.disabled=false;cancel.disabled=true;
+    writeBackgroundBatchQueue(fingerprint,pending);
+    refreshBackgroundSceneOptions();renderMotionSceneList();renderMotionPreview();updateBackgroundBatchControls();
+  }
+}
+$('generateSceneBackground').addEventListener('click',()=>{
+  const index=Number($('backgroundSceneSelect').value);
+  runBackgroundBatch([index]);
 });
-refreshBackgroundSceneOptions();renderPreparedBackgroundLibrary();
+$('generateAllSceneBackgrounds').addEventListener('click',()=>{
+  const missing=motionScenes.map((scene,index)=>scene?.backgroundImage?-1:index).filter(index=>index>=0);
+  runBackgroundBatch(missing);
+});
+$('retryFailedBackgrounds').addEventListener('click',()=>{
+  const queue=readBackgroundBatchQueue();
+  if(queue.fingerprint!==backgroundScenesFingerprint()){
+    $('backgroundStudioStatus').textContent='صف متعلق به نسخه دیگری از داستان است؛ ابتدا همان داستان و صحنه‌ها را دوباره بارگذاری کن.';
+    return;
+  }
+  runBackgroundBatch(queue.failed.map(item=>item.index));
+});
+$('cancelBackgroundBatch').addEventListener('click',()=>{
+  if(!backgroundBatchRunning)return;
+  backgroundBatchCancelRequested=true;
+  $('backgroundBatchProgress').textContent='درخواست توقف ثبت شد؛ صحنه جاری تمام می‌شود و سپس ساخت متوقف خواهد شد.';
+  $('cancelBackgroundBatch').disabled=true;
+});
+refreshBackgroundSceneOptions();renderPreparedBackgroundLibrary();restorePreparedBackgroundLibrary();updateBackgroundBatchControls();
 
 function drawMotionDialogues(ctx, dialogues, progress) {
   (dialogues||[]).forEach(item=>{
