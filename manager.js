@@ -134,6 +134,26 @@
       rows.push({ name: "GitHub Actions", ok, detail: run ? run.status + (run.conclusion ? " · " + run.conclusion : "") + " · " + run.head_sha.slice(0,7) : "اطلاعات اجرا دریافت نشد." });
     } catch (error) { rows.push({ name: "GitHub Actions", ok: false, detail: redact(error.message || error) }); }
     try {
+      if (!navigator.gpu) {
+        rows.push({ name: "سازگاری موتور تصویر محلی (WebGPU)", ok: false, detail: "این مرورگر WebGPU را ارائه نمی‌کند؛ موتور ONNX محلی در این دستگاه قابل اجرا نیست." });
+      } else {
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: "low-power" });
+        if (!adapter) {
+          rows.push({ name: "سازگاری موتور تصویر محلی (WebGPU)", ok: false, detail: "مرورگر WebGPU دارد اما آداپتور گرافیکی در دسترس نیست." });
+        } else {
+          const hasF16 = adapter.features?.has("shader-f16") || false;
+          const memory = navigator.deviceMemory ? " · حافظه تقریبی دستگاه: " + navigator.deviceMemory + "GB" : "";
+          rows.push({
+            name: "سازگاری موتور تصویر محلی (WebGPU)",
+            ok: !!hasF16,
+            detail: (hasF16 ? "WebGPU و قابلیت shader-f16 شناسایی شدند." : "WebGPU شناسایی شد اما قابلیت shader-f16 که نمونه ONNX به آن نیاز دارد موجود نیست.") + memory + " · این بررسی اولیه است و اجرای مدل حجیم را تضمین نمی‌کند."
+          });
+        }
+      }
+    } catch (error) {
+      rows.push({ name: "سازگاری موتور تصویر محلی (WebGPU)", ok: false, detail: redact(error.message || error) });
+    }
+    try {
       const estimate = await navigator.storage?.estimate?.();
       rows.push({ name: "فضای ذخیره‌سازی مرورگر", ok: !!estimate, detail: estimate ? Math.round((estimate.usage || 0) / 1048576) + " از " + Math.round((estimate.quota || 0) / 1048576) + " مگابایت مصرف‌شده" : "مرورگر آمار ذخیره‌سازی را ارائه نکرد." });
     } catch (error) { rows.push({ name: "فضای ذخیره‌سازی مرورگر", ok: false, detail: redact(error.message || error) }); }
