@@ -47,21 +47,30 @@ jobs:
           "$APPIMAGE" --appimage-extract
           echo "TAHOMA_APPDIR=$(dirname "$APPIMAGE")/squashfs-root" >> "$GITHUB_ENV"
 
-      - name: Inspect command-line and scripting entry points
+      - name: Inspect supported CLI flags and package resources
         shell: bash
         run: |
           set +e
           BIN="$(find "$TAHOMA_APPDIR" -type f -executable \( -name 'Tahoma2D' -o -name 'tahoma2d' \) -print -quit)"
+          LOG="$RUNNER_TEMP/tahoma2d-cli-probe.log"
+          : > "$LOG"
           if [ -z "$BIN" ]; then
-            echo "Tahoma2D executable not found in extracted AppDir" | tee "$RUNNER_TEMP/tahoma2d-cli-probe.log"
-            find "$TAHOMA_APPDIR" -maxdepth 4 -type f -executable -print >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+            echo "Tahoma2D executable not found" | tee -a "$LOG"
+            find "$TAHOMA_APPDIR" -maxdepth 5 -type f -executable -print >> "$LOG"
           else
-            echo "Executable: $BIN" | tee "$RUNNER_TEMP/tahoma2d-cli-probe.log"
-            timeout --signal=TERM 12s xvfb-run -a "$BIN" --help >> "$RUNNER_TEMP/tahoma2d-cli-probe.log" 2>&1
-            echo "help_exit_code=$?" >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
-            strings "$BIN" | grep -Ei -- '--(render|batch|execute|script|project|scene)|ToonzScript|command.?line' | sort -u | head -100 >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+            echo "Executable: $BIN" | tee -a "$LOG"
+            echo "--- version ---" >> "$LOG"
+            "$BIN" -version >> "$LOG" 2>&1
+            echo "version_exit_code=$?" >> "$LOG"
+            echo "--- supported options (-help) ---" >> "$LOG"
+            "$BIN" -help >> "$LOG" 2>&1
+            echo "help_exit_code=$?" >> "$LOG"
           fi
-          cat "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+          echo "--- Tahoma resource directories ---" >> "$LOG"
+          find "$TAHOMA_APPDIR/usr" -maxdepth 6 -type d \( -iname 'stuff' -o -iname 'scripts' -o -iname 'tahoma2d' \) -print >> "$LOG" 2>&1
+          echo "--- script-related files ---" >> "$LOG"
+          find "$TAHOMA_APPDIR/usr" -maxdepth 7 -type f \( -iname '*.js' -o -iname '*script*' \) -print | head -100 >> "$LOG" 2>&1
+          cat "$LOG"
           set -e
 
       - name: Verify Tahoma2D can start in a virtual display
