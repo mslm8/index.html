@@ -1,0 +1,75 @@
+name: Tahoma2D free worker smoke test
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/tahoma2d-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tahoma2d-worker-smoke
+  cancel-in-progress: true
+
+jobs:
+  install-and-launch:
+    name: Install and launch Tahoma2D on a free Linux runner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xz-utils libgl1 libegl1 libxkbcommon-x11-0 libxcb-cursor0
+
+      - name: Download official Tahoma2D Linux build
+        run: |
+          curl --fail --location --retry 3 \
+            "https://github.com/tahoma2d/tahoma2d/releases/download/v1.6.3/Tahoma2D-linux-clang.tar.gz" \
+            --output /tmp/tahoma2d.tar.gz
+          mkdir -p "$RUNNER_TEMP/tahoma2d"
+          tar -xzf /tmp/tahoma2d.tar.gz -C "$RUNNER_TEMP/tahoma2d"
+          find "$RUNNER_TEMP/tahoma2d" -maxdepth 4 -type f -iname '*Tahoma2D*' -print
+
+      - name: Extract portable AppImage
+        run: |
+          APPIMAGE="$(find "$RUNNER_TEMP/tahoma2d" -type f -name 'Tahoma2D.AppImage' -print -quit)"
+          if [ -z "$APPIMAGE" ]; then
+            echo "Official archive did not contain Tahoma2D.AppImage"
+            find "$RUNNER_TEMP/tahoma2d" -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+          chmod +x "$APPIMAGE"
+          cd "$(dirname "$APPIMAGE")"
+          "$APPIMAGE" --appimage-extract
+          echo "TAHOMA_APPDIR=$(dirname "$APPIMAGE")/squashfs-root" >> "$GITHUB_ENV"
+
+      - name: Verify Tahoma2D can start in a virtual display
+        shell: bash
+        run: |
+          set +e
+          timeout --signal=TERM 20s xvfb-run -a \
+            "$TAHOMA_APPDIR/AppRun" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/tahoma2d-startup.log"
+          if [ "$code" -eq 124 ] || [ "$code" -eq 143 ]; then
+            echo "Tahoma2D stayed running until the smoke-test timeout; GUI startup appears successful."
+          elif [ "$code" -eq 0 ]; then
+            echo "Tahoma2D exited normally."
+          else
+            echo "Tahoma2D startup failed with exit code $code"
+            exit "$code"
+          fi
+
+      - name: Upload startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tahoma2d-startup-log
+          path: ${{ runner.temp }}/tahoma2d-startup.log
+          if-no-files-found: ignore
+          retention-days: 3
