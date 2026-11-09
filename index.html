@@ -722,7 +722,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     </div>
     <small>حرکت‌های «تاب خوردن بدن»، «قدم زدن درجا» و «تپش نرم» به لایه اضافه شده‌اند. این حرکت‌ها کل تصویر لایه را متحرک می‌کنند و هنوز ریگ‌بندی جداگانه دست‌وپا و صورت نیستند.</small>
 <small>هر قسمت می‌تواند تا ۶۰ ثانیه باشد. زمان انتخاب‌شده در پیش‌نمایش و خروجی WebM اعمال می‌شود؛ ساخت صحنه‌های داستانی متعدد و دیالوگ هنوز در مراحل توسعه است.</small>
-    <small>برای حرکت اعضای بدن، هر عضو را به‌صورت تصویر PNG شفاف جداگانه وارد کن. محور چرخش هر لایه را روی محل اتصال عضو تنظیم کن؛ مثلاً محور بازو را نزدیک شانه قرار بده. این ابزار ریگ خودکار نیست و جداسازی اعضا باید در تصویر انجام شده باشد.</small>
+    <small>برای هر عضو، زاویه شروع و پایان را جداگانه تعیین کن تا در طول تایم‌لاین بچرخد. محور چرخش را نزدیک مفصل تنظیم کن. این ابزار ریگ خودکار نیست و اعضا باید به‌صورت تصویرهای جداگانه و شفاف وارد شوند.</small>
     <small>برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.</small>
   </section>
   <button id="animate" class="primary" type="button" disabled>ساخت انیمیشن چندلایه</button>
@@ -2620,7 +2620,7 @@ function renderMotionPreview() {
     const w=layer.image.naturalWidth*scale*layerScale,h=layer.image.naturalHeight*scale*layerScale;
     let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*e)*canvas.width/100;
     let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*e)*canvas.height/100;
-    let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1,dynamicScale=1;
+    let angle=((Number(layer.rotation)||0)+((Number(layer.rotationStart)||0)+((Number(layer.rotationEnd)||0)-(Number(layer.rotationStart)||0))*p))*Math.PI/180,alpha=1,dynamicScale=1;
     if(layer.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
     if(layer.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
@@ -2689,7 +2689,7 @@ function renderMotionLayerList() {
     const segment=document.createElement('div');segment.className='motion-timeline-segment';segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
     track.appendChild(segment);
     const transform=document.createElement('div');transform.className='motion-transform-controls';
-    [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°'],['pivotX','محور چرخش افقی',0,100,'%'],['pivotY','محور چرخش عمودی',0,100,'%']].forEach(([key,label,min,max,unit])=>{
+    [['scale','اندازه لایه',40,200,'%'],['rotation','چرخش ثابت',-180,180,'°'],['rotationStart','زاویه شروع حرکت',-180,180,'°'],['rotationEnd','زاویه پایان حرکت',-180,180,'°'],['pivotX','محور چرخش افقی',0,100,'%'],['pivotY','محور چرخش عمودی',0,100,'%']].forEach(([key,label,min,max,unit])=>{
       if(typeof layer[key]!=='number')layer[key]=key==='scale'?1:(key==='pivotX'||key==='pivotY'?50:0);
       const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
       const caption=document.createElement('span');caption.textContent=label;
@@ -2848,7 +2848,7 @@ function createMotionClip() {
       const width=layer.image.naturalWidth*baseScale*layerScale,height=layer.image.naturalHeight*baseScale*layerScale;
       let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*eased)*canvas.width/100;
       let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*eased)*canvas.height/100;
-      let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1,dynamicScale=1;
+      let angle=((Number(layer.rotation)||0)+((Number(layer.rotationStart)||0)+((Number(layer.rotationEnd)||0)-(Number(layer.rotationStart)||0))*localProgress))*Math.PI/180,alpha=1,dynamicScale=1;
       if(layer.motion==='move-right')x+=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='move-left')x-=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='bounce')y-=Math.sin(localProgress*Math.PI*2)*58;
