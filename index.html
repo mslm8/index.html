@@ -2998,9 +2998,10 @@ function updateSceneRetryButton(){
   const all=readSceneRetryQueue();
   const storyHash=storyFingerprint($('storyToScenesInput')?.value||'');
   const matching=all.filter(item=>item.storyHash===storyHash);
+  const resumable=matching.length>0&&matching.every(item=>Number(item.sceneCount)===motionScenes.length&&motionScenes[item.sceneIndex]&&String(motionScenes[item.sceneIndex].storyText||'')===String(item.storyText||''));
   button.hidden=all.length===0;
-  button.disabled=matching.length===0||sceneRetryInProgress;
-  button.textContent=matching.length?'بازیابی '+matching.length+' تصویر ناموفق':'تصاویر ذخیره‌شده برای داستان دیگری هستند';
+  button.disabled=!resumable||sceneRetryInProgress;
+  button.textContent=!matching.length?'تصاویر ذخیره‌شده برای داستان دیگری هستند':resumable?'بازیابی '+matching.length+' تصویر ناموفق':'برای بازیابی، داستان را دوباره بساز';
 }
 function buildSceneImagePrompt(scene,index,total){
   return [
@@ -3014,7 +3015,7 @@ function enqueueSceneImageRetries(storyHash,scenes,startIndex){
   const queue=readSceneRetryQueue().filter(item=>!(item.storyHash===storyHash&&item.sceneIndex>=startIndex));
   for(let index=startIndex;index<scenes.length;index++){
     const scene=scenes[index];
-    queue.push({storyHash,sceneIndex:index,sceneName:scene.name||('صحنه '+(index+1)),storyText:String(scene.storyText||'').slice(0,1800),prompt:buildSceneImagePrompt(scene,index,scenes.length),createdAt:Date.now(),attempts:0,lastError:''});
+    queue.push({storyHash,sceneIndex:index,sceneCount:scenes.length,sceneName:scene.name||('صحنه '+(index+1)),storyText:String(scene.storyText||'').slice(0,1800),prompt:buildSceneImagePrompt(scene,index,scenes.length),createdAt:Date.now(),attempts:0,lastError:''});
   }
   writeSceneRetryQueue(queue);
 }
@@ -3025,7 +3026,7 @@ async function retryQueuedSceneImages(){
   const queue=readSceneRetryQueue();
   const pending=queue.filter(item=>item.storyHash===storyHash);
   if(!pending.length){setStatus('برای بازیابی، همان داستانی را وارد کن که تصاویرش ناموفق شده بود.','var(--warn)');return;}
-  if(!motionScenes.length||pending.some(item=>!motionScenes[item.sceneIndex])){
+  if(!motionScenes.length||pending.some(item=>Number(item.sceneCount)!==motionScenes.length||!motionScenes[item.sceneIndex]||String(motionScenes[item.sceneIndex].storyText||'')!==String(item.storyText||''))){
     setStatus('اطلاعات صحنه‌های این صف در جلسه فعلی موجود نیست؛ همان داستان را دوباره بساز تا صحنه‌ها بازسازی شوند.','var(--warn)');return;
   }
   const button=$('retrySceneImagesButton'),status=$('aiStoryEngineStatus');
@@ -3093,6 +3094,7 @@ async function autoBuildEpisodeFromStory(){
       if(client){
         const health=await client.functions.invoke('fal-gateway',{body:{action:'health'}});
         cloudflareImageReady=!health.error&&health.data?.cloudflareImageConfigured===true;
+        if(health.data?.cloudflareImageCredentialState==='configured_unverified')liveBuildLog('وجود رمزهای Cloudflare تأیید شد؛ اعتبار توکن و مجوز اجرای مدل فقط با درخواست واقعی تصویر مشخص می‌شود.');
       }
     }catch(error){liveBuildLog('بررسی وضعیت Cloudflare انجام نشد؛ درخواست مستقیم تصویر انجام می‌شود: '+String(error?.message||error).slice(0,160));}
     liveBuildLog('موتور تصویر داستان فقط Cloudflare Workers AI · FLUX.1 Schnell است؛ AI Horde ناشناس کاملاً غیرفعال است.');
