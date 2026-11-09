@@ -8,7 +8,7 @@
   const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const defaults = () => ({
     title: 'پروژه انیمیشن جدید', logline: '', format: '16:9', fps: 24, width: 1920, height: 1080,
-    targetMinutes: 2, story: '', scenes: [], characters: [], locations: [],
+    targetMinutes: 2, story: '', scenes: [], characters: [], locations: [], assets: [],
     checklist: { story: false, character: false, backgrounds: false, storyboard: false, audio: false, animatic: false, render: false, qc: false },
     selectedScene: ''
   });
@@ -16,7 +16,7 @@
     try {
       const value = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (!value || typeof value !== 'object') return defaults();
-      return { ...defaults(), ...value, scenes: Array.isArray(value.scenes) ? value.scenes : [], characters: Array.isArray(value.characters) ? value.characters : [], locations: Array.isArray(value.locations) ? value.locations : [], checklist: { ...defaults().checklist, ...(value.checklist || {}) } };
+      return { ...defaults(), ...value, scenes: Array.isArray(value.scenes) ? value.scenes : [], characters: Array.isArray(value.characters) ? value.characters : [], locations: Array.isArray(value.locations) ? value.locations : [], assets: Array.isArray(value.assets) ? value.assets.slice(0,8) : [], checklist: { ...defaults().checklist, ...(value.checklist || {}) } };
     } catch (_) { return defaults(); }
   };
   let state = load();
@@ -168,6 +168,44 @@
     const datalist = $('productionLocationHints'); datalist.replaceChildren();
     state.locations.forEach(item => { const option = make('option'); option.value = item.name; datalist.append(option); });
   }
+  function renderAssets() {
+    const host = $('productionAssetList');
+    if (!host) return;
+    host.replaceChildren();
+    (state.assets || []).forEach((asset, index) => {
+      const card = make('article', undefined, 'production-asset');
+      if (asset.dataUrl) {
+        const image = make('img'); image.src = asset.dataUrl; image.alt = asset.name || 'دارایی پروژه'; image.loading = 'lazy'; card.append(image);
+      }
+      const title = make('strong', asset.name || 'دارایی بدون نام');
+      const meta = make('small', [asset.kind, asset.scene ? 'صحنه: ' + asset.scene : 'عمومی', asset.notes].filter(Boolean).join(' · '));
+      const remove = make('button', 'حذف دارایی', 'danger'); remove.type = 'button';
+      remove.addEventListener('click', () => { state.assets.splice(index, 1); renderAssets(); persist(); });
+      card.append(title, meta, remove); host.append(card);
+    });
+    if (!(state.assets || []).length) host.append(make('p', 'هنوز دارایی تصویری ثبت نشده است.', 'muted'));
+    $('productionAssetCount').textContent = (state.assets || []).length + ' دارایی';
+  }
+  $('productionAddAsset')?.addEventListener('click', async () => {
+    const file = $('productionAssetFile').files?.[0];
+    const name = $('productionAssetName').value.trim();
+    if (!file || !name) { $('productionAssetStatus').textContent = 'نام و فایل تصویر را انتخاب کن.'; return; }
+    if (!/^image\\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 500 * 1024) {
+      $('productionAssetStatus').textContent = 'فقط PNG/JPEG/WebP/GIF تا ۵۰۰ کیلوبایت پذیرفته می‌شود.';
+      return;
+    }
+    if ((state.assets || []).length >= 8) { $('productionAssetStatus').textContent = 'حداکثر ۸ دارایی تصویری در هر پروژه نگهداری می‌شود.'; return; }
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file);
+      });
+      state.assets = state.assets || [];
+      state.assets.push({ id: uid(), name, kind: $('productionAssetKind').value, scene: $('productionAssetScene').value.trim(), notes: $('productionAssetNotes').value.trim(), dataUrl });
+      $('productionAssetName').value = ''; $('productionAssetScene').value = ''; $('productionAssetNotes').value = ''; $('productionAssetFile').value = '';
+      $('productionAssetStatus').textContent = 'دارایی به پروژه اضافه شد و در ذخیره محلی قرار گرفت.';
+      renderAssets(); persist();
+    } catch (_) { $('productionAssetStatus').textContent = 'خواندن فایل تصویر ناموفق بود.'; }
+  });
   function renderChecklist() {
     const host = $('productionChecklist'); host.replaceChildren();
     const tasks = [
@@ -190,7 +228,7 @@
     $('productionFormat').value = state.format; $('productionFps').value = String(state.fps);
     $('productionWidth').value = state.width; $('productionHeight').value = state.height;
     $('productionMinutes').value = state.targetMinutes; $('productionStory').value = state.story;
-    renderSceneList(); renderSceneEditor(); renderTimeline(); renderCharacters(); renderLocations(); renderChecklist();
+    renderSceneList(); renderSceneEditor(); renderTimeline(); renderCharacters(); renderLocations(); renderAssets(); renderChecklist();
   }
   ['productionTitle','productionLogline','productionFormat','productionFps','productionWidth','productionHeight','productionMinutes'].forEach(id => {
     $(id).addEventListener('input', () => {
@@ -247,7 +285,7 @@
     try {
       const payload = JSON.parse(await file.text()); const next = payload.project || payload;
       if (!next || !Array.isArray(next.scenes) || !Array.isArray(next.characters)) throw new Error('ساختار فایل پروژه معتبر نیست.');
-      state = { ...defaults(), ...next, checklist:{...defaults().checklist,...(next.checklist||{})} };
+      state = { ...defaults(), ...next, assets: Array.isArray(next.assets) ? next.assets.slice(0,8) : [], checklist:{...defaults().checklist,...(next.checklist||{})} };
       state.selectedScene = state.scenes[0]?.id || ''; renderAll(); persist(); $('productionStatus').textContent='پروژه وارد شد.';
     } catch (error) { $('productionStatus').textContent='ورود پروژه ناموفق بود: ' + error.message; }
   });
