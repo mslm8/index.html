@@ -3149,8 +3149,15 @@ async function generateCloudflareBackground(prompt,status){
       response=await fetch(workerUrl,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:cleanPrompt}),signal:controller.signal,cache:'no-store'});
     }finally{clearTimeout(timer);}
     if(!response.ok){
-      const detail=(await response.text()).slice(0,350);
-      throw Object.assign(new Error('Worker HTTP '+response.status+' · '+detail),{status:response.status,code:response.status===503?'WORKER_NOT_READY':response.status===429?'WORKER_RATE_LIMIT':'WORKER_HTTP'});
+      const rawDetail=(await response.text()).slice(0,4000);
+      let workerPayload=null;
+      try{workerPayload=JSON.parse(rawDetail);}catch(_){}
+      const detail=String(workerPayload?.error||rawDetail).slice(0,350);
+      throw Object.assign(new Error('Worker HTTP '+response.status+' · '+detail),{
+        status:response.status,
+        code:workerPayload?.code||(response.status===503?'WORKER_NOT_READY':response.status===429?'WORKER_RATE_LIMIT':'WORKER_HTTP'),
+        workerPayload
+      });
     }
     const type=String(response.headers.get('content-type')||'').toLowerCase();
     if(!type.startsWith('image/'))throw Object.assign(new Error('Worker پاسخ تصویری برنگرداند: '+type),{code:'WORKER_INVALID_CONTENT'});
@@ -3168,13 +3175,21 @@ async function generateCloudflareBackground(prompt,status){
     // transport failure. Calling the same Cloudflare model again through
     // Supabase only duplicates the failure and wastes execution time.
     let workerCode=workerError?.code||'';
+    let workerPayload=workerError?.workerPayload||null;
     try{
-      const parsed=JSON.parse(workerDetail.slice(workerDetail.indexOf('{')));
-      workerCode=parsed.code||workerCode;
+      if(!workerPayload){
+        const jsonStart=workerDetail.indexOf('{');
+        if(jsonStart>=0)workerPayload=JSON.parse(workerDetail.slice(jsonStart));
+      }
+      workerCode=workerPayload?.code||workerCode;
     }catch(_){}
     if(workerCode==='NO_ALLOWED_IMAGE_MODEL'||/no configured cloudflare image model|no allowed cloudflare image model|model.{0,40}(not allowed|not available)|not allowed.{0,40}model/i.test(workerDetail)){
-      liveBuildLog('مدل تصویر Cloudflare برای این حساب مجاز نیست؛ از تلاش تکراری در Supabase جلوگیری شد.');
-      throw Object.assign(new Error('مدل‌های تصویری Cloudflare برای این حساب فعال نیستند. مسیر تکراری اجرا نشد.'),{code:'NO_ALLOWED_IMAGE_MODEL',retryable:false});
+      const modelDetails=Array.isArray(workerPayload?.details)
+        ?workerPayload.details.slice(0,7).map((item)=>String(item).slice(0,220)).join(' | ')
+        :'';
+      const diagnostic=modelDetails||String(workerPayload?.guidance||'جزئیات فنی در پاسخ Worker موجود نبود.').slice(0,700);
+      liveBuildLog('Worker هیچ‌یک از مدل‌های تصویر را نپذیرفت. جزئیات فنی: '+diagnostic.slice(0,700));
+      throw Object.assign(new Error('Cloudflare هیچ‌یک از مدل‌های امتحان‌شده را نپذیرفت. این پاسخ به‌تنهایی ثابت نمی‌کند دسترسی کل حساب غیرفعال است. جزئیات فنی: '+diagnostic.slice(0,700)+' مسیر تکراری Supabase اجرا نشد.'),{code:'NO_ALLOWED_IMAGE_MODEL',retryable:false});
     }
     liveBuildLog('مسیر مستقیم Worker ناموفق بود؛ مسیر پشتیبان فقط برای خطاهای اتصال یا سرویس بررسی می‌شود.');
   }
