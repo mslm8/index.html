@@ -2410,7 +2410,9 @@ $('addMotionScene').addEventListener('click',()=>{
 $('duplicateMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
   saveActiveMotionScene();const original=motionScenes[activeMotionScene];
-  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})),dialogues:(original.dialogues||[]).map(item=>({...item})),backgroundImage:original.backgroundImage||null,backgroundUrl:original.backgroundUrl||'',backgroundName:original.backgroundName||'',selectedIndex:original.selectedIndex};
+  const rigIdMap=new Map(original.layers.map(layer=>[layer.rigId||'','rig-'+Math.random().toString(36).slice(2,10)]));
+  const copiedLayers=original.layers.map(layer=>({...layer,rigId:rigIdMap.get(layer.rigId||'')||('rig-'+Math.random().toString(36).slice(2,10)),parentLayerId:rigIdMap.get(layer.parentLayerId||'')||'',motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+  const copy={name:'صحنه '+(motionScenes.length+1),layers:copiedLayers,dialogues:(original.dialogues||[]).map(item=>({...item})),backgroundImage:original.backgroundImage||null,backgroundUrl:original.backgroundUrl||'',backgroundName:original.backgroundName||'',selectedIndex:original.selectedIndex};
   motionScenes.splice(activeMotionScene+1,0,copy);switchMotionScene(activeMotionScene+1);
 });
 $('deleteMotionScene').addEventListener('click',()=>{
@@ -2664,7 +2666,8 @@ function getRigWorldTransform(layer,layers,progress,canvas){
     if(item.motion==='sway')y+=Math.sin(p*Math.PI*4)*5;
     if(item.motion==='walk')y-=Math.abs(Math.sin(p*Math.PI*6))*10;
     const baseAngle=((Number(item.rotation)||0)+Number(first?.rotation??item.rotationStart??0))*Math.PI/180;
-    const localDelta=angle-baseAngle;
+    const jointRotation=(Number(item.jointRotation)||0)*Math.PI/180;
+    const localDelta=angle-baseAngle+jointRotation;
     const ownScale=Math.max(.4,Math.min(2,Number(item.scale)||1));
     let inheritedScale=1,inheritedDelta=0;
     const parent=item.parentLayerId?byId(item.parentLayerId):null;
@@ -2687,7 +2690,7 @@ function getRigWorldTransform(layer,layers,progress,canvas){
       const c=Math.cos(inheritedDelta),sn=Math.sin(inheritedDelta);
       x=pt.x+dx*c-dy*sn;y=pt.y+dx*sn+dy*c;
     }
-    return {x,y,delta:inheritedDelta,scale:inheritedScale*ownScale,inheritScale:inheritedScale,worldDelta:inheritedDelta+localDelta};
+    return {x,y,delta:inheritedDelta+jointRotation,scale:inheritedScale*ownScale,inheritScale:inheritedScale,worldDelta:inheritedDelta+localDelta};
   };
   return resolve(layer,new Set(layer.rigId?[layer.rigId]:[]));
 }
@@ -2802,6 +2805,18 @@ function renderMotionLayerList() {
       input.addEventListener('input',event=>{event.stopPropagation();layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
       line.append(input,output);wrap.append(caption,line);controls.appendChild(wrap);
     });
+    if(!Number.isFinite(Number(layer.jointRotation)))layer.jointRotation=0;
+    const jointRotationWrap=document.createElement('label');jointRotationWrap.className='motion-keyframe-control';
+    const jointRotationCaption=document.createElement('span');jointRotationCaption.textContent='چرخش مستقل مفصل (درجه)';
+    const jointRotationLine=document.createElement('div');jointRotationLine.className='motion-range-line';
+    const jointRotationInput=document.createElement('input');jointRotationInput.type='range';jointRotationInput.min=-180;jointRotationInput.max=180;jointRotationInput.step=1;jointRotationInput.value=layer.jointRotation;
+    const jointRotationOutput=document.createElement('output');jointRotationOutput.textContent=layer.jointRotation+'°';
+    jointRotationInput.addEventListener('click',event=>event.stopPropagation());
+    jointRotationInput.addEventListener('input',event=>{event.stopPropagation();layer.jointRotation=Number(jointRotationInput.value);jointRotationOutput.textContent=jointRotationInput.value+'°';renderMotionPreview();});
+    jointRotationLine.append(jointRotationInput,jointRotationOutput);jointRotationWrap.append(jointRotationCaption,jointRotationLine);controls.appendChild(jointRotationWrap);
+    const resetJoint=document.createElement('button');resetJoint.type='button';resetJoint.className='secondary';resetJoint.textContent='بازنشانی تنظیمات مفصل';
+    resetJoint.addEventListener('click',event=>{event.stopPropagation();layer.jointX=50;layer.jointY=50;layer.jointOffsetX=0;layer.jointOffsetY=0;layer.jointRotation=0;renderMotionLayerList();renderMotionPreview();});
+    controls.appendChild(resetJoint);
     const details=document.createElement('details');details.className='motion-keyframes';
     const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
     const controls=document.createElement('div');controls.className='motion-keyframe-grid';
