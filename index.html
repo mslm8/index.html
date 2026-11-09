@@ -1139,6 +1139,19 @@ async function translateToEnglish(text) {
   return translated.trim();
 }
 
+function buildSemanticRoleConstraints(sourceText) {
+  const source = String(sourceText || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').trim();
+  // Resolve an explicitly stated donkey-on-horse relation before relying on machine translation.
+  const donkeyRidingHorse = /(?:الاغ|الاف|خر)[\\s\\S]{0,45}(?:سوار|روی)\\s*(?:(?:یک|یه)\\s*)?اسب/.test(source);
+  if (donkeyRidingHorse) {
+    return {
+      prompt: 'CRITICAL SUBJECT-ROLE CONSTRAINT: The donkey is the rider and is riding ON TOP OF the horse. The horse is the mount carrying the donkey. Show exactly these two animals in this relationship. The rider must be a donkey, not a human. Do not replace the donkey with a person, man, woman, or human horseback rider.',
+      negative: 'human rider, person riding a horse, man riding a horse, woman riding a horse, human, person'
+    };
+  }
+  return {prompt:'', negative:''};
+}
+
 async function runWithGenerationLock(task) {
   if (!navigator.locks || typeof navigator.locks.request !== 'function') {
     setStatus('این مرورگر قفل بین‌تب را پشتیبانی نمی‌کند؛ کنترل هم‌زمانی فقط در همین تب فعال است.', 'var(--warn)');
@@ -1214,6 +1227,11 @@ async function generateImageUnlocked() {
     pixel: 'Detailed pixel art, crisp pixel clusters, controlled limited palette and clean pixel edges.',
     fantasy: 'Whimsical fantasy illustration, imaginative atmosphere, intricate environmental details and luminous lighting.'
   };
+  const roleConstraints = buildSemanticRoleConstraints(prompt);
+  if (roleConstraints.prompt) translatedPrompt += '. ' + roleConstraints.prompt;
+  if (roleConstraints.negative) {
+    translatedNegative = [translatedNegative, roleConstraints.negative].filter(Boolean).join(', ');
+  }
   const selectedStyle = stylePrompts[$('style').value] || '';
   const framingPrompts = {
     close: 'Camera framing: close-up shot, emphasize the main subject details.',
