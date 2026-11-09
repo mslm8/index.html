@@ -2413,7 +2413,7 @@ $('storyToScenesButton').addEventListener('click',()=>{
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
   saveActiveMotionScene();
-  const paragraphs=raw.split(/\\n+|(?<=[.!؟?])\\s+(?=[^\\s])/u).map(part=>part.trim()).filter(Boolean);
+  const paragraphs=raw.split(/\n+|(?<=[.!؟?])\s+(?=\S)/u).map(part=>part.trim()).filter(Boolean);
   const groups=Array.from({length:Math.min(6,paragraphs.length)},()=>[]);
   paragraphs.forEach((part,index)=>groups[Math.min(groups.length-1,Math.floor(index*groups.length/paragraphs.length))].push(part));
   const baseLayers=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
