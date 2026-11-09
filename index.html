@@ -936,13 +936,20 @@ let activeRequestId = null;
 let polling = false;
 let generationInProgress = false;
 const pendingRequestStorageKey = 'aiAnimatorPendingHordeRequestV1';
+const pendingRequestTimeKey = 'aiAnimatorPendingHordeRequestTimeV1';
 function savePendingRequest(id) {
   if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{8,128}$/.test(id)) return;
-  try { sessionStorage.setItem(pendingRequestStorageKey, id); } catch (_) {}
+  try {
+    sessionStorage.setItem(pendingRequestStorageKey, id);
+    sessionStorage.setItem(pendingRequestTimeKey, String(Date.now()));
+  } catch (_) {}
 }
 function clearPendingRequest(id) {
   try {
-    if (!id || sessionStorage.getItem(pendingRequestStorageKey) === id) sessionStorage.removeItem(pendingRequestStorageKey);
+    if (!id || sessionStorage.getItem(pendingRequestStorageKey) === id) {
+      sessionStorage.removeItem(pendingRequestStorageKey);
+      sessionStorage.removeItem(pendingRequestTimeKey);
+    }
   } catch (_) {}
 }
 let pendingRecoveryStarted = false;
@@ -2373,6 +2380,13 @@ $('cancel').addEventListener('click', cancelRequest);
     try { id = sessionStorage.getItem(pendingRequestStorageKey) || ''; } catch (_) { return; }
     if (!/^[a-zA-Z0-9-]{8,128}$/.test(id)) {
       clearPendingRequest(id);
+      return;
+    }
+    let savedAt = 0;
+    try { savedAt = Number(sessionStorage.getItem(pendingRequestTimeKey) || 0); } catch (_) {}
+    if (savedAt && (!Number.isFinite(savedAt) || savedAt > Date.now() || Date.now() - savedAt > 6 * 60 * 60 * 1000)) {
+      clearPendingRequest(id);
+      setStatus('درخواست ذخیره‌شده قدیمی است و برای جلوگیری از بازیابی اشتباه پاک شد.', 'var(--warn)');
       return;
     }
     pendingRecoveryStarted = true;
