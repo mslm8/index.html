@@ -74,6 +74,33 @@ small{color:var(--muted);line-height:1.8}
   <p><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a></p>
 </section>
 
+<section class="card" id="motionCard" hidden>
+  <h2>ساخت کلیپ حرکتی از تصویر</h2>
+  <p>این ابزار فقط حرکت دوربین روی تصویر ثابت ایجاد می‌کند؛ حرکت تازه‌ای با هوش مصنوعی تولید نمی‌کند.</p>
+  <div class="grid">
+    <div>
+      <label for="motion">نوع حرکت</label>
+      <select id="motion">
+        <option value="zoom-in">نزدیک شدن آرام</option>
+        <option value="zoom-out">دور شدن آرام</option>
+        <option value="pan-right">حرکت به راست</option>
+        <option value="pan-left">حرکت به چپ</option>
+      </select>
+    </div>
+    <div>
+      <label for="motionDuration">مدت کلیپ</label>
+      <select id="motionDuration">
+        <option value="4">۴ ثانیه</option>
+        <option value="6" selected>۶ ثانیه</option>
+        <option value="8">۸ ثانیه</option>
+      </select>
+    </div>
+  </div>
+  <button id="animate" class="primary" type="button" disabled>ساخت کلیپ حرکتی</button>
+  <video id="videoPreview" controls playsinline hidden style="width:100%;margin-top:14px;border-radius:12px"></video>
+  <p><a id="downloadVideo" hidden download="ai-animator-motion.webm">ذخیره ویدئو (WebM)</a></p>
+</section>
+
 <section class="card">
   <h2>وضعیت ساخت ویدئو</h2>
   <p>تولید ویدئوی هوش مصنوعی هنوز به این سایت وصل نشده است. سرویس‌های ویدئویی متصل به ChatGPT از داخل صفحه عمومی سایت قابل‌فراخوانی نیستند و موتورهای ابری فعلی هزینه دارند. تا پیدا شدن راه‌حل رایگان و امن، دکمه ویدئو را فعال نمی‌کنم.</p>
@@ -253,6 +280,8 @@ function displayImage(imageValue, seed, model) {
   img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
   img.src = url;
   img.hidden = false;
+  $('motionCard').hidden = false;
+  $('animate').disabled = false;
 }
 
 async function cancelRequest() {
@@ -268,6 +297,90 @@ async function cancelRequest() {
     setStatus('درخواست لغو ارسال شد؛ وضعیت نهایی ممکن است با کمی تأخیر به‌روزرسانی شود: ' + error.message, 'var(--warn)');
   }
 }
+function createMotionClip() {
+  const source = $('result');
+  if (!source.src || !source.complete || !source.naturalWidth) {
+    setStatus('اول یک تصویر تولید کن.', 'var(--warn)');
+    return;
+  }
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.', 'var(--warn)');
+    return;
+  }
+  const button = $('animate');
+  button.disabled = true;
+  $('videoPreview').hidden = true;
+  $('downloadVideo').hidden = true;
+  setStatus('در حال ساخت کلیپ حرکتی از تصویر...');
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    button.disabled = false;
+    setStatus('ساخت بوم ویدئو ناموفق بود.', 'var(--bad)');
+    return;
+  }
+  const stream = canvas.captureStream(24);
+  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+  let recorder;
+  try {
+    recorder = new MediaRecorder(stream, mimeType ? {mimeType} : undefined);
+  } catch (error) {
+    stream.getTracks().forEach(track => track.stop());
+    button.disabled = false;
+    setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: ' + error.message, 'var(--warn)');
+    return;
+  }
+  const chunks = [];
+  recorder.ondataavailable = event => {
+    if (event.data && event.data.size) chunks.push(event.data);
+  };
+  recorder.onerror = () => {
+    stream.getTracks().forEach(track => track.stop());
+    button.disabled = false;
+    setStatus('هنگام ساخت کلیپ خطای ضبط رخ داد.', 'var(--bad)');
+  };
+  recorder.onstop = () => {
+    stream.getTracks().forEach(track => track.stop());
+    const blob = new Blob(chunks, {type: recorder.mimeType || 'video/webm'});
+    if (!blob.size) {
+      button.disabled = false;
+      setStatus('فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.', 'var(--bad)');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    $('videoPreview').src = url;
+    $('videoPreview').hidden = false;
+    $('downloadVideo').href = url;
+    $('downloadVideo').hidden = false;
+    button.disabled = false;
+    setStatus('کلیپ حرکتی آماده شد. فرمت خروجی WebM است.');
+  };
+  const duration = Number($('motionDuration').value) * 1000;
+  const motion = $('motion').value;
+  const baseScale = Math.max(canvas.width / source.naturalWidth, canvas.height / source.naturalHeight);
+  const start = performance.now();
+  recorder.start(200);
+  function draw(now) {
+    const progress = Math.min(1, (now - start) / duration);
+    const zoom = motion === 'zoom-out' ? 1.12 - 0.12 * progress : 1 + 0.12 * progress;
+    const width = source.naturalWidth * baseScale * zoom;
+    const height = source.naturalHeight * baseScale * zoom;
+    let panX = 0;
+    if (motion === 'pan-right') panX = (progress - 0.5) * 64;
+    if (motion === 'pan-left') panX = (0.5 - progress) * 64;
+    ctx.fillStyle = '#101323';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, (canvas.width - width) / 2 + panX, (canvas.height - height) / 2, width, height);
+    if (progress < 1) requestAnimationFrame(draw);
+    else recorder.stop();
+  }
+  requestAnimationFrame(draw);
+}
+
+$('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
 $('cancel').addEventListener('click', cancelRequest);
 $('refreshModels').addEventListener('click', loadModels);
