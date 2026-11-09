@@ -2239,7 +2239,7 @@ $('cancel').addEventListener('click', cancelRequest);
   const client = window.supabase.createClient(
     'https://zgqqbwwjcyndlfcccpih.supabase.co',
     'sb_publishable_K3RzdaV_uKJGZDiYDXfAbg_9jzODuvl',
-    { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
+    { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
   );
 
   let modelsLoaded = false;
