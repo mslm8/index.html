@@ -385,7 +385,27 @@ body.authenticated .viewPanel select,
 body.authenticated .viewPanel input,
 body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 .filePicker{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}.filePickerButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#7657e8,#397bdc);color:#fff;font-weight:700;cursor:pointer}.filePickerButton:hover{filter:brightness(1.1)}#localImage{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}#localImageName{font-size:13px;color:var(--muted,#aab2c8);overflow-wrap:anywhere}
-.motion-scene-background-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}</style>
+.motion-scene-background-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.motion-layer-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.motion-layer-actions button{min-width:30px;padding:7px 8px!important}.motion-layer-actions button:disabled{opacity:.35;cursor:not-allowed}.motion-transform-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.motion-keyframe-editor{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px}.motion-keyframe-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.motion-keyframe-header strong,.motion-keyframe-header span{font-size:12px}.motion-keyframe-item{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px;border-radius:8px;background:#11182b}.motion-keyframe-item .motion-keyframe-header{grid-column:1/-1}.motion-keyframe-item label{margin:2px 0}.motion-keyframe-item input{min-width:0}@media(max-width:420px){.motion-transform-controls,.motion-keyframe-item{grid-template-columns:1fr}}
+/* Story-only animation workflow */
+#motionCard>.grid,
+#motionCard>.motion-scene-panel:not(#storyToScenesPanel),
+#motionCard>.motion-dialogue-panel,
+#motionCard>label,
+#motionCard>#motionLayerFiles,
+#motionCard>#motionLayerList,
+#motionCard>#motionLivePreview,
+#motionCard>#animate,
+#motionCard>h2,
+#motionCard>p {display:none!important}
+#storyToScenesPanel{margin:0;padding:16px;border:0;background:transparent}
+#storyToScenesPanel>small:not(#aiStoryEngineStatus),
+#storyToScenesPanel>button[hidden]{display:none!important}
+#storyToScenesInput{min-height:180px;font-size:16px;line-height:1.9}
+#autoEpisodeButton{width:100%;min-height:54px;font-size:18px;margin-top:12px}
+#aiStoryEngineStatus{display:block;min-height:24px;margin-top:12px;line-height:1.8}
+#videoPreview{display:block;width:100%;margin-top:16px;border-radius:12px}
+#downloadVideo{font-size:16px}
+</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -691,14 +711,14 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     </div>
   </div>
   <section class="motion-scene-panel" id="storyToScenesPanel">
-    <h3>تبدیل داستان به صحنه‌های اولیه</h3>
+    
     <label for="storyToScenesInput">داستان کاملت را همین‌جا بنویس؛ لازم نیست صحنه، شخصیت، حرکت یا دیالوگ را جداگانه مشخص کنی</label>
-    <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
+    <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">موتور متن و تصویر AI Horde با پردازشگرهای معمولی، کند و بسیار کند؛ رندر نهایی با موتور داخلی Canvas. صف انتظار ممکن است طولانی باشد.</small>
-    <button id="autoEpisodeButton" type="button" class="primary">ساخت کامل انیمیشن فقط از متن</button>
-    <small>فقط داستان را وارد کن؛ موتور متن صحنه‌ها، دیالوگ‌ها، احساس، حرکت و دوربین را انتخاب می‌کند و سپس تصاویر صحنه‌ها و شخصیت پایه را می‌سازد. تولید متن و تصویر به پردازشگرهای رایگان و صف انتظار وابسته است.</small>
+    <button id="autoEpisodeButton" type="button" class="primary">ساخت ویدیو</button>
+    
     <button id="autoTimeDialoguesButton" type="button" class="secondary" hidden>زمان‌بندی خودکار دیالوگ‌ها</button>
     <button id="autoSceneMotionButton" type="button" class="secondary" hidden>هوشمندسازی حرکت از روی داستان</button>
     <small>موتور متن داستان و دیالوگ هر صحنه را از نظر حرکت و احساس تحلیل می‌کند و حرکت بدن، ژست دست، حالت چهره و دوربین را به‌صورت قاعده‌محور پیشنهاد می‌دهد؛ نتیجه را می‌توانی دستی اصلاح کنی.</small>
@@ -2602,8 +2622,9 @@ async function autoBuildEpisodeFromStory(){
     $('motionDuration').value='60';activeMotionScene=0;
     motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    setStatus('چیدمان خودکار قسمت کامل شد: '+nextScenes.length+' صحنه، '+(characterBase.length?'یک شخصیت کارتونی ریگ‌شده':'بدون ریگ شخصیت')+'، دیالوگ‌های زمان‌بندی‌شده و حرکت‌های پیشنهادی. برای خروجی ویدئو دکمه خروجی را بزن.');
-    status.textContent='قسمت به‌صورت خودکار چیده شد. هیچ تنظیم دستی برای صحنه، حرکت، احساس یا دوربین لازم نبود.';
+    status.textContent='صحنه‌ها آماده شدند؛ در حال رندر ویدئوی ۶۰ ثانیه‌ای...';
+    $('motionDuration').value='60';
+    createMotionClip();
   }catch(error){
     renderMotionSceneList();renderMotionPreview();
     setStatus('ساخت خودکار قسمت کامل نشد: '+(error.message||String(error))+'؛ صحنه‌های آماده‌شده حفظ شدند.','var(--warn)');
@@ -3431,7 +3452,6 @@ function createMotionClip() {
   const totalDuration=Number($('motionDuration').value)*1000;
   const sceneDuration=totalDuration/exportScenes.length;
   const baseMotion=$('motion').value;
-  const cameraMotion=scene?.cameraMotion||baseMotion;
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
   const cameraScale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
   const baseFit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
