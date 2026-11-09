@@ -2291,19 +2291,24 @@ $('cancel').addEventListener('click', cancelRequest);
 
   logout.addEventListener('click', async () => {
     logout.disabled = true;
+    if (login) login.disabled = true;
     errorBox.textContent = '';
     if (accountMessage) accountMessage.textContent = '';
-    const { error } = await client.auth.signOut();
-    logout.disabled = false;
-    if (error) {
-      if (accountMessage) accountMessage.textContent = 'خروج ناموفق بود: ' + error.message;
-      else errorBox.textContent = 'خروج ناموفق بود: ' + error.message;
-      return;
+    try {
+      const { error } = await client.auth.signOut({ scope: 'global' });
+      if (error) throw error;
+      document.body.classList.remove('authenticated');
+      gate.hidden = false;
+      if (login) login.disabled = false;
+      errorBox.textContent = 'از حساب خارج شدی.';
+    } catch (error) {
+      const message = 'خروج ناموفق بود: ' + (error && error.message ? error.message : String(error));
+      if (accountMessage) accountMessage.textContent = message;
+      else errorBox.textContent = message;
+    } finally {
+      logout.disabled = false;
+      if (login && !document.body.classList.contains('authenticated')) login.disabled = false;
     }
-    document.body.classList.remove('authenticated');
-    gate.hidden = false;
-    login.disabled = false;
-    errorBox.textContent = 'از حساب خارج شدی.';
   });
 
   login.addEventListener('click', async () => {
