@@ -104,6 +104,22 @@
       rows.push({ name: "Supabase fal-gateway", ok: !!result.data?.ok, detail: result.data?.cloudflareImageCredentialState || "پاسخ سلامت دریافت شد؛ دسترسی واقعی مدل با تولید آزمایشی مشخص می‌شود." });
     } catch (error) { rows.push({ name: "Supabase fal-gateway", ok: false, detail: redact(error.message || error) }); }
     try {
+      if (!client || !session) throw new Error("برای بررسی کاتالوگ مدل‌ها، ابتدا وارد حساب شو.");
+      const result = await client.functions.invoke("studio-manager", { body: { action: "cloudflare-model-catalog" } });
+      if (result.error) throw result.error;
+      if (!result.data?.ok) {
+        const details = result.data?.code || "خطای نامشخص";
+        rows.push({ name: "کاتالوگ مدل‌های تصویری Cloudflare", ok: false, detail: details + (result.data?.httpStatus ? " · HTTP " + result.data.httpStatus : "") });
+      } else {
+        const listed = (result.data.imageModelCandidates || []).filter(item => item.listedInAccountCatalog).map(item => item.id.split("/").slice(-1)[0]);
+        rows.push({
+          name: "کاتالوگ مدل‌های تصویری Cloudflare",
+          ok: listed.length > 0,
+          detail: listed.length ? "مدل‌های موجود در کاتالوگ حساب: " + listed.join("، ") : "هیچ‌یک از مدل‌های تصویری شناخته‌شده در کاتالوگ حساب پیدا نشد."
+        });
+      }
+    } catch (error) { rows.push({ name: "کاتالوگ مدل‌های تصویری Cloudflare", ok: false, detail: redact(error.message || error) }); }
+    try {
       if (!client || !session) throw new Error("برای بررسی موتور مدیر، ابتدا وارد حساب شو.");
       const result = await client.functions.invoke("studio-manager", { body: { action: "health" } });
       if (result.error) throw result.error;
