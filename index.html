@@ -588,12 +588,24 @@ async function generateImage() {
 async function pollRequest(id) {
   polling = true;
   const started = Date.now();
+  let consecutiveCheckErrors = 0;
   // Volunteer workers can take a long time to become available; poll less often and allow a longer wait.
   while (Date.now() - started < 30 * 60 * 1000) {
     if (activeRequestId !== id) return;
     await new Promise(resolve => setTimeout(resolve, 5000));
     if (activeRequestId !== id) return;
-    const check = await apiFetch('/generate/check/' + encodeURIComponent(id));
+    let check;
+    try {
+      check = await apiFetch('/generate/check/' + encodeURIComponent(id));
+      consecutiveCheckErrors = 0;
+    } catch (error) {
+      consecutiveCheckErrors += 1;
+      if (consecutiveCheckErrors >= 4) {
+        throw new Error('ارتباط با سرویس چند بار پیاپی قطع شد؛ درخواست متوقف شد: ' + error.message);
+      }
+      setStatus('ارتباط موقتاً ناپایدار است؛ تلاش دوباره ' + consecutiveCheckErrors + ' از ۳...');
+      continue;
+    }
     if (check.faulted) throw new Error('درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.');
     if (check.done) {
       setStatus('تصویر آماده شد؛ در حال دریافت نتیجه...');
