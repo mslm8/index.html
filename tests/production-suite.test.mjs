@@ -80,3 +80,17 @@ test('rig profiles provide bounded local save, restore, and delete workflows', (
   assert.match(rig, /localStorage\.setItem\(STORAGE_KEY/);
   assert.match(rig, /image\.decode\(\)/);
 });
+
+test('story-only episode build creates automatic six-part character rigs', () => {
+  const helper = html.slice(html.indexOf('async function createAutomaticCharacterRig'), html.indexOf('async function autoBuildEpisodeFromStory'));
+  assert.ok(helper.includes("'arm-left'") && helper.includes("'arm-right'"));
+  assert.ok(helper.includes("'leg-left'") && helper.includes("'leg-right'"));
+  assert.ok(helper.includes("'body'") && helper.includes("'head'"));
+  assert.ok(helper.includes('parentLayerId'));
+  const buildStart = html.indexOf('async function autoBuildEpisodeFromStory');
+  const buildEnd = html.indexOf("$('autoEpisodeButton').addEventListener", buildStart);
+  const build = html.slice(buildStart, buildEnd);
+  assert.ok(build.includes('createAutomaticCharacterRig(characterName,characterIndex)'), 'Automatic build must generate rigs without manual setup');
+  assert.ok(build.includes('autoCharacterRigs.flatMap'), 'Each scene must reuse the generated character rigs');
+  assert.ok(build.includes('scene.autoDirection.gesture'), 'Story gesture analysis must drive automatic arm animation');
+});
