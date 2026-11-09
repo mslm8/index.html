@@ -257,6 +257,47 @@ body.authenticated main>footer{display:none}
  #historyPanel .historyItem .row button,#historyPanel .historyItem .row a{font-size:10px}
 }
 
+
+/* Refined image generation workspace */
+body.authenticated #generationCard{padding:19px 18px 22px}
+body.authenticated #generationCard>h2{display:flex;align-items:center;gap:10px;font-size:19px;margin:2px 0 17px}
+body.authenticated #generationCard>h2:before{content:"✦";display:grid;place-items:center;width:35px;height:35px;border-radius:11px;color:#c9c0ff;background:rgba(137,117,255,.17)}
+body.authenticated #generationCard>label{margin-top:16px}
+body.authenticated #prompt{min-height:118px;font-size:14px;line-height:2}
+body.authenticated #generationCard>.row:has(#enhancePrompt){align-items:flex-start}
+body.authenticated #enhancePrompt{flex:0 0 auto;font-size:12px;padding:10px 12px}
+body.authenticated #enhanceHint{font-size:10px;line-height:1.7}
+body.authenticated #autoModelInfo{margin:15px 0 10px;padding:12px 14px;border-radius:13px;font-size:12px;line-height:1.8}
+body.authenticated #refreshModels{min-height:42px;font-size:12px;margin:0 0 12px}
+body.authenticated #generationCard>.grid{gap:9px}
+body.authenticated #generationCard>.grid>div{min-width:0;padding:10px;border:1px solid rgba(142,160,210,.13);border-radius:13px;background:rgba(8,14,29,.28)}
+body.authenticated #generationCard>.grid label{margin:1px 0 7px;font-size:11px;line-height:1.6}
+body.authenticated #generationCard>.grid select,
+body.authenticated #generationCard>.grid input{min-height:43px;padding:9px 10px;font-size:12px}
+body.authenticated #generate{min-height:53px;margin-top:16px;font-size:16px;letter-spacing:.1px;background:linear-gradient(110deg,#7967ff,#4f8fe8 58%,#35bfae);box-shadow:0 10px 26px rgba(95,111,240,.22)}
+body.authenticated #cancel{min-height:43px;font-size:12px}
+body.authenticated #generationCard>.card{margin-top:18px!important;padding:15px;border-radius:16px;background:linear-gradient(145deg,rgba(32,43,70,.9),rgba(15,22,40,.95))!important}
+body.authenticated #generationCard>.card h2{font-size:15px;margin-bottom:8px}
+body.authenticated #generationCard>.card small{display:block;margin-top:9px;line-height:1.8}
+body.authenticated #loadLocalImage{min-height:45px}
+body.authenticated .outputHeading{margin:20px 0 9px;padding-top:15px;border-top:1px solid rgba(142,160,210,.15)}
+body.authenticated .outputHeading h2{font-size:16px}
+body.authenticated #resultFrame{border-color:rgba(142,160,210,.26);border-radius:17px}
+body.authenticated #status{font-size:12px;padding:10px 12px}
+body.authenticated #generationCard>p.row{gap:10px}
+body.authenticated #download{font-weight:800;padding:9px 2px}
+body.authenticated #undoImage{font-size:12px}
+@media(max-width:520px){
+ body.authenticated #generationCard{padding:15px 13px 19px}
+ body.authenticated #generationCard>.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ body.authenticated #generationCard>.grid>div{padding:8px}
+ body.authenticated #generationCard>.grid label{font-size:10px}
+ body.authenticated #generationCard>.grid select,
+ body.authenticated #generationCard>.grid input{font-size:11px;padding:8px 6px}
+ body.authenticated #enhancePrompt{font-size:11px;padding:9px}
+ body.authenticated #generationCard>.card{padding:12px}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
