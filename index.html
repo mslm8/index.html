@@ -2882,11 +2882,11 @@ async function autoBuildEpisodeFromStory(){
       const scene=nextScenes[index];
       liveBuildUpdate(2,'در حال تصویرسازی سینمایی صحنه '+(index+1)+' از '+nextScenes.length+' با مدل رایگان؛ ممکن است صف طولانی باشد.',22+(index/nextScenes.length)*48);
       const scenePrompt=[
-        'Create a polished high-quality original 2D animated television cartoon frame, expressive hand-drawn animation aesthetic, professional clean line art, appealing character design, rich detailed painted environment, cinematic composition, coherent perspective, beautiful lighting, consistent art direction.',
-        'CHARACTER DESIGN BIBLE — preserve these exact designs, proportions, faces, clothing, colors and signature details in every scene:\n'+characterBible,
+        'Create a polished original 2D animated television cartoon BACKGROUND PLATE with professional clean line art, rich painted environment, cinematic composition, coherent perspective and beautiful lighting.',
+        'ENVIRONMENT CONTINUITY: maintain a consistent visual direction, architecture, color palette, perspective and lighting language across all locations in this episode.',
         'SCENE '+(index+1)+' OF '+nextScenes.length+': '+scene.storyText,
-        'ACTION AND PERFORMANCE: '+scene.autoDirection.action+', emotion '+scene.autoDirection.emotion+', gesture '+scene.autoDirection.gesture+'.',
-        'ENVIRONMENT BACKGROUND ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Environment and props must directly match the scene description. This is a clean background plate from the same continuous original cartoon episode. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
+        
+        'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
       ].join('\n\n');
       $('prompt').value=scenePrompt;
       const previousImageUrl=currentImageUrl||$('result')?.src||'';
