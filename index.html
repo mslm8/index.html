@@ -571,7 +571,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <div class="outputHeading"><h2>پیش‌نمایش خروجی</h2><span class="pill">نتیجه زنده</span></div>
   <div id="status" role="status" aria-live="polite">در حال بررسی سرویس رایگان...</div>
   <div id="resultFrame"><div id="outputEmpty"><span class="outputSpark">✦</span><strong>تصویر ساخته‌شده اینجا نمایش داده می‌شود</strong><small>پس از تولید، می‌توانی نتیجه را ذخیره یا ویرایش کنی.</small></div><img id="result" hidden alt="تصویر تولیدشده"></div>
-  <p class="row"><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a><button id="undoImage" class="secondary" type="button" hidden>بازگشت به تصویر قبلی</button></p>
+  <p class="row"><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a><button id="undoImage" class="secondary" type="button" hidden>بازگشت به تصویر قبلی</button><button id="sendImageToAnimation" class="primary" type="button" hidden>استفاده در انیمیشن‌ساز</button></p>
 
 <section class="card" id="compareCard" hidden>
   <h2>مقایسه قبل و بعد</h2>
@@ -587,7 +587,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 </section>
 
 <div id="toolsPanel" class="viewPanel" hidden>
-<div class="viewHeading"><h1>ویرایش تصویر</h1><p>ابزارهای برش، اصلاح و ساخت حرکت از تصویر</p></div>
+<div class="viewHeading"><h1>ابزارهای کمکی انیمیشن</h1><p>ساخت و آماده‌سازی سوژه و پس‌زمینه برای ورود مستقیم به صحنه انیمیشن</p></div>
 <section class="card" id="cropCard" hidden>
   <h2>برش و چرخش تصویر</h2>
   <p><small>تصویر را ۹۰ درجه بچرخان یا نسبت برش را انتخاب کن. نسخه اصلی در تاریخچه باقی می‌ماند.</small></p>
@@ -744,16 +744,16 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 </section>
 
 <section class="card">
-  <h2>محدودیت‌های سرویس رایگان تصویر</h2>
+  <h2>ساخت دارایی تصویری برای انیمیشن</h2>
   <div class="note"><small>این سرویس با رایانه‌های داوطلبان کار می‌کند؛ درخواست ناشناس اولویت پایین‌تری دارد و ممکن است در صف بماند یا به‌دلیل نبود کارگر مناسب منقضی شود. هزینه پولی ندارد، اما سرعت و دسترس‌پذیری تضمین‌شده نیست.</small></div>
   <p><small>برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. درخواست‌ها روی رایانه داوطلبان پردازش می‌شوند و اپراتور آن رایانه ممکن است به متن و تصویر دسترسی داشته باشد.</small></p>
   <p><small>برای نتیجه دقیق‌تر، تعداد سوژه‌ها، نوع هر سوژه و کاری که انجام می‌دهد را روشن و جداگانه بنویس. هیچ مدل تصویری پیروی کامل از متن را تضمین نمی‌کند.</small></p>
   <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">صفحه رسمی تولید تصویر AI Horde</a> در دسترس است.</small></p>
 </section>
 <footer><small>AI Animator Studio</small></footer>
-<section class="card" id="aboutStudioCard"><h2>AI Animator Studio</h2><p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p></section>
+<section class="card" id="aboutStudioCard"><h2>AI Animator Studio</h2><p>این بخش فقط برای ساخت سوژه، شخصیت و پس‌زمینه است؛ خروجی آن با یک دکمه مستقیماً وارد لایه‌های استودیوی انیمیشن می‌شود. تولید تصویر به‌تنهایی انیمیشن نیست.</p></section>
 </div>
-<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button><button type="button" data-view="account">حساب</button></nav>
+<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">ساخت دارایی تصویری</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button><button type="button" data-view="account">حساب</button></nav>
 </main>
 
 <script>
@@ -1909,6 +1909,33 @@ $('resetCrop').addEventListener('click', openCropTool);
 $('applyCrop').addEventListener('click', applyCropTransform);
 
 let currentDownloadObjectUrl = null;
+async function sendCurrentImageToAnimation() {
+  if (!currentImageUrl) { setStatus('ابتدا یک تصویر آماده کن.', 'var(--warn)'); return; }
+  if (motionLayers.length >= 8) { setStatus('ظرفیت ۸ لایه پر است؛ ابتدا یک لایه را حذف کن.', 'var(--warn)'); return; }
+  const button=$('sendImageToAnimation');
+  button.disabled=true;
+  try {
+    const response=await fetch(currentImageUrl);
+    if(!response.ok) throw new Error('دریافت فایل تصویر ناموفق بود.');
+    const blob=await response.blob();
+    if(!/^image\/(png|jpeg|webp)$/.test(blob.type)) throw new Error('فرمت تصویر برای لایه انیمیشن پشتیبانی نمی‌شود.');
+    const url=URL.createObjectURL(blob);
+    const image=new Image();
+    image.src=url;
+    try { await image.decode(); } catch(error) { URL.revokeObjectURL(url); throw error; }
+    motionLayers.push({image,url,name:'تصویر تولیدشده',motion:'still',startAt:0,endAt:100,startX:50,startY:50,endX:50,endY:50});
+    selectedMotionLayer=motionLayers[motionLayers.length-1];
+    renderMotionLayerList();
+    $('motionCard').hidden=false;
+    const toolsButton=document.querySelector('#studioNav button[data-view="tools"]');
+    if(toolsButton) toolsButton.click();
+    $('motionCard').scrollIntoView({behavior:'smooth',block:'start'});
+    setStatus('تصویر مستقیماً به‌عنوان یک لایه وارد استودیوی انیمیشن شد. حالا حرکت لایه را انتخاب کن.');
+  } catch(error) {
+    setStatus('ورود تصویر به انیمیشن‌ساز انجام نشد: '+error.message,'var(--warn)');
+  } finally { button.disabled=false; }
+}
+
 function displayImage(imageValue, seed, model, historySettings) {
   const url = imageSource(imageValue);
   if (!url) {
@@ -1929,6 +1956,7 @@ function displayImage(imageValue, seed, model, historySettings) {
   download.download = 'ai-animator-result.webp';
   download.hidden = false;
   $('generateVariation').hidden = true;
+  $('sendImageToAnimation').hidden = false;
   img.onload = async () => {
     $('generateVariation').hidden = false;
     try {
@@ -2546,6 +2574,7 @@ $('loadLocalImage').addEventListener('click', importLocalImage);
 $('undoImage').addEventListener('click', restorePreviousImage);
 $('editImage').addEventListener('click', editCurrentImage);
 $('animate').addEventListener('click', createMotionClip);
+$('sendImageToAnimation').addEventListener('click', sendCurrentImageToAnimation);
 $('copyPrompt').addEventListener('click', async () => {
   const text = $('prompt').value.trim();
   if (!text) { setStatus('ابتدا متن درخواست را بنویس.'); return; }
