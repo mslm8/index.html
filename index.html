@@ -204,7 +204,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 
-<section class="card viewPanel" id="accountPanel" hidden><h2>حساب کاربری</h2><p id="accountEmail">وارد شده‌ای</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section>
+<section class="card viewPanel" id="accountPanel" hidden><h2>حساب کاربری</h2><div class="note" style="margin:12px 0"><strong>وضعیت حساب: متصل</strong><p style="margin:6px 0 0">حساب گوگل شما برای ورود به برنامه استفاده می‌شود.</p></div><label>نام نمایشی</label><p id="accountName">—</p><label>ایمیل حساب</label><p id="accountEmail">در حال دریافت اطلاعات…</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section>
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
   <label for="prompt">توضیح صحنه</label>
@@ -1672,6 +1672,7 @@ $('cancel').addEventListener('click', cancelRequest);
   const logout = document.getElementById('logoutButton');
   const accountEmail = document.getElementById('accountEmail');
   const accountMessage = document.getElementById('accountMessage');
+  const accountName = document.getElementById('accountName');
   const errorBox = document.getElementById('authError');
   if (!window.supabase || !gate || !login) {
     if (errorBox) errorBox.textContent = 'بارگذاری سرویس ورود ناموفق بود. صفحه را دوباره بارگذاری کن.';
@@ -1689,7 +1690,10 @@ $('cancel').addEventListener('click', cancelRequest);
     gate.hidden = true;
     errorBox.textContent = '';
     if (accountMessage) accountMessage.textContent = '';
-    if (accountEmail) accountEmail.textContent = session && session.user && session.user.email ? 'وارد شده‌ای: ' + session.user.email : 'وارد شده‌ای';
+    const user = session && session.user;
+    const metadata = user && user.user_metadata ? user.user_metadata : {};
+    if (accountName) accountName.textContent = metadata.full_name || metadata.name || metadata.display_name || 'نامی برای حساب ثبت نشده';
+    if (accountEmail) accountEmail.textContent = user && user.email ? user.email : 'ایمیل در دسترس نیست';
     if (!modelsLoaded) {
       modelsLoaded = true;
       loadModels();
