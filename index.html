@@ -202,6 +202,16 @@ body.authenticated main>footer{display:none}
 #toolsPanel #downloadVideo{display:inline-block;padding:8px 0;font-weight:700}
 #motionLayerList{display:grid;gap:10px;margin:12px 0}
 .motion-layer-card{padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(8,14,29,.45)}
+.motion-layer-card.selected{border-color:#72e7d0;box-shadow:0 0 0 1px rgba(114,231,208,.2)}
+.motion-preview-panel{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(8,14,29,.38)}
+.motion-preview-panel h3{font-size:14px;margin:0 0 10px}
+#motionPreviewCanvas{display:block;width:100%;max-width:512px;aspect-ratio:1/1;margin:auto;border-radius:10px;background:#101323;touch-action:none}
+.motion-preview-controls{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:8px;margin-top:12px}
+.motion-preview-controls label{font-size:12px}
+.motion-preview-controls input{grid-column:1/-1;width:100%;padding:0}
+.motion-preview-controls output{grid-column:2;grid-row:1;text-align:end;font-size:12px}
+.motion-preview-panel>small{display:block;margin-top:9px;line-height:1.7}
+
 .motion-keyframes{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
 .motion-keyframes summary{cursor:pointer;color:var(--b);font-size:12px;font-weight:700}
 .motion-keyframe-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -672,6 +682,17 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <input id="motionLayerFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
   <small>هر تصویر به‌عنوان لایه مستقل روی صحنه قرار می‌گیرد. برای بهترین نتیجه از PNG شفاف استفاده کن.</small>
   <div id="motionLayerList" aria-live="polite"></div>
+  <section id="motionLivePreview" class="motion-preview-panel">
+    <h3>پیش‌نمایش زنده صحنه</h3>
+    <canvas id="motionPreviewCanvas" width="512" height="512" aria-label="پیش‌نمایش انیمیشن"></canvas>
+    <div class="motion-preview-controls">
+      <button id="motionPlayPreview" type="button" class="secondary">پخش پیش‌نمایش</button>
+      <label for="motionPlayhead">زمان صحنه</label>
+      <input id="motionPlayhead" type="range" min="0" max="100" value="0">
+      <output id="motionPlayheadValue">۰٪</output>
+    </div>
+    <small>برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.</small>
+  </section>
   <button id="animate" class="primary" type="button" disabled>ساخت انیمیشن چندلایه</button>
   <video id="videoPreview" controls playsinline hidden style="width:100%;margin-top:14px;border-radius:12px"></video>
   <p><a id="downloadVideo" hidden download="ai-animator-animation.webm">ذخیره انیمیشن (WebM)</a></p>
@@ -742,7 +763,7 @@ const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
 const currentLanguageKey='aiAnimatorLanguageV1';
 let currentLanguage=localStorage.getItem(currentLanguageKey)==='en'?'en':'fa';
-const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.":"Sign in with your Google account to use the site.","ورود با گوگل":"Sign in with Google","حساب کاربری":"Account","اطلاعات حساب متصل‌شده به برنامه":"Connected account information","وضعیت حساب: متصل":"Account status: Connected","حساب گوگل شما برای ورود به برنامه استفاده می‌شود.":"Your Google account is used to sign in.","نام نمایشی":"Display name","ایمیل حساب":"Account email","در حال دریافت اطلاعات…":"Loading account information…","خروج از حساب":"Sign out","نسخه آزمایشی · بدون کلید API":"Experimental · No API key","تولید تصویر":"Generate image","قالب‌های آماده برای شروع":"Starter templates","انتخاب یک قالب...":"Choose a template...","پرتره حرفه‌ای":"Professional portrait","صحنه سینمایی":"Cinematic scene","دنیای فانتزی":"Fantasy world","عکاسی محصول":"Product photography","طبیعت و منظره":"Nature and landscape","شخصیت انیمه":"Anime character","معماری و فضای داخلی":"Architecture and interior","عکاسی غذا":"Food photography","استفاده از قالب":"Apply template","توضیح صحنه":"Describe your scene","کپی متن درخواست":"Copy prompt","قالب‌های شخصی من":"My saved prompts","قالب ذخیره‌شده‌ای انتخاب نشده":"No saved template selected","ذخیره متن فعلی":"Save current text","بارگذاری انتخاب‌شده":"Load selected","حذف انتخاب‌شده":"Delete selected","بهینه‌سازی ساختاری متن":"Improve prompt structure","مواردی که نباید در تصویر باشند (اختیاری)":"Things to exclude (optional)","بررسی دوباره مدل‌های سریع":"Refresh available models","اندازه تصویر":"Image size","نسبت تصویر":"Aspect ratio","مربع · ۱:۱":"Square · 1:1","افقی · ۴:۳":"Landscape · 4:3","عمودی · ۳:۴":"Portrait · 3:4","عریض · ۱۶:۹":"Wide · 16:9","بلند · ۹:۱۶":"Tall · 9:16","تعادل سرعت و جزئیات":"Speed and detail","سریع‌تر · ۱۵ مرحله":"Faster · 15 steps","متعادل · ۲۰ مرحله":"Balanced · 20 steps","جزئیات بیشتر · ۲۶ مرحله":"More detail · 26 steps","کادربندی دوربین":"Camera framing","خودکار و متناسب با صحنه":"Automatic","نمای نزدیک · جزئیات سوژه":"Close-up · Subject details","نمای متوسط · سوژه و محیط":"Medium · Subject and surroundings","نمای کامل · تمام سوژه‌ها":"Full shot · Entire subjects","نمای باز · محیط گسترده":"Wide shot · Broad environment","نمای از بالا":"Top-down view","نورپردازی":"Lighting","نور طبیعی روز":"Natural daylight","نور گرم غروب":"Warm sunset light","نور نرم استودیویی":"Soft studio light","نورپردازی دراماتیک":"Dramatic lighting","نور نئونی رنگی":"Colorful neon","نور مهتابی شب":"Cool moonlight","فضای رنگی":"Color palette","رنگ‌های طبیعی":"Natural colors","رنگ‌های گرم":"Warm colors","رنگ‌های سرد":"Cool colors","رنگ‌های پاستلی":"Pastel colors","رنگ‌های زنده و اشباع":"Vivid saturated colors","سیاه‌وسفید":"Black and white","عمق میدان و وضوح پس‌زمینه":"Depth of field","پس‌زمینه واضح · عمق میدان زیاد":"Sharp background · Deep focus","پس‌زمینه محو · عمق میدان کم":"Blurred background · Shallow focus","بوکه نرم و هنری":"Soft artistic bokeh","نمای ماکرو با پس‌زمینه محو":"Macro with blurred background","نقطه فوکوس دوربین":"Focus target","فوکوس روی سوژه اصلی":"Focus on main subject","فوکوس دقیق روی چشم‌ها":"Focus on eyes","فوکوس روی پیش‌زمینه":"Focus on foreground","فوکوس روی پس‌زمینه":"Focus on background","فوکوس در مرکز کادر":"Focus on image center","زاویه دوربین":"Camera angle","هم‌سطح چشم · روبه‌رو":"Eye-level · Front view","زاویه پایین · نمای قدرتمند":"Low angle","زاویه بالا · نگاه از بالا":"High angle","سه‌ربع · پرسپکتیو طبیعی":"Three-quarter · Natural perspective","نمای جانبی · نیم‌رخ":"Side profile","نمای کاملاً از بالا":"Directly overhead","فاصله دوربین از سوژه":"Camera distance","سبک هنری":"Art style","بدون تغییر سبک":"No style change","واقع‌گرایانه و عکاسی":"Photorealistic","سینمایی":"Cinematic","انیمه":"Anime","سه‌بعدی و کارتونی":"3D cartoon","آبرنگ":"Watercolor","نقاشی رنگ‌روغن":"Oil painting","پیکسل‌آرت":"Pixel art","فانتزی":"Fantasy","Seed اختیاری (برای تکرارپذیری)":"Optional seed (for reproducible results)","ساخت نسخه متفاوت با همین تنظیمات":"Generate another variation","لغو درخواست":"Cancel request","یا تصویر خودت را بارگذاری کن":"Or upload your own image","انتخاب تصویر از گوشی یا رایانه":"Choose an image from your device","بارگذاری تصویر برای ویرایش":"Load image for editing","پیش‌نمایش خروجی":"Output preview","نتیجه زنده":"Live result","ذخیره تصویر":"Save image","بازگشت به تصویر قبلی":"Undo image","مقایسه قبل و بعد":"Before and after","نسخه جدید":"New version","نسخه قبلی":"Previous version","ویرایش تصویر":"Image editing","ابزارهای برش، اصلاح و ساخت حرکت از تصویر":"Crop, refine, and create motion from an image","برش و چرخش تصویر":"Crop and rotate","نسبت برش":"Crop ratio","بدون برش · اندازه اصلی":"No crop · Original size","چرخش چپ ۹۰°":"Rotate left 90°","چرخش راست ۹۰°":"Rotate right 90°","اعمال برش و چرخش":"Apply crop and rotation","بازنشانی پیش‌نمایش":"Reset preview","ویرایش هوشمند تصویر":"AI image editing","چه چیزی تغییر کند؟":"What should change?","شدت تغییر":"Edit strength","کم · حفظ بیشتر تصویر":"Low · Preserve more","متوسط · تعادل تغییر و حفظ":"Medium · Balanced","زیاد · تغییر محسوس‌تر":"High · More change","ساخت نسخه ویرایش‌شده":"Create edited version","ویرایش موضعی":"Inpainting","اندازه قلم انتخاب":"Brush size","پاک‌کن: خاموش":"Eraser: Off","پاک‌کردن انتخاب":"Clear selection","استودیوی انیمیشن دوبعدی":"2D Animation Studio","افزودن لایه‌های تصویری (حداکثر ۸ لایه)":"Add image layers (up to 8 layers)","تنظیم تایم‌لاین و فریم‌های کلیدی":"Timeline and keyframe settings","شروع در تایم‌لاین":"Timeline start","پایان در تایم‌لاین":"Timeline end","موقعیت افقی شروع":"Start horizontal position","موقعیت عمودی شروع":"Start vertical position","موقعیت افقی پایان":"End horizontal position","موقعیت عمودی پایان":"End vertical position","هر تصویر به‌عنوان لایه مستقل روی صحنه قرار می‌گیرد. برای بهترین نتیجه از PNG شفاف استفاده کن.":"Each image is added as an independent scene layer. Use transparent PNGs for best results.","هنوز لایه اضافه نشده است؛ تصویر اصلی به‌عنوان لایه پایه استفاده می‌شود.":"No extra layers yet; the main image is used as the base layer.","حرکت به راست":"Move right","حرکت به چپ":"Move left","پرش نرم":"Soft bounce","ظاهر و محو شدن":"Fade in and out","بدون حرکت":"No motion","حذف":"Remove","ساخت انیمیشن چندلایه":"Create multilayer animation","ساخت کلیپ حرکتی از تصویر":"Create a motion clip","حرکت لایه":"Layer motion","حرکت سوژه به راست":"Move subject right","حرکت سوژه به چپ":"Move subject left","پرش نرم سوژه":"Soft subject bounce","چرخش سوژه":"Rotate subject","ظاهر و محو شدن":"Fade in and out","نزدیک شدن آرام دوربین":"Slow camera zoom in","دور شدن آرام دوربین":"Slow camera zoom out","حرکت دوربین به راست":"Camera pan right","حرکت دوربین به چپ":"Camera pan left","مدت انیمیشن":"Animation duration","ساخت انیمیشن":"Create animation","ذخیره انیمیشن (WebM)":"Save animation (WebM)","نوع حرکت":"Motion type","نزدیک شدن آرام":"Slow zoom in","دور شدن آرام":"Slow zoom out","حرکت به راست":"Pan right","حرکت به چپ":"Pan left","مدت کلیپ":"Clip duration","۴ ثانیه":"4 seconds","۶ ثانیه":"6 seconds","۸ ثانیه":"8 seconds","ساخت کلیپ حرکتی":"Create motion clip","ذخیره ویدئو (WebM)":"Save video (WebM)","پروژه‌ها":"Projects","ذخیره و بازیابی پروژه":"Save and restore project","نام پروژه":"Project name","ذخیره پروژه در این مرورگر":"Save project in this browser","خروجی فایل JSON":"Export JSON file","پروژه‌های ذخیره‌شده":"Saved projects","پروژه‌ای انتخاب نشده":"No project selected","باز کردن پروژه":"Open project","حذف پروژه":"Delete project","ورود فایل JSON":"Import JSON file","تاریخچه تصاویر":"Image history","پاک کردن تاریخچه":"Clear history","هنوز تصویری ذخیره نشده است.":"No images saved yet.","راهنما و اطلاعات":"Help and information","آشنایی با امکانات و محدودیت‌های برنامه":"Learn about app features and limitations","وضعیت ساخت ویدئو":"Video generation status","محدودیت‌های سرویس رایگان تصویر":"Free image service limitations","راهنما":"Help","تاریخچه":"History","ویرایش":"Edit","حساب":"Account","زبان برنامه / App language":"App language","زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.":"Your language choice is saved in this browser.",
+const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای استفاده از سایت، ابتدا با حساب گوگل وارد شو.":"Sign in with your Google account to use the site.","ورود با گوگل":"Sign in with Google","حساب کاربری":"Account","اطلاعات حساب متصل‌شده به برنامه":"Connected account information","وضعیت حساب: متصل":"Account status: Connected","حساب گوگل شما برای ورود به برنامه استفاده می‌شود.":"Your Google account is used to sign in.","نام نمایشی":"Display name","ایمیل حساب":"Account email","در حال دریافت اطلاعات…":"Loading account information…","خروج از حساب":"Sign out","نسخه آزمایشی · بدون کلید API":"Experimental · No API key","تولید تصویر":"Generate image","قالب‌های آماده برای شروع":"Starter templates","انتخاب یک قالب...":"Choose a template...","پرتره حرفه‌ای":"Professional portrait","صحنه سینمایی":"Cinematic scene","دنیای فانتزی":"Fantasy world","عکاسی محصول":"Product photography","طبیعت و منظره":"Nature and landscape","شخصیت انیمه":"Anime character","معماری و فضای داخلی":"Architecture and interior","عکاسی غذا":"Food photography","استفاده از قالب":"Apply template","توضیح صحنه":"Describe your scene","کپی متن درخواست":"Copy prompt","قالب‌های شخصی من":"My saved prompts","قالب ذخیره‌شده‌ای انتخاب نشده":"No saved template selected","ذخیره متن فعلی":"Save current text","بارگذاری انتخاب‌شده":"Load selected","حذف انتخاب‌شده":"Delete selected","بهینه‌سازی ساختاری متن":"Improve prompt structure","مواردی که نباید در تصویر باشند (اختیاری)":"Things to exclude (optional)","بررسی دوباره مدل‌های سریع":"Refresh available models","اندازه تصویر":"Image size","نسبت تصویر":"Aspect ratio","مربع · ۱:۱":"Square · 1:1","افقی · ۴:۳":"Landscape · 4:3","عمودی · ۳:۴":"Portrait · 3:4","عریض · ۱۶:۹":"Wide · 16:9","بلند · ۹:۱۶":"Tall · 9:16","تعادل سرعت و جزئیات":"Speed and detail","سریع‌تر · ۱۵ مرحله":"Faster · 15 steps","متعادل · ۲۰ مرحله":"Balanced · 20 steps","جزئیات بیشتر · ۲۶ مرحله":"More detail · 26 steps","کادربندی دوربین":"Camera framing","خودکار و متناسب با صحنه":"Automatic","نمای نزدیک · جزئیات سوژه":"Close-up · Subject details","نمای متوسط · سوژه و محیط":"Medium · Subject and surroundings","نمای کامل · تمام سوژه‌ها":"Full shot · Entire subjects","نمای باز · محیط گسترده":"Wide shot · Broad environment","نمای از بالا":"Top-down view","نورپردازی":"Lighting","نور طبیعی روز":"Natural daylight","نور گرم غروب":"Warm sunset light","نور نرم استودیویی":"Soft studio light","نورپردازی دراماتیک":"Dramatic lighting","نور نئونی رنگی":"Colorful neon","نور مهتابی شب":"Cool moonlight","فضای رنگی":"Color palette","رنگ‌های طبیعی":"Natural colors","رنگ‌های گرم":"Warm colors","رنگ‌های سرد":"Cool colors","رنگ‌های پاستلی":"Pastel colors","رنگ‌های زنده و اشباع":"Vivid saturated colors","سیاه‌وسفید":"Black and white","عمق میدان و وضوح پس‌زمینه":"Depth of field","پس‌زمینه واضح · عمق میدان زیاد":"Sharp background · Deep focus","پس‌زمینه محو · عمق میدان کم":"Blurred background · Shallow focus","بوکه نرم و هنری":"Soft artistic bokeh","نمای ماکرو با پس‌زمینه محو":"Macro with blurred background","نقطه فوکوس دوربین":"Focus target","فوکوس روی سوژه اصلی":"Focus on main subject","فوکوس دقیق روی چشم‌ها":"Focus on eyes","فوکوس روی پیش‌زمینه":"Focus on foreground","فوکوس روی پس‌زمینه":"Focus on background","فوکوس در مرکز کادر":"Focus on image center","زاویه دوربین":"Camera angle","هم‌سطح چشم · روبه‌رو":"Eye-level · Front view","زاویه پایین · نمای قدرتمند":"Low angle","زاویه بالا · نگاه از بالا":"High angle","سه‌ربع · پرسپکتیو طبیعی":"Three-quarter · Natural perspective","نمای جانبی · نیم‌رخ":"Side profile","نمای کاملاً از بالا":"Directly overhead","فاصله دوربین از سوژه":"Camera distance","سبک هنری":"Art style","بدون تغییر سبک":"No style change","واقع‌گرایانه و عکاسی":"Photorealistic","سینمایی":"Cinematic","انیمه":"Anime","سه‌بعدی و کارتونی":"3D cartoon","آبرنگ":"Watercolor","نقاشی رنگ‌روغن":"Oil painting","پیکسل‌آرت":"Pixel art","فانتزی":"Fantasy","Seed اختیاری (برای تکرارپذیری)":"Optional seed (for reproducible results)","ساخت نسخه متفاوت با همین تنظیمات":"Generate another variation","لغو درخواست":"Cancel request","یا تصویر خودت را بارگذاری کن":"Or upload your own image","انتخاب تصویر از گوشی یا رایانه":"Choose an image from your device","بارگذاری تصویر برای ویرایش":"Load image for editing","پیش‌نمایش خروجی":"Output preview","نتیجه زنده":"Live result","ذخیره تصویر":"Save image","بازگشت به تصویر قبلی":"Undo image","مقایسه قبل و بعد":"Before and after","نسخه جدید":"New version","نسخه قبلی":"Previous version","ویرایش تصویر":"Image editing","ابزارهای برش، اصلاح و ساخت حرکت از تصویر":"Crop, refine, and create motion from an image","برش و چرخش تصویر":"Crop and rotate","نسبت برش":"Crop ratio","بدون برش · اندازه اصلی":"No crop · Original size","چرخش چپ ۹۰°":"Rotate left 90°","چرخش راست ۹۰°":"Rotate right 90°","اعمال برش و چرخش":"Apply crop and rotation","بازنشانی پیش‌نمایش":"Reset preview","ویرایش هوشمند تصویر":"AI image editing","چه چیزی تغییر کند؟":"What should change?","شدت تغییر":"Edit strength","کم · حفظ بیشتر تصویر":"Low · Preserve more","متوسط · تعادل تغییر و حفظ":"Medium · Balanced","زیاد · تغییر محسوس‌تر":"High · More change","ساخت نسخه ویرایش‌شده":"Create edited version","ویرایش موضعی":"Inpainting","اندازه قلم انتخاب":"Brush size","پاک‌کن: خاموش":"Eraser: Off","پاک‌کردن انتخاب":"Clear selection","استودیوی انیمیشن دوبعدی":"2D Animation Studio","افزودن لایه‌های تصویری (حداکثر ۸ لایه)":"Add image layers (up to 8 layers)","تنظیم تایم‌لاین و فریم‌های کلیدی":"Timeline and keyframe settings","پیش‌نمایش زنده صحنه":"Live scene preview","پخش پیش‌نمایش":"Play preview","توقف پیش‌نمایش":"Stop preview","زمان صحنه":"Scene time","برای جابه‌جایی لایه، ابتدا روی کارت آن بزن و سپس تصویر را روی پیش‌نمایش بکش.":"To move a layer, select its card, then drag it on the preview.","شروع در تایم‌لاین":"Timeline start","پایان در تایم‌لاین":"Timeline end","موقعیت افقی شروع":"Start horizontal position","موقعیت عمودی شروع":"Start vertical position","موقعیت افقی پایان":"End horizontal position","موقعیت عمودی پایان":"End vertical position","هر تصویر به‌عنوان لایه مستقل روی صحنه قرار می‌گیرد. برای بهترین نتیجه از PNG شفاف استفاده کن.":"Each image is added as an independent scene layer. Use transparent PNGs for best results.","هنوز لایه اضافه نشده است؛ تصویر اصلی به‌عنوان لایه پایه استفاده می‌شود.":"No extra layers yet; the main image is used as the base layer.","حرکت به راست":"Move right","حرکت به چپ":"Move left","پرش نرم":"Soft bounce","ظاهر و محو شدن":"Fade in and out","بدون حرکت":"No motion","حذف":"Remove","ساخت انیمیشن چندلایه":"Create multilayer animation","ساخت کلیپ حرکتی از تصویر":"Create a motion clip","حرکت لایه":"Layer motion","حرکت سوژه به راست":"Move subject right","حرکت سوژه به چپ":"Move subject left","پرش نرم سوژه":"Soft subject bounce","چرخش سوژه":"Rotate subject","ظاهر و محو شدن":"Fade in and out","نزدیک شدن آرام دوربین":"Slow camera zoom in","دور شدن آرام دوربین":"Slow camera zoom out","حرکت دوربین به راست":"Camera pan right","حرکت دوربین به چپ":"Camera pan left","مدت انیمیشن":"Animation duration","ساخت انیمیشن":"Create animation","ذخیره انیمیشن (WebM)":"Save animation (WebM)","نوع حرکت":"Motion type","نزدیک شدن آرام":"Slow zoom in","دور شدن آرام":"Slow zoom out","حرکت به راست":"Pan right","حرکت به چپ":"Pan left","مدت کلیپ":"Clip duration","۴ ثانیه":"4 seconds","۶ ثانیه":"6 seconds","۸ ثانیه":"8 seconds","ساخت کلیپ حرکتی":"Create motion clip","ذخیره ویدئو (WebM)":"Save video (WebM)","پروژه‌ها":"Projects","ذخیره و بازیابی پروژه":"Save and restore project","نام پروژه":"Project name","ذخیره پروژه در این مرورگر":"Save project in this browser","خروجی فایل JSON":"Export JSON file","پروژه‌های ذخیره‌شده":"Saved projects","پروژه‌ای انتخاب نشده":"No project selected","باز کردن پروژه":"Open project","حذف پروژه":"Delete project","ورود فایل JSON":"Import JSON file","تاریخچه تصاویر":"Image history","پاک کردن تاریخچه":"Clear history","هنوز تصویری ذخیره نشده است.":"No images saved yet.","راهنما و اطلاعات":"Help and information","آشنایی با امکانات و محدودیت‌های برنامه":"Learn about app features and limitations","وضعیت ساخت ویدئو":"Video generation status","محدودیت‌های سرویس رایگان تصویر":"Free image service limitations","راهنما":"Help","تاریخچه":"History","ویرایش":"Edit","حساب":"Account","زبان برنامه / App language":"App language","زبان انتخاب‌شده در همین مرورگر ذخیره می‌شود.":"Your language choice is saved in this browser.",
 "هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.":"No active models found. Please try again in a moment.",
 "Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.":"Seed must be an integer between 0 and 4294967295.",
 "متن ترجمه شد. مدل: ":"Prompt translated. Model: ",
@@ -2275,64 +2296,136 @@ async function cancelRequest() {
   }
 }
 const motionLayers = [];
+let selectedMotionLayer = null;
+let motionPreviewFrame = null;
+let motionDragState = null;
+function renderMotionPreview() {
+  const canvas=$('motionPreviewCanvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const source=$('result'),progress=Number($('motionPlayhead').value)/100;
+  ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(source&&source.complete&&source.naturalWidth){
+    const baseMotion=$('motion').value;
+    const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
+    const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
+    const fit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
+    if(baseIsSprite){
+      const w=source.naturalWidth*fit,h=source.naturalHeight*fit;
+      let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
+      if(baseMotion==='move-right')x=-w/2+(canvas.width+w)*progress;
+      if(baseMotion==='move-left')x=canvas.width+w/2-(canvas.width+w)*progress;
+      if(baseMotion==='bounce')y-=Math.sin(progress*Math.PI*2)*58;
+      if(baseMotion==='rotate')angle=progress*Math.PI*2;
+      if(baseMotion==='fade')alpha=Math.abs(Math.sin(progress*Math.PI));
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(source,-w/2,-h/2,w,h);ctx.restore();
+    }else{
+      const zoom=baseMotion==='zoom-out'?1.12-.12*progress:1+.12*progress;
+      const w=source.naturalWidth*scale*zoom,h=source.naturalHeight*scale*zoom;
+      let pan=0;if(baseMotion==='pan-right')pan=(progress-.5)*64;if(baseMotion==='pan-left')pan=(.5-progress)*64;
+      ctx.drawImage(source,(canvas.width-w)/2+pan,(canvas.height-h)/2,w,h);
+    }
+  }
+  motionLayers.forEach(layer=>{
+    const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
+    if(progress<from||progress>to||to<=from)return;
+    const p=Math.max(0,Math.min(1,(progress-from)/(to-from))),e=p*p*(3-2*p);
+    const scale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
+    const w=layer.image.naturalWidth*scale,h=layer.image.naturalHeight*scale;
+    let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*e)*canvas.width/100;
+    let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*e)*canvas.height/100;
+    let angle=0,alpha=1;
+    if(layer.motion==='move-right')x+=Math.sin(p*Math.PI)*canvas.width*.18;
+    if(layer.motion==='move-left')x-=Math.sin(p*Math.PI)*canvas.width*.18;
+    if(layer.motion==='bounce')y-=Math.sin(p*Math.PI*2)*58;
+    if(layer.motion==='rotate')angle=p*Math.PI*2;
+    if(layer.motion==='fade')alpha=Math.sin(p*Math.PI);
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
+    ctx.drawImage(layer.image,-w/2,-h/2,w,h);
+    if(layer===selectedMotionLayer){ctx.globalAlpha=1;ctx.strokeStyle='#72e7d0';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(-w/2,-h/2,w,h);}
+    ctx.restore();
+  });
+  $('motionPlayheadValue').textContent=Math.round(progress*100)+'٪';
+}
 function renderMotionLayerList() {
   const host = $('motionLayerList');
   if (!host) return;
   host.innerHTML = '';
   if (!motionLayers.length) {
     host.innerHTML = '<small>هنوز لایه اضافه نشده است؛ تصویر اصلی به‌عنوان لایه پایه استفاده می‌شود.</small>';
-    return;
+    selectedMotionLayer=null;renderMotionPreview();return;
   }
   motionLayers.forEach((layer, index) => {
-    const row = document.createElement('section');
-    row.className = 'motion-layer-card';
-    const head = document.createElement('div');
-    head.className = 'motion-layer-row';
-    const name = document.createElement('span');
-    name.textContent = layer.name; name.title = layer.name;
-    const select = document.createElement('select');
-    select.setAttribute('aria-label', 'حرکت ' + layer.name);
-    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label]) => {
-      const option = document.createElement('option'); option.value=value; option.textContent=label; select.appendChild(option);
-    });
-    select.value=layer.motion;
-    select.addEventListener('change',()=>{layer.motion=select.value;});
+    const row=document.createElement('section');row.className='motion-layer-card'+(layer===selectedMotionLayer?' selected':'');
+    row.addEventListener('click',()=>{selectedMotionLayer=layer;renderMotionLayerList();});
+    const head=document.createElement('div');head.className='motion-layer-row';
+    const name=document.createElement('span');name.textContent=layer.name;name.title=layer.name;
+    const select=document.createElement('select');select.setAttribute('aria-label','حرکت '+layer.name);
+    [['move-right','حرکت به راست'],['move-left','حرکت به چپ'],['bounce','پرش نرم'],['rotate','چرخش'],['fade','ظاهر و محو شدن'],['still','بدون حرکت']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});
+    select.value=layer.motion;select.addEventListener('click',event=>event.stopPropagation());
+    select.addEventListener('change',()=>{layer.motion=select.value;renderMotionPreview();});
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
-    remove.addEventListener('click',()=>{URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);renderMotionLayerList();});
+    remove.addEventListener('click',event=>{event.stopPropagation();URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
     head.append(name,select,remove);
     const details=document.createElement('details');details.className='motion-keyframes';
-    const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';
-    details.appendChild(summary);
+    const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
     const controls=document.createElement('div');controls.className='motion-keyframe-grid';
-    const fields=[
-      ['startAt','شروع در تایم‌لاین',0,100,1,'%'],
-      ['endAt','پایان در تایم‌لاین',0,100,1,'%'],
-      ['startX','موقعیت افقی شروع',0,100,1,'%'],
-      ['startY','موقعیت عمودی شروع',0,100,1,'%'],
-      ['endX','موقعیت افقی پایان',0,100,1,'%'],
-      ['endY','موقعیت عمودی پایان',0,100,1,'%']
-    ];
-    fields.forEach(([key,label,min,max,step,suffix])=>{
+    [['startAt','شروع در تایم‌لاین'],['endAt','پایان در تایم‌لاین'],['startX','موقعیت افقی شروع'],['startY','موقعیت عمودی شروع'],['endX','موقعیت افقی پایان'],['endY','موقعیت عمودی پایان']].forEach(([key,label])=>{
       if(typeof layer[key]!=='number')layer[key]=key==='endAt'?100:50;
       const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
       const caption=document.createElement('span');caption.textContent=label;
       const line=document.createElement('div');line.className='motion-range-line';
-      const input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.step=step;input.value=layer[key];
-      const value=document.createElement('output');value.textContent=layer[key]+suffix;
-      input.addEventListener('input',()=>{
-        layer[key]=Number(input.value);value.textContent=input.value+suffix;
+      const input=document.createElement('input');input.type='range';input.min=0;input.max=100;input.step=1;input.value=layer[key];
+      const value=document.createElement('output');value.textContent=layer[key]+'%';
+      input.addEventListener('click',event=>event.stopPropagation());
+      input.addEventListener('input',event=>{
+        event.stopPropagation();layer[key]=Number(input.value);value.textContent=input.value+'%';
         if(key==='startAt'&&layer.startAt>layer.endAt){layer.endAt=layer.startAt;renderMotionLayerList();}
         if(key==='endAt'&&layer.endAt<layer.startAt){layer.startAt=layer.endAt;renderMotionLayerList();}
+        renderMotionPreview();
       });
       line.append(input,value);wrap.append(caption,line);controls.appendChild(wrap);
     });
     const track=document.createElement('div');track.className='motion-timeline-track';
-    const segment=document.createElement('div');segment.className='motion-timeline-segment';
-    segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
-    track.appendChild(segment);details.append(controls,track);
-    row.append(head,details);host.appendChild(row);
+    const segment=document.createElement('div');segment.className='motion-timeline-segment';segment.style.left=layer.startAt+'%';segment.style.width=Math.max(0,layer.endAt-layer.startAt)+'%';
+    track.appendChild(segment);details.append(controls,track);row.append(head,details);host.appendChild(row);
   });
+  renderMotionPreview();
 }
+$('motionPlayhead').addEventListener('input',renderMotionPreview);
+$('motion').addEventListener('change',renderMotionPreview);
+$('motionDuration').addEventListener('change',renderMotionPreview);
+$('motionPlayPreview').addEventListener('click',()=>{
+  if(motionPreviewFrame){cancelAnimationFrame(motionPreviewFrame);motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
+  if(Number($('motionPlayhead').value)>=100)$('motionPlayhead').value=0;
+  const start=performance.now()-Number($('motionPlayhead').value)/100*Number($('motionDuration').value)*1000;
+  $('motionPlayPreview').textContent='توقف پیش‌نمایش';
+  const tick=now=>{
+    const progress=Math.min(100,(now-start)/(Number($('motionDuration').value)*1000)*100);
+    $('motionPlayhead').value=progress;renderMotionPreview();
+    if(progress>=100){motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
+    motionPreviewFrame=requestAnimationFrame(tick);
+  };
+  motionPreviewFrame=requestAnimationFrame(tick);
+});
+const previewCanvas=$('motionPreviewCanvas');
+previewCanvas.addEventListener('pointerdown',event=>{
+  if(!selectedMotionLayer)return;
+  const rect=previewCanvas.getBoundingClientRect();
+  motionDragState={x:event.clientX,y:event.clientY,startX:selectedMotionLayer.startX,endX:selectedMotionLayer.endX,startY:selectedMotionLayer.startY,endY:selectedMotionLayer.endY,rectWidth:rect.width,rectHeight:rect.height};
+  previewCanvas.setPointerCapture(event.pointerId);
+});
+previewCanvas.addEventListener('pointermove',event=>{
+  if(!motionDragState||!selectedMotionLayer)return;
+  const dx=(event.clientX-motionDragState.x)/motionDragState.rectWidth*100;
+  const dy=(event.clientY-motionDragState.y)/motionDragState.rectHeight*100;
+  selectedMotionLayer.startX=Math.max(0,Math.min(100,motionDragState.startX+dx));
+  selectedMotionLayer.endX=Math.max(0,Math.min(100,motionDragState.endX+dx));
+  selectedMotionLayer.startY=Math.max(0,Math.min(100,motionDragState.startY+dy));
+  selectedMotionLayer.endY=Math.max(0,Math.min(100,motionDragState.endY+dy));
+  renderMotionPreview();
+});
+['pointerup','pointercancel','lostpointercapture'].forEach(type=>previewCanvas.addEventListener(type,()=>{motionDragState=null;}));
+
 $('motionLayerFiles').addEventListener('change', async event => {
   const files = Array.from(event.target.files || []);
   for (const file of files) {
@@ -2344,6 +2437,7 @@ $('motionLayerFiles').addEventListener('change', async event => {
       image.src = url;
       await image.decode();
       motionLayers.push({image, url, name:file.name, motion:'still', startAt:0, endAt:100, startX:50, startY:50, endX:50, endY:50});
+      if(!selectedMotionLayer)selectedMotionLayer=motionLayers[motionLayers.length-1];
     } catch (_) { URL.revokeObjectURL(url); }
   }
   event.target.value = '';
