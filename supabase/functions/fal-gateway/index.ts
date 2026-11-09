@@ -70,9 +70,24 @@ Deno.serve(async (req: Request) => {
       return json({ error: auth.detail, code: auth.status === 503 ? "AUTH_SERVICE_UNAVAILABLE" : "AUTH_REQUIRED", request_id: requestId }, auth.status);
     }
 
+    const declaredLength = Number(req.headers.get("content-length") || 0);
+    if (declaredLength > 16 * 1024) {
+      return json({ error: "Request body is too large.", code: "REQUEST_TOO_LARGE", request_id: requestId }, 413);
+    }
     let body: Record<string, unknown>;
-    try { body = await req.json(); }
-    catch { return json({ error: "Invalid JSON body.", code: "INVALID_JSON", request_id: requestId }, 400); }
+    try {
+      const rawBody = await req.text();
+      if (rawBody.length > 16 * 1024) {
+        return json({ error: "Request body is too large.", code: "REQUEST_TOO_LARGE", request_id: requestId }, 413);
+      }
+      const parsed = rawBody ? JSON.parse(rawBody) : {};
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return json({ error: "JSON body must be an object.", code: "INVALID_BODY", request_id: requestId }, 400);
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return json({ error: "Invalid JSON body.", code: "INVALID_JSON", request_id: requestId }, 400);
+    }
 
     const action = String(body.action || "");
     const falKey = Deno.env.get("FAL_KEY");
@@ -86,6 +101,8 @@ Deno.serve(async (req: Request) => {
         imageModel: MODELS.image,
         videoModel: MODELS.video,
         cloudflareImageConfigured: Boolean(cloudflareAccountId && cloudflareToken),
+        cloudflareImageCredentialState: cloudflareAccountId && cloudflareToken ? "configured_unverified" : "missing",
+        cloudflareImageHealthNote: "Secret presence is checked here; actual token permissions are verified only by a real image request.",
         cloudflareImageModel: "@cf/black-forest-labs/flux-1-schnell",
         request_id: requestId
       });
@@ -116,12 +133,16 @@ Deno.serve(async (req: Request) => {
           return json({ error: "Cloudflare returned an invalid response.", code: "CLOUDFLARE_INVALID_RESPONSE", request_id: requestId }, 502);
         }
         const result = payload.result && typeof payload.result === "object" ? payload.result as Record<string, unknown> : {};
-        const image = typeof result.image === "string" ? result.image : "";
-        if (!upstream.ok || payload.success === false || !image) {
+        const image = typeof result.image === "string" ? result.image.trim() : "";
+        const validBase64Image = image.length >= 1000 && image.length <= 8 * 1024 * 1024 &&
+          image.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(image);
+        if (!upstream.ok || payload.success === false || !validBase64Image) {
           const errors = Array.isArray(payload.errors) ? payload.errors : [];
           const detail = String((errors[0] as Record<string, unknown> | undefined)?.message || payload.message || upstream.statusText || "No image returned").slice(0, 400);
           console.warn("fal-gateway Cloudflare image failed", { requestId, status: upstream.status, detail });
-          return json({ error: "Cloudflare image generation failed.", code: upstream.status === 401 || upstream.status === 403 ? "CLOUDFLARE_AUTH" : upstream.status === 429 ? "CLOUDFLARE_RATE_LIMIT" : upstream.status >= 500 ? "CLOUDFLARE_UPSTREAM" : "CLOUDFLARE_GENERATION_FAILED", detail, upstream_status: upstream.status, request_id: requestId }, upstream.status >= 500 ? 502 : (upstream.status || 502));
+          const responseStatus = !upstream.ok ? (upstream.status >= 500 ? 502 : upstream.status) : 502;
+          const retryAfter = upstream.headers.get("retry-after");
+          return json({ error: "Cloudflare image generation failed.", code: upstream.status === 401 || upstream.status === 403 ? "CLOUDFLARE_AUTH" : upstream.status === 429 ? "CLOUDFLARE_RATE_LIMIT" : upstream.status >= 500 ? "CLOUDFLARE_UPSTREAM" : "CLOUDFLARE_GENERATION_FAILED", detail: validBase64Image ? detail : detail + " (image payload missing, invalid, or oversized)", upstream_status: upstream.status, request_id: requestId }, responseStatus, retryAfter ? { "Retry-After": retryAfter } : {});
         }
         return json({ ok: true, engine: "Cloudflare Workers AI · FLUX.1 Schnell", image_data_url: "data:image/jpeg;base64," + image, request_id: requestId });
       } catch (error) {
