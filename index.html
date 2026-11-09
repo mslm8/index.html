@@ -192,6 +192,23 @@ async function loadModels(silent = false) {
   }
 }
 
+
+async function translateToEnglish(text) {
+  const source = String(text || '').trim();
+  if (!source) return '';
+  // MyMemory free translation endpoint; keep the original sentence intact as one unit.
+  const url = 'https://api.mymemory.translated.net/get?q=' +
+    encodeURIComponent(source) + '&langpair=fa|en';
+  const response = await fetch(url, { method: 'GET' });
+  if (!response.ok) throw new Error('سرویس ترجمه پاسخ نداد (HTTP ' + response.status + ').');
+  const data = await response.json();
+  const translated = data && data.responseData && data.responseData.translatedText;
+  if (!translated || data.responseStatus !== 200) {
+    throw new Error('ترجمه متن انجام نشد؛ لطفاً کمی بعد دوباره تلاش کن.');
+  }
+  return translated.trim();
+}
+
 async function generateImage() {
   const prompt = $('prompt').value.trim();
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
@@ -209,12 +226,25 @@ async function generateImage() {
     return;
   }
 
-  const negative = $('negative').value.trim();
-  const fullPrompt = negative ? prompt + ' ### ' + negative : prompt;
+  let translatedPrompt;
+  let translatedNegative = '';
+  try {
+    setStatus('در حال ترجمه دقیق توضیحات به انگلیسی...');
+    translatedPrompt = await translateToEnglish(prompt);
+    const negative = $('negative').value.trim();
+    if (negative) translatedNegative = await translateToEnglish(negative);
+  } catch (error) {
+    setStatus('ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ' + error.message, 'var(--warn)');
+    $('generate').disabled = false;
+    return;
+  }
+  const fullPrompt = translatedNegative
+    ? translatedPrompt + ' ### ' + translatedNegative
+    : translatedPrompt;
   const dimension = Number($('size').value);
-  setStatus('مدل سریع‌تر انتخاب شد: ' + candidates[0] +
+  setStatus('متن به انگلیسی ترجمه شد. مدل سریع‌تر انتخاب شد: ' + candidates[0] +
     (candidates.length > 1 ? '\nگزینه‌های جایگزین هم به درخواست اضافه شدند.' : '') +
-    '\nدر حال ارسال به موتور رایگان...');
+    '\nدر حال ارسال متن ترجمه‌شده به موتور رایگان...');
 
   try {
     const submitted = await apiFetch('/generate/async', {
