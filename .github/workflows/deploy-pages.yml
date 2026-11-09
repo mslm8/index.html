@@ -45,7 +45,7 @@ jobs:
           }
           if (!checked) throw new Error('No inline JavaScript was validated.');
           const workflowFiles = fs.readdirSync('.github/workflows').filter(name => name.endsWith('.yml') || name.endsWith('.yaml'));
-          const deployerCount = workflowFiles.reduce((total, name) => total + ((fs.readFileSync('.github/workflows/' + name, 'utf8').match(/^\\s*uses:\\s*actions\\/deploy-pages@/gm) || []).length), 0);
+          const deployerCount = workflowFiles.reduce((total, name) => total + fs.readFileSync('.github/workflows/' + name, 'utf8').split('\n').filter(line => line.trim().startsWith('uses: actions/deploy-pages@')).length, 0);
           if (deployerCount !== 1) throw new Error('Expected exactly one Pages deployment action, found ' + deployerCount + '.');
           console.log('Validated ' + checked + ' inline scripts, ' + ids.length + ' unique HTML IDs, and one Pages deployer.');
           NODE
