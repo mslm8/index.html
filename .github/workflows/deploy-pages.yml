@@ -103,7 +103,7 @@ jobs:
           }
           const config = token && host ? { token, host } : null;
           fs.writeFileSync('posthog-config.js',
-            'window.__POSTHOG_CONFIG__ = ' + JSON.stringify(config) + ';\\n');
+            'window.__POSTHOG_CONFIG__ = ' + JSON.stringify(config) + ';\n');
           console.log(config ? 'PostHog browser configuration generated.' :
             'PostHog is not configured; analytics will remain disabled until repository settings are added.');
           NODE
