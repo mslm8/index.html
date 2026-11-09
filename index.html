@@ -2399,6 +2399,24 @@ $('cancel').addEventListener('click', cancelRequest);
     const nextIndex = dx < 0 ? activeIndex - 1 : activeIndex + 1;
     if (nextIndex >= 0 && nextIndex < buttons.length) buttons[nextIndex].click();
   }, {passive:true});
+
+  nav.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const buttons = Array.from(nav.querySelectorAll("button[data-view]"));
+    if (!buttons.length) return;
+    const current = buttons.findIndex(button => button.classList.contains("active"));
+    let next = current < 0 ? 0 : current;
+    if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = buttons.length - 1;
+    else {
+      const rtl = getComputedStyle(nav).direction === "rtl";
+      const forward = event.key === (rtl ? "ArrowLeft" : "ArrowRight");
+      next = Math.max(0, Math.min(buttons.length - 1, next + (forward ? 1 : -1)));
+    }
+    event.preventDefault();
+    buttons[next].focus();
+    buttons[next].click();
+  });
   main.addEventListener("touchcancel", () => { startTarget = null; }, {passive:true});
   main.addEventListener("touchstart", event => {
     if (event.touches.length !== 1) startTarget = null;
