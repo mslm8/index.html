@@ -1639,8 +1639,9 @@ function applyProjectData(data) {
     throw new Error('اطلاعات فیلدهای پروژه معتبر نیست.');
   }
   if(Array.isArray(data.characters)){
-    motionCharacters.splice(0,motionCharacters.length,...data.characters.slice(0,20).filter(c=>c&&typeof c.name==='string').map((c,index)=>({id:typeof c.id==='string'?c.id:'character-import-'+index,name:c.name.slice(0,40),voiceName:typeof c.voiceName==='string'?c.voiceName.slice(0,120):''})));
-    nextMotionCharacterId=motionCharacters.length+1;renderMotionCharacters();renderMotionDialogueEditor();
+    const imported=data.characters.slice(0,20).filter(c=>c&&typeof c.name==='string').map((c,index)=>({id:typeof c.id==='string'?c.id:'character-import-'+index,name:c.name.slice(0,40),voiceName:typeof c.voiceName==='string'?c.voiceName.slice(0,120):'',imageBlob:null,imageName:'',imageUrl:''}));
+    motionCharacters.splice(0,motionCharacters.length,...imported);nextMotionCharacterId=motionCharacters.length+1;
+    Promise.all(imported.map(character=>storeCharacter(character))).then(()=>{renderMotionCharacters();renderMotionDialogueEditor();}).catch(error=>setStatus('ذخیره شخصیت‌های واردشده ناموفق بود: '+error.message,'var(--warn)'));
   }
   const limits = {
     prompt:1800, negative:500, editPrompt:1200, size:40, ratio:40, style:40,
@@ -2435,27 +2436,89 @@ function drawMotionDialogues(ctx, dialogues, progress) {
 }
 function canvasWidthForDialogue(ctx){return ctx.canvas.width*.78;}
 if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=()=>{if(typeof renderMotionDialogueEditor==='function')renderMotionDialogueEditor();};
+const CHARACTER_DB_NAME='ai-animator-character-library';
+function openCharacterDB(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(new Error('ذخیره‌سازی شخصیت در این مرورگر پشتیبانی نمی‌شود.'));return;}
+    const request=indexedDB.open(CHARACTER_DB_NAME,1);
+    request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('characters'))db.createObjectStore('characters',{keyPath:'id'});};
+    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error('بازکردن فضای شخصیت‌ها ناموفق بود.'));
+  });
+}
+async function storeCharacter(character){
+  const db=await openCharacterDB();
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction('characters','readwrite');tx.objectStore('characters').put({id:character.id,name:character.name,voiceName:character.voiceName||'',imageBlob:character.imageBlob||null,imageName:character.imageName||''});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
+  finally{db.close();}
+}
+async function removeStoredCharacter(id){
+  const db=await openCharacterDB();
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction('characters','readwrite');tx.objectStore('characters').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+  finally{db.close();}
+}
+async function loadStoredCharacters(){
+  try{
+    const db=await openCharacterDB();
+    const records=await new Promise((resolve,reject)=>{const tx=db.transaction('characters','readonly');const request=tx.objectStore('characters').getAll();request.onsuccess=()=>resolve(request.result||[]);request.onerror=()=>reject(request.error);});
+    db.close();
+    motionCharacters.splice(0,motionCharacters.length,...records.slice(0,20).map(record=>({...record,imageUrl:record.imageBlob?URL.createObjectURL(record.imageBlob):''})));
+    nextMotionCharacterId=motionCharacters.length+1;renderMotionCharacters();renderMotionDialogueEditor();
+  }catch(error){setStatus('کتابخانه شخصیت‌ها بارگذاری نشد: '+error.message,'var(--warn)');}
+}
 function renderMotionCharacters(){
   const host=$('motionCharacterList');if(!host)return;host.replaceChildren();
   if(!motionCharacters.length){const empty=document.createElement('small');empty.textContent='هنوز شخصیتی تعریف نشده است.';host.appendChild(empty);}
   motionCharacters.forEach(character=>{
-    const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px;border:1px solid var(--border);border-radius:8px';
-    const name=document.createElement('strong');name.textContent=character.name;name.style.flex='1';
+    const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:64px 1fr;gap:8px;padding:8px;border:1px solid var(--border);border-radius:8px';
+    const preview=document.createElement('img');preview.alt='تصویر '+character.name;preview.width=64;preview.height=64;preview.style.cssText='width:64px;height:64px;object-fit:contain;border-radius:7px;background:var(--surface)';
+    if(character.imageUrl)preview.src=character.imageUrl;
+    const details=document.createElement('div');details.style.cssText='display:grid;gap:6px;min-width:0';
+    const name=document.createElement('strong');name.textContent=character.name;
     const voice=document.createElement('select');voice.setAttribute('aria-label','صدای '+character.name);voice.add(new Option('صدای پیش‌فرض مرورگر',''));
     (window.speechSynthesis?window.speechSynthesis.getVoices():[]).forEach(v=>voice.add(new Option(v.name+' · '+v.lang,v.name)));
-    voice.value=character.voiceName||'';voice.addEventListener('change',()=>{character.voiceName=voice.value;});
-    const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
-    remove.addEventListener('click',()=>{motionCharacters.splice(motionCharacters.indexOf(character),1);motionScenes.forEach(scene=>(scene.dialogues||[]).forEach(item=>{if(item.speakerId===character.id){item.speakerId='';item.speaker='';item.voiceName='';}}));renderMotionCharacters();renderMotionDialogueEditor();});
-    row.append(name,voice,remove);host.appendChild(row);
+    voice.value=character.voiceName||'';voice.addEventListener('change',()=>{character.voiceName=voice.value;storeCharacter(character).catch(error=>setStatus('ذخیره صدای شخصیت ناموفق بود: '+error.message,'var(--warn)'));});
+    const imageInput=document.createElement('input');imageInput.type='file';imageInput.accept='image/png,image/jpeg,image/webp';imageInput.setAttribute('aria-label','تصویر '+character.name);
+    imageInput.addEventListener('change',async()=>{
+      const file=imageInput.files&&imageInput.files[0];if(!file)return;
+      if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024){setStatus('تصویر شخصیت باید PNG، JPG یا WebP و حداکثر ۱۲ مگابایت باشد.','var(--warn)');imageInput.value='';return;}
+      try{
+        const testUrl=URL.createObjectURL(file),testImage=new Image();testImage.src=testUrl;await testImage.decode();URL.revokeObjectURL(testUrl);
+        if(character.imageUrl)URL.revokeObjectURL(character.imageUrl);
+        character.imageBlob=file;character.imageName=file.name;character.imageUrl=URL.createObjectURL(file);
+        await storeCharacter(character);renderMotionCharacters();setStatus('تصویر شخصیت ذخیره شد و برای صحنه‌ها قابل استفاده است.');
+      }catch(error){setStatus('ذخیره تصویر شخصیت ناموفق بود: '+error.message,'var(--warn)');}
+      imageInput.value='';
+    });
+    const addLayer=document.createElement('button');addLayer.type='button';addLayer.className='secondary';addLayer.textContent='افزودن به صحنه فعلی';addLayer.disabled=!character.imageBlob;
+    addLayer.addEventListener('click',async()=>{
+      if(!character.imageBlob)return;
+      if(motionLayers.length>=8){setStatus('ظرفیت ۸ لایه این صحنه پر است.','var(--warn)');return;}
+      try{
+        const url=URL.createObjectURL(character.imageBlob),image=new Image();image.src=url;await image.decode();
+        const layer={image,url,name:character.name+(character.imageName?' · '+character.imageName:''),motion:'still',startAt:0,endAt:100,startX:50,startY:50,endX:50,endY:50};
+        motionLayers.push(layer);selectedMotionLayer=layer;renderMotionLayerList();renderMotionPreview();setStatus('تصویر شخصیت به صحنه فعلی اضافه شد.');
+      }catch(error){setStatus('افزودن شخصیت به صحنه ناموفق بود: '+error.message,'var(--warn)');}
+    });
+    const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف شخصیت';
+    remove.addEventListener('click',async()=>{
+      if(character.imageUrl)URL.revokeObjectURL(character.imageUrl);
+      motionCharacters.splice(motionCharacters.indexOf(character),1);
+      motionScenes.forEach(scene=>(scene.dialogues||[]).forEach(item=>{if(item.speakerId===character.id){item.speakerId='';item.speaker='';item.voiceName='';}}));
+      try{await removeStoredCharacter(character.id);}catch(error){setStatus('حذف از فضای ذخیره‌سازی ناموفق بود: '+error.message,'var(--warn)');}
+      renderMotionCharacters();renderMotionDialogueEditor();
+    });
+    details.append(name,voice,imageInput,addLayer,remove);row.append(preview,details);host.appendChild(row);
   });
 }
-$('addMotionCharacter').addEventListener('click',()=>{
+$('addMotionCharacter').addEventListener('click',async()=>{
   const field=$('motionCharacterName'),name=field.value.trim();if(!name){field.focus();return;}
   if(motionCharacters.some(c=>c.name.toLocaleLowerCase()===name.toLocaleLowerCase())){setStatus('این شخصیت قبلاً تعریف شده است.','var(--warn)');return;}
   if(motionCharacters.length>=20){setStatus('حداکثر ۲۰ شخصیت برای هر قسمت قابل تعریف است.','var(--warn)');return;}
-  motionCharacters.push({id:'character-'+(nextMotionCharacterId++),name:name.slice(0,40),voiceName:''});field.value='';
-  renderMotionCharacters();renderMotionDialogueEditor();
+  const character={id:'character-'+(nextMotionCharacterId++),name:name.slice(0,40),voiceName:'',imageBlob:null,imageName:'',imageUrl:''};
+  motionCharacters.push(character);field.value='';
+  try{await storeCharacter(character);renderMotionCharacters();renderMotionDialogueEditor();setStatus('شخصیت ذخیره شد. حالا می‌توانی تصویرش را اضافه کنی.');}
+  catch(error){motionCharacters.splice(motionCharacters.indexOf(character),1);setStatus('ذخیره شخصیت ناموفق بود: '+error.message,'var(--warn)');}
 });
+
 function renderMotionDialogueEditor(){
   const host=$('motionDialogueList');if(!host)return;
   host.replaceChildren();
@@ -2694,6 +2757,7 @@ $('motionLayerFiles').addEventListener('change', async event => {
 });
 renderMotionLayerList();
 renderMotionSceneList();
+loadStoredCharacters();
 
 function createMotionClip() {
   const source=$('result');
