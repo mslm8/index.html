@@ -2552,30 +2552,33 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
 async function requestAutomaticScreenplay(seed,status){
-  if(!document.body.classList.contains('authenticated'))return null;
+  if(!document.body.classList.contains('authenticated'))throw new Error('برای استفاده از موتور داستان، ابتدا وارد حساب شو.');
   const models=await loadTextModels();
-  if(!models.length)return null;
-  status.textContent='هوش داستان در حال تبدیل متن به فیلمنامه، صحنه، دیالوگ و دستور حرکت است...';
-  const prompt='You are an animation director and screenwriter. Turn the supplied story into a complete original family-friendly 60-second 2D sci-fi comedy cartoon episode. Return ONLY valid JSON, no markdown, schema: {"scenes":[{"visual":"Persian visual action and setting","dialogues":[{"speaker":"short character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create 3 to 6 scenes, preserve character names and visual continuity, distribute events in story order, include dialogue only where appropriate, keep spoken lines short, and make each scene visually distinct. Infer every field yourself. User supplies only the story; do not ask questions.\n\nSTORY:\n'+seed;
-  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({prompt,params:{max_length:1100,temperature:0.65,top_p:0.9,top_k:40,rep_pen:1.08},models,trusted_workers:false,slow_workers:true,extra_slow_workers:true,allow_downgrade:true})});
+  if(!models.length)throw new Error('فعلاً پردازشگر متن رایگان و فعالی پیدا نشد؛ بعداً دوباره امتحان کن.');
+  status.textContent='موتور هوش مصنوعی در حال نوشتن فیلمنامه و طراحی شخصیت‌های ثابت است؛ ممکن است صف انتظار طولانی باشد...';
+  liveBuildLog('درخواست فیلمنامه به موتور متن رایگان ارسال شد.');
+  const prompt='You are a professional animation showrunner, screenwriter and character designer. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY valid JSON, no markdown, schema: {"characters":[{"name":"Persian character name","description":"Detailed stable visual design in Persian: species, age impression, body shape, face, eyes, hair, clothing, colors, distinctive props"}],"scenes":[{"visual":"Detailed Persian visual description of the exact action, location, composition and character positions","dialogues":[{"speaker":"exact character name","text":"short natural Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create 4 to 6 distinct scenes in chronological story order. Create 1 to 4 recurring characters and preserve their exact visual descriptions, names, clothing and colors across every scene. Every scene must have a concrete visible action and specific environment; do not write vague summaries. Include short natural Persian dialogue where appropriate. Keep the original story events and ending. Infer all visual direction yourself. Never imitate existing copyrighted characters or shows. No text or subtitles inside the generated illustrations.\n\nSTORY:\n'+seed;
+  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({prompt,params:{max_length:1800,temperature:0.62,top_p:0.9,top_k:40,rep_pen:1.08},models,trusted_workers:false,slow_workers:true,extra_slow_workers:true,allow_downgrade:true})});
   if(!submitted.id)throw new Error('شناسه درخواست فیلمنامه دریافت نشد.');
   const started=Date.now();let result=null;
   while(Date.now()-started<2*60*60*1000){
     await new Promise(resolve=>setTimeout(resolve,10000));
     const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
-    if(check.faulted)throw new Error('پردازشگر متن درخواست را کامل نکرد.');
+    if(check.faulted)throw new Error('پردازشگر متن درخواست فیلمنامه را کامل نکرد.');
     if(check.done){result=check;break;}
-    status.textContent='هوش داستان در صف پردازش رایگان است؛ زمان انتظار '+Math.floor((Date.now()-started)/60000)+' دقیقه';
+    const minutes=Math.floor((Date.now()-started)/60000);
+    status.textContent='فیلمنامه در صف پردازشگرهای داوطلب است؛ زمان انتظار '+minutes+' دقیقه';
+    if(minutes===0||minutes%2===0)liveBuildLog('انتظار برای موتور فیلمنامه: '+minutes+' دقیقه');
   }
-  if(!result)throw new Error('زمان انتظار موتور متن به دو ساعت رسید.');
+  if(!result)throw new Error('زمان انتظار موتور فیلمنامه به دو ساعت رسید.');
   const raw=(result.generations||[]).find(item=>item&&typeof item.text==='string'&&item.text.trim())?.text||'';
-  if(!raw)throw new Error('پاسخ متنی خالی بود.');
+  if(!raw)throw new Error('پاسخ متنی فیلمنامه خالی بود.');
   const cleaned=raw.replace(/^\s*\x60{3}(?:json)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
   const first=cleaned.indexOf('{'),last=cleaned.lastIndexOf('}');
   if(first<0||last<=first)throw new Error('فیلمنامه ساختار JSON معتبر نداشت.');
   const data=JSON.parse(cleaned.slice(first,last+1));
-  if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('هیچ صحنه‌ای در فیلمنامه پیدا نشد.');
-  return data.scenes.slice(0,6);
+  if(!Array.isArray(data.scenes)||data.scenes.length<3)throw new Error('فیلمنامه حداقل سه صحنه معتبر ندارد.');
+  return {characters:Array.isArray(data.characters)?data.characters.slice(0,4):[],scenes:data.scenes.slice(0,6)};
 }
 function autoScheduleSceneDialogues(scene){
   const items=scene.dialogues||[];if(!items.length)return;
@@ -2602,122 +2605,91 @@ async function makeLocalEpisodeBackground(scene,index){
 let liveBuildStartedAt=0,liveBuildTimer=null,liveBuildProgress=0;const liveStepNames=['تحلیل داستان و تقسیم صحنه‌ها','ساخت شخصیت‌ها و ریگ','آماده‌سازی پس‌زمینه‌ها','متحرک‌سازی و زمان‌بندی','رندر و ضبط ویدیو','آماده‌سازی فایل نهایی'];function liveBuildLog(message){const log=$('liveLog');if(!log)return;const p=document.createElement('p');p.textContent='• '+new Date().toLocaleTimeString('fa-IR')+' — '+message;log.prepend(p);while(log.children.length>12)log.lastChild.remove();}function liveBuildUpdate(step,detail,progress){const panel=$('liveProduction');if(!panel)return;panel.hidden=false;const n=Math.max(0,Math.min(5,step));$('liveStageTitle').textContent=liveStepNames[n];$('liveStageDetail').textContent=detail||'در حال انجام...';if(Number.isFinite(progress))liveBuildProgress=Math.max(liveBuildProgress,Math.min(99,progress));$('livePercent').textContent=Math.round(liveBuildProgress).toLocaleString('fa-IR')+'٪';$('liveProgressBar').style.width=liveBuildProgress+'%';Array.from($('liveSteps').children).forEach((item,index)=>{item.classList.toggle('done',index<n);item.classList.toggle('active',index===n);});liveBuildLog(detail||liveStepNames[n]);}function liveBuildStart(){liveBuildStartedAt=Date.now();liveBuildProgress=2;$('liveLog').replaceChildren();$('liveProduction').hidden=false;liveBuildUpdate(0,'داستان دریافت شد؛ آماده‌سازی شروع شد.',2);if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=setInterval(()=>{const sec=Math.floor((Date.now()-liveBuildStartedAt)/1000);$('liveElapsed').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');},1000);$('liveProduction').scrollIntoView({behavior:'smooth',block:'nearest'});}function liveBuildFinish(ok,message){if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=null;if(ok){liveBuildProgress=100;$('livePercent').textContent='۱۰۰٪';$('liveProgressBar').style.width='100%';Array.from($('liveSteps').children).forEach(item=>{item.classList.remove('active');item.classList.add('done');});$('liveStageTitle').textContent='ویدیو آماده شد';$('liveStageDetail').textContent=message||'فایل آمادهٔ پیش‌نمایش و ذخیره است.';liveBuildLog('ساخت با موفقیت پایان یافت.');}else{$('liveStageTitle').textContent='ساخت متوقف شد';$('liveStageDetail').textContent=message||'خطا در ساخت ویدیو';liveBuildLog(message||'خطا در ساخت ویدیو');}}
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
-  if(!raw){setStatus('ابتدا فقط داستان قسمت را بنویس.','var(--warn)');$('storyToScenesInput').focus();return;}
+  if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
-  if(!freeEngineManagerState.canvas){button.disabled=false;setStatus('ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
-  smartTextModelChoices=[];smartModelChoices=[];
-  status.textContent='حالت سریع فعال شد؛ بدون صف انتظار موتورهای آنلاین، داستان و صحنه‌ها به‌صورت داخلی آماده می‌شوند.';
-  const saved={prompt:$('prompt').value,style:$('style').value,framing:$('framing').value};
-  const sceneStyle='Create a clean, high-quality 2D animated cartoon background plate for an original science-fiction comedy. Environment only, no people, no characters, no text, no lettering, no speech bubbles. ';
+  if(!freeEngineManagerState.canvas){button.disabled=false;const message='ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
+  const settingIds=['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
+  const saved=Object.fromEntries(settingIds.map(id=>[id,$(id).value]));
   try{
-    let plans=null;
-    // Fast path: never wait in volunteer AI Horde queues during one-click episode creation.
-    if(!plans){
-      liveBuildUpdate(0,'داستان به صحنه‌های روایی تقسیم شد.',10);
-      const paragraphs=raw.split(/\n+|(?<=[.!؟?])\s+(?=\S)/u).map(part=>part.trim()).filter(Boolean);
-      const count=Math.min(6,Math.max(1,paragraphs.length));
-      const groups=Array.from({length:count},()=>[]);
-      paragraphs.forEach((part,index)=>groups[Math.min(count-1,Math.floor(index*count/paragraphs.length))].push(part));
-      plans=groups.map((parts,index)=>{const visual=parts.join(' ');const direction=inferSceneDirection({storyText:visual,dialogues:[]},index);return {visual,dialogues:[],action:direction.action,emotion:direction.emotion,gesture:direction.gesture,camera:direction.camera};});
-    }
-    liveBuildUpdate(1,'در حال ساخت شخصیت کارتونی و اجزای قابل حرکت.',20);
+    liveBuildUpdate(0,'در حال اتصال به موتور رایگان فیلمنامه و تحلیل روایت.',5);
+    status.textContent='در حال بررسی پردازشگرهای رایگان متن و تصویر...';
+    const [textModels,imageModels]=await Promise.all([loadTextModels(),loadModels(true)]);
+    if(!textModels.length)throw new Error('موتور متن رایگان فعالی در دسترس نیست؛ بعداً دوباره تلاش کن.');
+    if(!imageModels.length)throw new Error('موتور تصویر رایگان فعالی در دسترس نیست؛ بعداً دوباره تلاش کن.');
+    freeEngineManagerState.text=true;freeEngineManagerState.image=true;
+    liveBuildUpdate(0,'موتورهای متن و تصویر فعال شدند؛ فیلمنامه در حال تولید است.',8);
+    const screenplay=await requestAutomaticScreenplay(raw,status);
+    const plans=screenplay.scenes;
     const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
+    const speakerNames=Array.from(new Set([
+      ...screenplay.characters.map(character=>String(character.name||'').trim()).filter(Boolean),
+      ...plans.flatMap(scene=>(Array.isArray(scene.dialogues)?scene.dialogues:[]).map(item=>String(item?.speaker||'').trim()).filter(Boolean))
+    ])).slice(0,4);
+    if(!speakerNames.length)speakerNames.push('شخصیت اصلی');
+    const characterBible=speakerNames.map(name=>{
+      const entry=screenplay.characters.find(character=>String(character.name||'').trim()===name);
+      return name+': '+String(entry?.description||'شخصیت کارتونی اصلی با طراحی دوبعدی منسجم، چهره خوانا، لباس و رنگ ثابت در تمام نماها.').slice(0,420);
+    }).join('\n');
     const nextScenes=plans.map((plan,index)=>({
-      name:'صحنه '+(index+1),layers:[],dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,8).map(item=>{const speaker=String(item.speaker||'شخصیت اصلی').slice(0,40);return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};}),
-      backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),autoDirection:{action:plan.action||'idle',emotion:plan.emotion||'none',gesture:plan.gesture||'neutral',camera:plan.camera||'zoom-in'}
+      name:'صحنه '+(index+1),layers:[],
+      dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,6).map(item=>{
+        const speaker=String(item.speaker||speakerNames[0]||'شخصیت اصلی').slice(0,40);
+        return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};
+      }),
+      backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),
+      autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
     saveActiveMotionScene();motionScenes.splice(0,motionScenes.length,...nextScenes);activeMotionScene=0;motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
     renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
-    $('createProceduralCharacter').click();
-    for(let wait=0;wait<60&&motionLayers.length<6;wait++)await new Promise(resolve=>setTimeout(resolve,100));
-    const characterBase=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
-    if(characterBase.length<6)throw new Error('شخصیت کارتونی کامل ساخته نشد؛ لطفاً دوباره تلاش کن.');
-    const speakerNames=Array.from(new Set(nextScenes.flatMap(scene=>scene.dialogues.map(item=>item.speaker||'شخصیت اصلی')))).slice(0,3);
-    if(!speakerNames.length)speakerNames.push('شخصیت اصلی');
-    const rigs=[];
-    for(let speakerIndex=0;speakerIndex<speakerNames.length;speakerIndex++){
-      const speakerName=speakerNames[speakerIndex],speakerId=speakerIdFor(speakerName),position=speakerNames.length===1?50:(speakerIndex===0?34:speakerIndex===1?66:50);
-      const rigId='auto-rig-'+speakerIndex+'-'+Date.now().toString(36);
-      const rig=[];
-      for(const original of characterBase){
-        const layer={...original,motionKeys:Array.isArray(original.motionKeys)?original.motionKeys.map(key=>({...key})):undefined};
-        const oldRigId=original.rigId;
-        const role=original.rigRole||(String(oldRigId||'').endsWith('-body')?'body':'part');
-        if(oldRigId)layer.rigId=role==='body'?rigId+'-body':rigId+'-'+role;
-        if(role==='body')layer.rigRole='body';
-        if(original.parentLayerId)layer.parentLayerId=rigId+'-body';
-        layer.startX=position;layer.endX=position;
-        layer.name=speakerName+' · '+(original.name||'بخش شخصیت');
-        layer.characterName=speakerName;
-        if(layer.rigRole==='head'){layer.characterId=speakerId;layer.mouthMode='smile';}
-        if(speakerIndex>0&&layer.image&&layer.image.naturalWidth){
-          const tint=document.createElement('canvas');tint.width=layer.image.naturalWidth;tint.height=layer.image.naturalHeight;
-          const tintContext=tint.getContext('2d');
-          if(tintContext){tintContext.filter='hue-rotate('+(speakerIndex*112)+'deg) saturate(1.12)';tintContext.drawImage(layer.image,0,0);const variant=new Image();variant.src=tint.toDataURL('image/png');await variant.decode();layer.image=variant;layer.url='';}
-        }
-        rig.push(layer);
-      }
-      rigs.push({speakerName,speakerId,layers:rig});
-    }
-    for(let index=0;index<nextScenes.length;index++){
-      const scene=nextScenes[index],plan=scene.autoDirection;
-      scene.layers=rigs.flatMap(rig=>rig.layers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})));
-      scene.layers.forEach(layer=>{
-        if(layer.rigRole==='body'||String(layer.rigId||'').endsWith('-body'))layer.motion=plan.action;
-        if(layer.rigRole==='head'){layer.faceExpression=plan.emotion;if(scene.dialogues.some(dialogue=>dialogue.speakerId===layer.characterId))layer.mouthMode='talk';}
-        if(layer.rigRole&&layer.rigRole.startsWith('arm-')&&plan.gesture!=='neutral'){
-          const sign=layer.rigRole.endsWith('left')?-1:1,swing=sign*(plan.gesture==='wave'?42:24);
-          layer.motionKeys=[{at:0,x:layer.startX,y:60,rotation:0},{at:35,x:layer.startX,y:60,rotation:swing},{at:65,x:layer.startX,y:60,rotation:-swing*.5},{at:100,x:layer.startX,y:60,rotation:0}];
-        }
-      });
-      scene.cameraMotion=plan.camera;
-    }
-    $('style').value='anime';$('framing').value='medium';
-    liveBuildUpdate(2,'شخصیت‌ها آماده شدند؛ پس‌زمینه‌های صحنه در حال آماده‌سازی‌اند.',48);
-    let useLocalBackgrounds=!freeEngineManagerState.image;
+    liveBuildUpdate(1,'طراحی ثابت شخصیت‌ها از فیلمنامه استخراج شد؛ تصویرسازی صحنه‌ها شروع می‌شود.',22);
+    $('style').value='anime';$('framing').value='wide';$('aspect').value='wide';$('size').value='768';$('quality').value='20';
+    $('lighting').value='dramatic';$('palette').value='vivid';$('depth').value='deep';$('cameraAngle').value='eye';$('cameraDistance').value='medium';
+    $('negative').value='text, subtitles, captions, watermark, logo, extra limbs, duplicate characters, inconsistent costume, photorealism, blurry, low quality';
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];
-      if(!useLocalBackgrounds){
-        $('prompt').value=sceneStyle+scene.storyText;
-        const previousImageUrl=$('result')?.src||'';
-        status.textContent='ساخت صحنه '+(index+1)+' از '+nextScenes.length+'؛ حالت سریع با پس‌زمینه داخلی فعال است.';
-        try{
-          await Promise.race([generateImageUnlocked(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('تولید تصویر بیش از ۹۰ ثانیه طول کشید')),90000))]);
-          const source=$('result');
-          if(!source||!source.src||!source.complete||!source.naturalWidth||source.src===previousImageUrl)throw new Error('تصویر تازه تولید نشد');
-          const frame=new Image();frame.src=source.src;
-          if(typeof frame.decode==='function')await frame.decode();
-          else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
-          scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='پس‌زمینه '+scene.name;
-        }catch(imageError){
-          useLocalBackgrounds=true;
-          status.textContent='موتور تصویر پاسخ نداد؛ ادامهٔ قسمت با پس‌زمینه‌های داخلی رایگان انجام می‌شود.';
-        }
+      liveBuildUpdate(2,'در حال تصویرسازی سینمایی صحنه '+(index+1)+' از '+nextScenes.length+' با مدل رایگان؛ ممکن است صف طولانی باشد.',22+(index/nextScenes.length)*48);
+      const scenePrompt=[
+        'Create a polished high-quality original 2D animated television cartoon frame, expressive hand-drawn animation aesthetic, professional clean line art, appealing character design, rich detailed painted environment, cinematic composition, coherent perspective, beautiful lighting, consistent art direction.',
+        'CHARACTER DESIGN BIBLE — preserve these exact designs, proportions, faces, clothing, colors and signature details in every scene:\n'+characterBible,
+        'SCENE '+(index+1)+' OF '+nextScenes.length+': '+scene.storyText,
+        'ACTION AND PERFORMANCE: '+scene.autoDirection.action+', emotion '+scene.autoDirection.emotion+', gesture '+scene.autoDirection.gesture+'.',
+        'Show the named characters clearly performing the described action in the correct positions. Wide 16:9 establishing or medium-wide composition. Environment and props must directly match the scene description. This is a single frame from the same continuous cartoon episode. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
+      ].join('\n\n');
+      $('prompt').value=scenePrompt;
+      const previousImageUrl=currentImageUrl||$('result')?.src||'';
+      status.textContent='در حال تولید تصویر هوش مصنوعی برای صحنه '+(index+1)+' از '+nextScenes.length+'؛ درخواست در صف پردازشگرهای داوطلب قرار می‌گیرد.';
+      liveBuildLog('ارسال تصویر صحنه '+(index+1)+' به مدل تصویر رایگان.');
+      await generateImageUnlocked();
+      const source=$('result');
+      const nextImageUrl=currentImageUrl||source?.src||'';
+      if(!source||!nextImageUrl||nextImageUrl===previousImageUrl||!source.complete||!source.naturalWidth){
+        throw new Error('تصویر هوش مصنوعی صحنه '+(index+1)+' تولید نشد. وضعیت موتور: '+String($('status').textContent||'نامشخص').slice(0,180));
       }
-      if(useLocalBackgrounds){
-        scene.backgroundImage=await makeLocalEpisodeBackground(scene,index);
-        scene.backgroundUrl='';scene.backgroundName='پس‌زمینه داخلی '+scene.name;
-      }
+      const frame=new Image();frame.src=source.src;
+      if(typeof frame.decode==='function')await frame.decode();
+      else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+      scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='تصویر هوش مصنوعی '+scene.name;
       renderMotionSceneList();renderMotionPreview();
-      liveBuildUpdate(2,'پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+' آماده شد.',48+((index+1)/nextScenes.length)*18);
+      liveBuildUpdate(2,'تصویر واقعی صحنه '+(index+1)+' آماده شد؛ طراحی شخصیت‌ها برای نماهای بعدی حفظ می‌شود.',22+((index+1)/nextScenes.length)*48);
     }
-    liveBuildUpdate(3,'حرکت شخصیت‌ها، حالت چهره و دوربین تنظیم شد.',70);
+    liveBuildUpdate(3,'دیالوگ‌ها زمان‌بندی شدند؛ حرکت دوربین و گذار بین نماها تنظیم شد.',73);
     $('motionDuration').value='60';activeMotionScene=0;
-    motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);selectedMotionLayer=motionLayers.find(layer=>layer.rigRole==='body')||motionLayers[0]||null;
+    motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    status.textContent='صحنه‌ها آماده شدند؛ رندر ویدیوی ۶۰ ثانیه‌ای آغاز شد.';liveBuildUpdate(4,'در حال رندر و ضبط فریم‌های ویدیو.',76);
-    $('motionDuration').value='60';
+    liveBuildUpdate(4,'تمام تصاویر صحنه‌ها آماده‌اند؛ رندر و ضبط ویدیوی ۶۰ ثانیه‌ای آغاز می‌شود.',78);
+    status.textContent='تصویرسازی صحنه‌ها کامل شد؛ رندر ویدیوی ۶۰ ثانیه‌ای آغاز شد.';
     createMotionClip();
   }catch(error){
     liveBuildFinish(false,error.message||String(error));
     renderMotionSceneList();renderMotionPreview();
-    setStatus('ساخت خودکار قسمت کامل نشد: '+(error.message||String(error))+'؛ صحنه‌های آماده‌شده حفظ شدند.','var(--warn)');
+    setStatus('ساخت هوشمند قسمت کامل نشد: '+(error.message||String(error))+'؛ برای جلوگیری از ویدیوی ناقص، خروجی نهایی ساخته نشد.','var(--warn)');
   }finally{
-    $('prompt').value=saved.prompt;$('style').value=saved.style;$('framing').value=saved.framing;button.disabled=false;
+    for(const id of settingIds)$(id).value=saved[id];
+    button.disabled=false;
   }
 }
 $('autoEpisodeButton').addEventListener('click',autoBuildEpisodeFromStory);
@@ -2872,19 +2844,19 @@ function drawMotionDialogues(ctx, dialogues, progress) {
     const from=(item.startAt??0)/100,to=(item.endAt??100)/100;
     if(!item.text||progress<from||progress>to||to<=from)return;
     const text=String(item.text).slice(0,180),maxWidth=canvasWidthForDialogue(ctx);
-    ctx.save();ctx.font='bold 19px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const uiScale=ctx.canvas.width/512;ctx.save();ctx.font='bold '+Math.round(19*uiScale)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     const words=text.split(/\\s+/),lines=[];let line='';
     words.forEach(word=>{const test=line?line+' '+word:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test;});
     if(line)lines.push(line);
-    const shown=lines.slice(0,3),lineHeight=25,padX=18,padY=12;
+    const shown=lines.slice(0,3),lineHeight=25*uiScale,padX=18*uiScale,padY=12*uiScale;
     const boxWidth=Math.min(maxWidth+padX*2,Math.max(...shown.map(v=>ctx.measureText(v).width))+padX*2);
     const boxHeight=shown.length*lineHeight+padY*2,x=ctx.canvas.width/2-boxWidth/2,y=18;
     ctx.fillStyle='#ffffff';ctx.strokeStyle='#202638';ctx.lineWidth=3;
     ctx.beginPath();ctx.roundRect(x,y,boxWidth,boxHeight,14);ctx.fill();ctx.stroke();
     ctx.beginPath();ctx.moveTo(ctx.canvas.width/2-9,y+boxHeight-1);ctx.lineTo(ctx.canvas.width/2+2,y+boxHeight+12);ctx.lineTo(ctx.canvas.width/2+10,y+boxHeight-1);ctx.closePath();ctx.fill();ctx.stroke();
     ctx.fillStyle='#171b2a';
-    if(item.speaker){ctx.font='bold 13px sans-serif';ctx.fillText(String(item.speaker).slice(0,40),ctx.canvas.width/2,y+10);}
-    ctx.font='bold 19px sans-serif';shown.forEach((value,index)=>ctx.fillText(value,ctx.canvas.width/2,y+padY+lineHeight*(index+.5)));
+    if(item.speaker){ctx.font='bold '+Math.round(13*uiScale)+'px sans-serif';ctx.fillText(String(item.speaker).slice(0,40),ctx.canvas.width/2,y+10*uiScale);}
+    ctx.font='bold '+Math.round(19*uiScale)+'px sans-serif';shown.forEach((value,index)=>ctx.fillText(value,ctx.canvas.width/2,y+padY+lineHeight*(index+.5)));
     ctx.restore();
   });
 }
@@ -3561,7 +3533,7 @@ function createMotionClip() {
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){const message='ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
-  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
+  const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
   const ctx=canvas.getContext('2d');
   if(!ctx){button.disabled=false;const message='ساخت صحنه ناموفق بود؛ بوم گرافیکی در دسترس نیست.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
   const stream=canvas.captureStream(24);
@@ -3648,6 +3620,18 @@ function createMotionClip() {
     const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:sourceImage;
     if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
     else drawSceneBackground(ctx,sceneBackground,sceneProgress,scene.cameraMotion||baseMotion);
+    const transitionDuration=Math.min(850,sceneDuration*.14);
+    const sceneElapsed=elapsed-sceneIndex*sceneDuration;
+    const remainingInScene=sceneDuration-sceneElapsed;
+    if(sceneIndex<safeExportScenes.length-1&&remainingInScene<transitionDuration){
+      const nextScene=safeExportScenes[sceneIndex+1];
+      const nextBackground=nextScene&&nextScene.backgroundImage&&nextScene.backgroundImage.naturalWidth?nextScene.backgroundImage:null;
+      if(nextBackground){
+        ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,1-remainingInScene/transitionDuration));
+        const nextProgress=Math.max(0,Math.min(1,1-remainingInScene/transitionDuration));
+        drawSceneBackground(ctx,nextBackground,nextProgress,nextScene.cameraMotion||'zoom-in');ctx.restore();
+      }
+    }
     scene.layers.forEach(layer=>{
       if(!layer.image||!layer.image.complete||!layer.image.naturalWidth)return;
       const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
