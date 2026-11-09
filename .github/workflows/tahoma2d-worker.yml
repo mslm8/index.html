@@ -23,7 +23,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xz-utils libgl1 libopengl0 libegl1 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y xvfb xz-utils libgl1 libopengl0 libegl1 libxkbcommon-x11-0 libxcb-cursor0 python3-pil ffmpeg
 
       - name: Download portable Tahoma2D and restore official resources
         shell: bash
@@ -131,6 +131,102 @@ jobs:
           echo "Tahoma2D script runner exit code: $code (CLI may return 1 after script dispatch)"
           echo "TAHOMA_SCRIPT_TEST=passed" >> "$GITHUB_ENV"
 
+      - name: Generate a 24-frame test animation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          FRAME_DIR="$RUNNER_TEMP/tahoma2d-animation-input"
+          mkdir -p "$FRAME_DIR"
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          import os
+          out = os.environ["RUNNER_TEMP"] + "/tahoma2d-animation-input"
+          os.makedirs(out, exist_ok=True)
+          w, h = 640, 360
+          for frame in range(1, 25):
+              im = Image.new("RGB", (w, h), (22, 31, 50))
+              d = ImageDraw.Draw(im)
+              d.rectangle((0, 292, w, h), fill=(37, 54, 64))
+              x = 70 + int((frame - 1) * 500 / 23)
+              y = 205 - int(42 * abs(((frame - 1) % 12) - 6) / 6)
+              d.ellipse((x-42, y-42, x+42, y+42), fill=(245, 164, 66), outline=(255, 225, 180), width=5)
+              d.ellipse((x-17, y-12, x-5, y+3), fill=(30, 35, 48))
+              d.ellipse((x+7, y-12, x+19, y+3), fill=(30, 35, 48))
+              d.arc((x-16, y+2, x+16, y+25), start=10, end=170, fill=(30, 35, 48), width=3)
+              im.save(os.path.join(out, "frame.%04d.png" % frame))
+          print("Generated 24 numbered PNG frames:", out)
+          PY
+
+      - name: Build a 24-frame Tahoma2D scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="$TAHOMA_ROOT/sandbox"
+          SCENES="$PROJECT/+scenes"
+          FRAME_DIR="$RUNNER_TEMP/tahoma2d-animation-input"
+          LEVEL="$SCENES/test-ball..png"
+          SCRIPT="$SCENES/tahoma2d-animation.toonzscript"
+          SCENE="$SCENES/tahoma2d-animation.tnz"
+          LOG="$RUNNER_TEMP/tahoma2d-animation-script.log"
+          mkdir -p "$SCENES"
+          cat > "$SCRIPT" <<EOF
+          var level = new Level();
+          for (var i = 1; i <= 24; i++) {
+            var digits = ("0000" + i).slice(-4);
+            var image = new Image("$FRAME_DIR/frame." + digits + ".png");
+            level.setFrame(i, image);
+          }
+          level.save("$LEVEL");
+          var scene = new Scene();
+          var loaded = scene.loadLevel("TestBall", "$LEVEL");
+          for (var f = 0; f < 24; f++) {
+            scene.setCell(f, 0, loaded, f + 1);
+          }
+          scene.save("$SCENE");
+          print("TAHOMA_ANIMATION_SCENE_OK");
+          EOF
+          set +e
+          cd "$TAHOMA_APPDIR"
+          timeout --signal=TERM 45s xvfb-run -a ./AppRun "$SCRIPT" > "$LOG" 2>&1
+          code=$?
+          set -e
+          cat "$LOG"
+          test -s "$SCENE"
+          echo "Animated scene created: $SCENE ($(stat -c%s "$SCENE") bytes)"
+          echo "TAHOMA_ANIMATION_SCENE=$SCENE" >> "$GITHUB_ENV"
+
+      - name: Render the scene with Tahoma2D compositor
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMPOSER="$TAHOMA_APPDIR/usr/bin/tcomposer"
+          if [ ! -x "$COMPOSER" ]; then
+            echo "tcomposer executable not found at $COMPOSER"
+            find "$TAHOMA_APPDIR/usr/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -100
+            exit 1
+          fi
+          export APPDIR="$TAHOMA_APPDIR"
+          export CAMLIBS="$TAHOMA_APPDIR/usr/lib/libgphoto2/2.5.34"
+          export IOLIBS="$TAHOMA_APPDIR/usr/lib/libgphoto2_port/0.12.2"
+          export QT_PLUGIN_PATH="$TAHOMA_APPDIR/usr/plugins"
+          export QT_QPA_PLATFORM=xcb
+          export LD_LIBRARY_PATH="$TAHOMA_APPDIR/usr/lib:$TAHOMA_APPDIR/usr/lib/tahoma2d:$LD_LIBRARY_PATH"
+          RENDER_DIR="$RUNNER_TEMP/tahoma2d-render"
+          mkdir -p "$RENDER_DIR"
+          cd "$TAHOMA_APPDIR"
+          timeout --signal=TERM 180s xvfb-run -a "$COMPOSER" \
+            "$TAHOMA_ANIMATION_SCENE" -o "$RENDER_DIR/frame..png" \
+            -range 1 24 -step 1 -nthreads 2 -TAHOMA2DROOT "$TAHOMA_ROOT" \
+            > "$RUNNER_TEMP/tahoma2d-render.log" 2>&1
+          cat "$RUNNER_TEMP/tahoma2d-render.log"
+          COUNT="$(find "$RENDER_DIR" -maxdepth 1 -type f -name 'frame.*.png' | wc -l)"
+          echo "Rendered frame count: $COUNT"
+          test "$COUNT" -eq 24
+          ffmpeg -y -framerate 24 -i "$RENDER_DIR/frame.%04d.png" \
+            -c:v libx264 -pix_fmt yuv420p "$RUNNER_TEMP/tahoma2d-test-animation.mp4"
+          test -s "$RUNNER_TEMP/tahoma2d-test-animation.mp4"
+          echo "TAHOMA_RENDER_TEST=passed" >> "$GITHUB_ENV"
+
       - name: Verify Tahoma2D can start in a virtual display
         shell: bash
         run: |
@@ -160,5 +256,11 @@ jobs:
             ${{ runner.temp }}/tahoma2d-cli-probe.log
             ${{ runner.temp }}/tahoma2d-script.log
             ${{ runner.temp }}/tahoma2d-smoke.tnz
+            ${{ runner.temp }}/tahoma2d-animation-script.log
+            ${{ runner.temp }}/tahoma2d-render.log
+            ${{ runner.temp }}/tahoma2d-test-animation.mp4
+            ${{ runner.temp }}/tahoma2d-animation-input/
+            ${{ runner.temp }}/tahoma2d-render/
+            ${{ runner.temp }}/tahoma2d-animation.tnz
           if-no-files-found: ignore
           retention-days: 3
