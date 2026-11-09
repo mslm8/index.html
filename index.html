@@ -230,6 +230,33 @@ body.authenticated main>footer{display:none}
  #projectsPanel #projectCard .row button{font-size:12px;min-height:44px}
 }
 
+
+/* Refined image history gallery */
+#historyPanel>.viewHeading{padding:8px 5px 15px}
+#historyPanel>.viewHeading h1{font-size:25px;letter-spacing:-.45px}
+#historyPanel>.viewHeading p{font-size:13px;max-width:520px}
+#historyPanel #historyCard{padding:19px}
+#historyPanel #historyCard>.row{align-items:center;gap:12px}
+#historyPanel #historyCard>.row h2{display:flex;align-items:center;gap:9px;margin:0;font-size:17px}
+#historyPanel #historyCard>.row h2:before{content:"◷";display:grid;place-items:center;width:32px;height:32px;border-radius:10px;color:#b8adff;background:rgba(137,117,255,.15)}
+#historyPanel #clearHistory{flex:0 0 auto;padding:9px 12px;font-size:12px}
+#historyPanel #historyCard>p{margin:13px 0;font-size:12px;line-height:1.8}
+#historyPanel .historyGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#historyPanel .historyItem{min-width:0;overflow:hidden;padding:10px;border:1px solid rgba(142,160,210,.2);border-radius:15px;background:rgba(8,14,29,.5)}
+#historyPanel .historyItem img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#080d19}
+#historyPanel .historyItem>small{display:block;min-height:34px;margin:9px 2px;color:#b9c5df;font-size:10px;line-height:1.6;overflow-wrap:anywhere}
+#historyPanel .historyItem .row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+#historyPanel .historyItem .row button,#historyPanel .historyItem .row a{display:flex;align-items:center;justify-content:center;min-width:0;min-height:38px;padding:7px 5px;border-radius:10px;font-size:11px;text-align:center;text-decoration:none}
+#historyPanel .historyItem .row a{background:rgba(66,224,193,.12);border:1px solid rgba(66,224,193,.22);color:#8cebd9;font-weight:800}
+@media(max-width:520px){
+ #historyPanel>.viewHeading h1{font-size:22px}
+ #historyPanel #historyCard{padding:14px}
+ #historyPanel .historyGrid{gap:8px}
+ #historyPanel .historyItem{padding:7px}
+ #historyPanel .historyItem .row{grid-template-columns:1fr}
+ #historyPanel .historyItem .row button,#historyPanel .historyItem .row a{font-size:10px}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
