@@ -60,6 +60,10 @@ body:not(.authenticated)>main{display:none!important}
   <h2>تولید تصویر</h2>
   <label for="prompt">توضیح صحنه</label>
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="enhancePrompt" class="secondary" type="button">بهینه‌سازی ساختاری متن</button>
+    <small id="enhanceHint">متن اصلی حفظ می‌شود؛ فقط راهنمای ترکیب‌بندی و کیفیت به آن افزوده می‌شود.</small>
+  </div>
   <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
   <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
   <div class="note" id="autoModelInfo">موتور هوشمند در حال پیدا کردن سریع‌ترین مدل فعال است؛ انتخاب مدل به‌صورت خودکار انجام می‌شود.</div>
@@ -231,6 +235,37 @@ async function loadModels(silent = false) {
   }
 }
 
+
+let originalPromptBeforeEnhance = null;
+$('enhancePrompt').addEventListener('click', () => {
+  const field = $('prompt');
+  const button = $('enhancePrompt');
+  const hint = $('enhanceHint');
+  if (originalPromptBeforeEnhance !== null) {
+    field.value = originalPromptBeforeEnhance;
+    originalPromptBeforeEnhance = null;
+    button.textContent = 'بهینه‌سازی ساختاری متن';
+    hint.textContent = 'متن به حالت اولیه برگشت.';
+    return;
+  }
+  const original = field.value.trim();
+  if (!original) {
+    hint.textContent = 'اول توضیح صحنه را بنویس.';
+    field.focus();
+    return;
+  }
+  const guidance = 'راهنمای اجرا: دقیقاً همان سوژه‌ها، تعداد، ویژگی‌ها و کنش‌های ذکرشده را حفظ کن و هیچ سوژه یا رویداد تازه‌ای اضافه نکن. چیدمان صحنه واضح و طبیعی باشد؛ سوژه‌های اصلی کامل و قابل‌تشخیص دیده شوند؛ تناسب اندازه‌ها و پرسپکتیو طبیعی باشد؛ جزئیات مهم واضح باشند؛ نورپردازی و سایه‌ها هماهنگ و واقع‌گرایانه باشند؛ پس‌زمینه با توضیح صحنه سازگار و بدون عناصر مزاحم باشد.';
+  const combined = original + '\\n\\n' + guidance;
+  if (combined.length > Number(field.maxLength)) {
+    hint.textContent = 'متن برای افزودن راهنمای بهینه‌سازی بیش از حد طولانی است؛ توضیح صحنه را کوتاه‌تر کن.';
+    return;
+  }
+  originalPromptBeforeEnhance = field.value;
+  field.value = combined;
+  button.textContent = 'بازگردانی متن اولیه';
+  hint.textContent = 'راهنما اضافه شد. متن را بررسی کن؛ برای بازگشت، همین دکمه را بزن.';
+  field.focus();
+});
 
 async function translateToEnglish(text) {
   const source = String(text || '').trim();
