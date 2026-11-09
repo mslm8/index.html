@@ -84,13 +84,10 @@ export default {
     const failures = [];
     for (const model of MODEL_CANDIDATES) {
       try {
-        const result = await env.AI.run(model, {
-          prompt,
-          num_steps: 4,
-          steps: 4,
-          width: 1024,
-          height: 576
-        });
+        const input = { prompt, width: 1024, height: 576 };
+        if (model.includes("stable-diffusion") || model.includes("dreamshaper")) input.num_steps = 4;
+        else input.steps = 4;
+        const result = await env.AI.run(model, input);
         const output = await imagePayload(result);
         if (!output.bytes || output.bytes.length < 1000 || output.bytes.length > 12 * 1024 * 1024) {
           throw new Error("Model returned an empty or oversized image");
