@@ -208,6 +208,17 @@ body:not(.authenticated)>main{display:none!important}
   <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
 </section>
 
+<section class="card" id="projectCard">
+  <h2>ذخیره و بازیابی پروژه</h2>
+  <p><small>تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.</small></p>
+  <div class="row">
+    <button id="exportProject" class="primary" type="button">ذخیره فایل پروژه</button>
+    <button id="importProjectButton" class="secondary" type="button">بارگذاری پروژه</button>
+    <input id="importProjectFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <small id="projectStatus" aria-live="polite"></small>
+</section>
+
 <section class="card" id="historyCard">
   <div class="row" style="justify-content:space-between">
     <h2>تاریخچه تصاویر</h2>
@@ -603,6 +614,61 @@ async function deleteHistoryItem(id) {
   });
   await renderHistory();
 }
+function projectFields() {
+  return {
+    format: 'ai-animator-project',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    fields: ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
+      .reduce((out,id) => {
+        const el = $(id);
+        if (el) out[id] = el.value;
+        return out;
+      }, {})
+  };
+}
+$('exportProject').addEventListener('click', () => {
+  try {
+    const data = JSON.stringify(projectFields(), null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'ai-animator-project.json';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $('projectStatus').textContent = 'فایل تنظیمات پروژه ذخیره شد.';
+  } catch (error) {
+    $('projectStatus').textContent = 'ذخیره پروژه ناموفق بود: ' + error.message;
+  }
+});
+$('importProjectButton').addEventListener('click', () => $('importProjectFile').click());
+$('importProjectFile').addEventListener('change', async event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 1024 * 1024) throw new Error('حجم فایل پروژه بیش از حد مجاز است.');
+    const parsed = JSON.parse(await file.text());
+    if (!parsed || parsed.format !== 'ai-animator-project' || parsed.version !== 1 || !parsed.fields || typeof parsed.fields !== 'object') {
+      throw new Error('ساختار فایل پروژه معتبر نیست.');
+    }
+    const allowed = ['prompt','negative','size','ratio','style','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+    for (const id of allowed) {
+      if (typeof parsed.fields[id] !== 'string') continue;
+      const el = $(id);
+      if (el) el.value = parsed.fields[id].slice(0, id === 'prompt' ? 1800 : id === 'negative' ? 500 : id === 'editPrompt' ? 1200 : 40);
+    }
+    $('projectStatus').textContent = 'تنظیمات پروژه با موفقیت بازیابی شد. تصویر باید جداگانه از تاریخچه یا دستگاه انتخاب شود.';
+    $('prompt').scrollIntoView({behavior:'smooth',block:'center'});
+  } catch (error) {
+    $('projectStatus').textContent = 'بارگذاری پروژه ناموفق بود: ' + error.message;
+  } finally {
+    event.target.value = '';
+  }
+});
+
 async function renderHistory() {
   const list = $('historyList');
   if (!list) return;
