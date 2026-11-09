@@ -3050,7 +3050,7 @@ function applyPreparedBackgroundToScene(asset,index){
   refreshBackgroundSceneOptions();return true;
 }
 $('backgroundSceneSelect').addEventListener('change',event=>{
-  const index=Number(event.target.value);if(Number.isInteger(index)&&motionScenes[index]){activeMotionScene=index;saveActiveMotionScene();renderMotionSceneList();renderMotionPreview();}
+  const index=Number(event.target.value);if(Number.isInteger(index)&&motionScenes[index]){saveActiveMotionScene();activeMotionScene=index;motionLayers.splice(0,motionLayers.length,...(motionScenes[index].layers||[]));selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();renderMotionSceneList();renderMotionPreview();}
 });
 $('backgroundFiles').addEventListener('change',async event=>{
   const files=Array.from(event.target.files||[]);event.target.value='';
