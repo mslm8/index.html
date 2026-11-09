@@ -208,6 +208,31 @@
       renderAssets(); persist();
     } catch (_) { $('productionAssetStatus').textContent = 'خواندن فایل تصویر ناموفق بود.'; }
   });
+  function runContinuityAudit() {
+    const host = $('productionContinuityReport'); host.replaceChildren();
+    const issues = [];
+    const characterNames = new Set((state.characters || []).map(x => String(x.name || '').trim()).filter(Boolean));
+    const locationNames = new Set((state.locations || []).map(x => String(x.name || '').trim()).filter(Boolean));
+    if (!state.scenes.length) issues.push('هنوز صحنه‌ای برای بررسی ثبت نشده است.');
+    state.scenes.forEach((scene, index) => {
+      const label = 'صحنه ' + (index + 1) + ' · ' + (scene.title || 'بدون عنوان');
+      if (!String(scene.visual || '').trim()) issues.push(label + ': توصیف بصری ثبت نشده است.');
+      if (!String(scene.action || '').trim()) issues.push(label + ': کنش یا حرکت شخصیت‌ها مشخص نیست.');
+      if (!String(scene.location || '').trim()) issues.push(label + ': مکان صحنه خالی است.');
+      else if (locationNames.size && !locationNames.has(String(scene.location).trim())) issues.push(label + ': مکان در کتابخانه مکان‌ها ثبت نشده: ' + scene.location);
+      if (!String(scene.characters || '').trim()) issues.push(label + ': شخصیت‌های حاضر مشخص نشده‌اند.');
+      else String(scene.characters).split(/[,،؛;]/).map(x => x.trim()).filter(Boolean).forEach(name => {
+        if (characterNames.size && !characterNames.has(name)) issues.push(label + ': شناسنامه‌ای برای شخصیت «' + name + '» پیدا نشد.');
+      });
+      if (!(Number(scene.duration) > 0)) issues.push(label + ': مدت صحنه باید بیشتر از صفر باشد.');
+    });
+    if (!characterNames.size) issues.push('کتابخانه شخصیت‌ها خالی است؛ شناسنامه شخصیت‌ها را اضافه کن.');
+    if (!locationNames.size) issues.push('کتابخانه مکان‌ها خالی است؛ مکان‌های تکرارشونده را ثبت کن.');
+    host.append(make('strong', issues.length ? issues.length + ' مورد نیازمند بازبینی' : 'بررسی اولیه بدون هشدار'));
+    issues.forEach(issue => host.append(make('p', '• ' + issue, 'muted')));
+    if (!issues.length) host.append(make('p', 'بررسی فیلدهای پایه و تطبیق نام‌ها انجام شد؛ بازبینی هنری انسانی همچنان لازم است.', 'muted'));
+    $('productionContinuityStatus').textContent = 'بررسی ' + state.scenes.length + ' صحنه انجام شد.';
+  }
   function renderChecklist() {
     const host = $('productionChecklist'); host.replaceChildren();
     const tasks = [
@@ -240,7 +265,7 @@
       state.targetMinutes = Number($('productionMinutes').value) || 1; renderTimeline(); persist();
     });
   });
-  $('productionStory').addEventListener('input', () => { state.story = $('productionStory').value; persist(); });
+  $('productionRunContinuity')?.addEventListener('click', runContinuityAudit);\n  $('productionStory').addEventListener('input', () => { state.story = $('productionStory').value; persist(); });
   $('productionSplitStory').addEventListener('click', splitStory);
   $('productionAddScene').addEventListener('click', () => {
     const scene = { id:uid(), title:'صحنه ' + (state.scenes.length + 1), location:'', characters:'', shot:'wide', camera:'static', duration:5, visual:'', action:'', dialogue:'', notes:'' };
