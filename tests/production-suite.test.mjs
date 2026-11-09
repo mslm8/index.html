@@ -42,7 +42,7 @@ test('visual asset library is integrated, bounded and project-persistent', () =>
   }
   assert.match(suite, /assets: \[\]/);
   assert.match(suite, /file\.size > 500 \* 1024/);
-  assert.match(suite, /state\.assets\.length >= 8/);
+  assert.match(suite, /\(state\.assets \|\| \[\]\)\.length >= 8/);
   assert.match(suite, /storedBytes \+ dataUrl\.length/);
   assert.match(suite, /1\.7 \* 1024 \* 1024/);
   assert.match(suite, /dataUrl/);
