@@ -56,7 +56,7 @@ jobs:
         run: deno check supabase/functions/fal-gateway/index.ts
       - name: Ensure a single GitHub Pages deployer
         run: |
-          count=$(grep -R "uses: actions/deploy-pages@" .github/workflows --include='*.yml' | wc -l)
+          count=$(grep -R --include='*.yml' "uses: actions/deploy-pages@" .github/workflows | wc -l)
           test "$count" -eq 1
 
   deploy:
