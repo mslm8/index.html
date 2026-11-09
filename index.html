@@ -2573,30 +2573,62 @@ async function requestAutomaticScreenplay(seed,status){
   if(!document.body.classList.contains('authenticated'))throw new Error('برای استفاده از موتور داستان، ابتدا وارد حساب شو.');
   const models=await loadTextModels();
   if(!models.length)throw new Error('فعلاً پردازشگر متن رایگان و فعالی پیدا نشد؛ بعداً دوباره امتحان کن.');
-  status.textContent='موتور هوش مصنوعی در حال نوشتن فیلمنامه و طراحی شخصیت‌های ثابت است؛ ممکن است صف انتظار طولانی باشد...';
-  liveBuildLog('درخواست فیلمنامه به موتور متن رایگان ارسال شد.');
-  const prompt='You are a professional animation showrunner, screenwriter and character designer. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY valid JSON, no markdown, schema: {"characters":[{"name":"Persian character name","description":"Detailed stable visual design in Persian: species, age impression, body shape, face, eyes, hair, clothing, colors, distinctive props"}],"scenes":[{"visual":"Detailed Persian visual description of the exact action, location, composition and character positions","dialogues":[{"speaker":"exact character name","text":"short natural Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create 4 to 6 distinct scenes in chronological story order. Create 1 to 4 recurring characters and preserve their exact visual descriptions, names, clothing and colors across every scene. Every scene must have a concrete visible action and specific environment; do not write vague summaries. Include short natural Persian dialogue where appropriate. Keep the original story events and ending. Infer all visual direction yourself. Never imitate existing copyrighted characters or shows. No text or subtitles inside the generated illustrations.\n\nSTORY:\n'+seed;
-  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({prompt,params:{max_length:1800,temperature:0.62,top_p:0.9,top_k:40,rep_pen:1.08},models,trusted_workers:false,slow_workers:true,extra_slow_workers:true,allow_downgrade:true})});
-  if(!submitted.id)throw new Error('شناسه درخواست فیلمنامه دریافت نشد.');
-  const started=Date.now();let result=null;
-  while(Date.now()-started<2*60*60*1000){
-    await new Promise(resolve=>setTimeout(resolve,10000));
-    const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
-    if(check.faulted)throw new Error('پردازشگر متن درخواست فیلمنامه را کامل نکرد.');
-    if(check.done){result=check;break;}
-    const minutes=Math.floor((Date.now()-started)/60000);
-    status.textContent='فیلمنامه در صف پردازشگرهای داوطلب است؛ زمان انتظار '+minutes+' دقیقه';
-    if(minutes===0||minutes%2===0)liveBuildLog('انتظار برای موتور فیلمنامه: '+minutes+' دقیقه');
+  const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY valid compact JSON, no markdown and no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian: species, body, face, clothing and colors"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\n\nSTORY:\n'+String(seed||'').trim();
+  let lastFailure='پاسخ خالی بود';
+  for(let attempt=1;attempt<=2;attempt++){
+    status.textContent=attempt===1?'درخواست فیلمنامه به موتور متن رایگان ارسال شد.':'پاسخ اول قابل استفاده نبود؛ درخواست فیلمنامه دوباره به موتور متن ارسال شد.';
+    liveBuildLog(attempt===1?'ارسال درخواست فیلمنامه به موتور متن رایگان.':'تلاش دوم برای دریافت فیلمنامه آغاز شد.');
+    const prompt=basePrompt+(attempt===2?'\n\nIMPORTANT: Produce the complete JSON now. Keep each visual under 35 words and each dialogue under 12 words. Never return an empty response.':'');
+    const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
+      prompt,
+      params:{max_length:1100,temperature:0.55,top_p:0.9,top_k:40,rep_pen:1.08},
+      models,
+      trusted_workers:false,
+      slow_workers:true,
+      extra_slow_workers:true,
+      allow_downgrade:true
+    })});
+    if(!submitted.id)throw new Error('شناسه درخواست فیلمنامه دریافت نشد.');
+    const started=Date.now();let result=null;
+    while(Date.now()-started<20*60*1000){
+      await new Promise(resolve=>setTimeout(resolve,8000));
+      const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
+      if(check.faulted) {lastFailure='پردازشگر متن درخواست را ناموفق اعلام کرد.';break;}
+      if(check.is_possible===false){lastFailure='هیچ پردازشگر سازگاری برای این درخواست پیدا نشد.';break;}
+      if(check.done){
+        result=check;
+        let generations=Array.isArray(result.generations)?result.generations:[];
+        let raw=generations.map(item=>String(item&&item.text||'').trim()).find(Boolean)||'';
+        // A completed response can briefly arrive without its generation payload; re-read it.
+        for(let reread=0;!raw&&reread<2;reread++){
+          await new Promise(resolve=>setTimeout(resolve,1800));
+          result=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),4);
+          generations=Array.isArray(result.generations)?result.generations:[];
+          raw=generations.map(item=>String(item&&item.text||'').trim()).find(Boolean)||'';
+        }
+        if(raw){
+          const cleaned=raw.replace(/^\s*`{3}(?:json)?\s*/i,'').replace(/\s*`{3}\s*$/,'').trim();
+          const first=cleaned.indexOf('{'),last=cleaned.lastIndexOf('}');
+          if(first>=0&&last>first){
+            try{
+              const data=JSON.parse(cleaned.slice(first,last+1));
+              if(Array.isArray(data.scenes)&&data.scenes.length>=3){
+                liveBuildLog('فیلمنامه معتبر دریافت شد؛ '+data.scenes.length+' صحنه شناسایی شد.');
+                return {characters:Array.isArray(data.characters)?data.characters.slice(0,3):[],scenes:data.scenes.slice(0,4)};
+              }
+              lastFailure='پاسخ موتور متن JSON داشت اما صحنه‌های کافی نداشت.';
+            }catch(error){lastFailure='ساختار JSON فیلمنامه معتبر نبود: '+(error.message||String(error));}
+          }else lastFailure='پاسخ موتور متن JSON قابل استخراج نداشت.';
+        }else lastFailure='موتور متن درخواست را تمام کرد اما متن خروجی خالی بود.';
+        break;
+      }
+      const elapsed=Math.floor((Date.now()-started)/60000);
+      status.textContent='فیلمنامه در صف موتور متن رایگان است؛ تلاش '+attempt+' از ۲، زمان انتظار '+elapsed+' دقیقه.';
+    }
+    if(Date.now()-started>=20*60*1000)lastFailure='درخواست فیلمنامه پس از ۲۰ دقیقه به نتیجه نرسید.';
+    liveBuildLog('نتیجه تلاش '+attempt+': '+lastFailure);
   }
-  if(!result)throw new Error('زمان انتظار موتور فیلمنامه به دو ساعت رسید.');
-  const raw=(result.generations||[]).find(item=>item&&typeof item.text==='string'&&item.text.trim())?.text||'';
-  if(!raw)throw new Error('پاسخ متنی فیلمنامه خالی بود.');
-  const cleaned=raw.replace(/^\s*\x60{3}(?:json)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
-  const first=cleaned.indexOf('{'),last=cleaned.lastIndexOf('}');
-  if(first<0||last<=first)throw new Error('فیلمنامه ساختار JSON معتبر نداشت.');
-  const data=JSON.parse(cleaned.slice(first,last+1));
-  if(!Array.isArray(data.scenes)||data.scenes.length<3)throw new Error('فیلمنامه حداقل سه صحنه معتبر ندارد.');
-  return {characters:Array.isArray(data.characters)?data.characters.slice(0,4):[],scenes:data.scenes.slice(0,6)};
+  throw new Error('پس از دو تلاش، فیلمنامه قابل استفاده دریافت نشد. علت آخر: '+lastFailure+'؛ لطفاً دوباره امتحان کن.');
 }
 function autoScheduleSceneDialogues(scene){
   const items=scene.dialogues||[];if(!items.length)return;
