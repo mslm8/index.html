@@ -200,6 +200,8 @@
         const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file);
       });
       state.assets = state.assets || [];
+      const storedBytes = state.assets.reduce((sum, item) => sum + String(item.dataUrl || '').length, 0);
+      if (storedBytes + dataUrl.length > 1.7 * 1024 * 1024) { $('productionAssetStatus').textContent = 'حجم کل دارایی‌ها بیش از حد مجاز است؛ برای سازگاری با فایل پشتیبان JSON تصویر کوچک‌تری انتخاب کن.'; return; }
       state.assets.push({ id: uid(), name, kind: $('productionAssetKind').value, scene: $('productionAssetScene').value.trim(), notes: $('productionAssetNotes').value.trim(), dataUrl });
       $('productionAssetName').value = ''; $('productionAssetScene').value = ''; $('productionAssetNotes').value = ''; $('productionAssetFile').value = '';
       $('productionAssetStatus').textContent = 'دارایی به پروژه اضافه شد و در ذخیره محلی قرار گرفت.';
