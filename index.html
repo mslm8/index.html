@@ -203,6 +203,14 @@ body.authenticated main>footer{display:none}
 #motionLayerList{display:grid;gap:10px;margin:12px 0}
 .motion-layer-card{padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(8,14,29,.45)}
 .motion-layer-card.selected{border-color:#72e7d0;box-shadow:0 0 0 1px rgba(114,231,208,.2)}
+.motion-scene-panel{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(8,14,29,.3)}
+.motion-scene-panel h3{font-size:14px;margin:0 0 10px}
+.motion-scene-list{display:flex;flex-wrap:wrap;gap:7px}
+.motion-scene-chip{min-width:42px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:transparent;color:inherit;cursor:pointer}
+.motion-scene-chip.active{border-color:var(--b);background:rgba(80,210,190,.14);color:var(--b)}
+.motion-scene-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.motion-scene-actions button{font-size:12px;padding:8px 10px}
+.motion-scene-panel>small{display:block;margin-top:9px;line-height:1.7}
 .motion-preview-panel{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(8,14,29,.38)}
 .motion-preview-panel h3{font-size:14px;margin:0 0 10px}
 #motionPreviewCanvas{display:block;width:100%;max-width:512px;aspect-ratio:1/1;margin:auto;border-radius:10px;background:#101323;touch-action:none}
@@ -678,6 +686,16 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       </select>
     </div>
   </div>
+  <section class="motion-scene-panel">
+    <h3>صحنه‌های قسمت</h3>
+    <div id="motionSceneList" class="motion-scene-list" aria-label="انتخاب صحنه"></div>
+    <div class="motion-scene-actions">
+      <button id="addMotionScene" type="button" class="secondary">+ صحنه جدید</button>
+      <button id="duplicateMotionScene" type="button" class="secondary">کپی صحنه</button>
+      <button id="deleteMotionScene" type="button" class="secondary">حذف صحنه</button>
+    </div>
+    <small id="motionSceneInfo">هر صحنه لایه‌ها و حرکت‌های مستقل دارد. زمان کل قسمت بین صحنه‌ها تقسیم می‌شود.</small>
+  </section>
   <label for="motionLayerFiles">افزودن لایه‌های تصویری (حداکثر ۸ لایه)</label>
   <input id="motionLayerFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
   <small>هر تصویر به‌عنوان لایه مستقل روی صحنه قرار می‌گیرد. برای بهترین نتیجه از PNG شفاف استفاده کن.</small>
@@ -2328,6 +2346,52 @@ const motionLayers = [];
 let selectedMotionLayer = null;
 let motionPreviewFrame = null;
 let motionDragState = null;
+const motionScenes = [{name:'صحنه ۱',layers:[]}];
+let activeMotionScene = 0;
+function saveActiveMotionScene() {
+  const scene=motionScenes[activeMotionScene];
+  if(scene){scene.layers=motionLayers.slice();scene.selectedIndex=motionLayers.indexOf(selectedMotionLayer);}
+}
+function renderMotionSceneList() {
+  const host=$('motionSceneList');if(!host)return;
+  host.innerHTML='';
+  motionScenes.forEach((scene,index)=>{
+    const chip=document.createElement('button');chip.type='button';chip.className='motion-scene-chip'+(index===activeMotionScene?' active':'');
+    chip.textContent='صحنه '+(index+1);chip.setAttribute('aria-pressed',String(index===activeMotionScene));
+    chip.addEventListener('click',()=>switchMotionScene(index));host.appendChild(chip);
+  });
+  $('deleteMotionScene').disabled=motionScenes.length<=1;
+  $('addMotionScene').disabled=motionScenes.length>=6;
+  $('duplicateMotionScene').disabled=motionScenes.length>=6;
+  const total=Number($('motionDuration').value)||60;
+  $('motionSceneInfo').textContent='صحنه '+(activeMotionScene+1)+' از '+motionScenes.length+'؛ زمان تقریبی هر صحنه '+(total/motionScenes.length).toFixed(1)+' ثانیه. هر صحنه لایه‌های مستقل دارد.';
+}
+function switchMotionScene(index) {
+  if(index<0||index>=motionScenes.length||index===activeMotionScene)return;
+  saveActiveMotionScene();activeMotionScene=index;
+  const scene=motionScenes[index];
+  motionLayers.splice(0,motionLayers.length,...scene.layers);
+  selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
+  renderMotionLayerList();renderMotionSceneList();
+}
+$('addMotionScene').addEventListener('click',()=>{
+  if(motionScenes.length>=6)return;
+  saveActiveMotionScene();motionScenes.push({name:'صحنه '+(motionScenes.length+1),layers:[],selectedIndex:-1});
+  switchMotionScene(motionScenes.length-1);
+});
+$('duplicateMotionScene').addEventListener('click',()=>{
+  if(motionScenes.length>=6)return;
+  saveActiveMotionScene();const original=motionScenes[activeMotionScene];
+  const copy={name:'صحنه '+(motionScenes.length+1),layers:original.layers.map(layer=>({...layer})),selectedIndex:original.selectedIndex};
+  motionScenes.splice(activeMotionScene+1,0,copy);switchMotionScene(activeMotionScene+1);
+});
+$('deleteMotionScene').addEventListener('click',()=>{
+  if(motionScenes.length<=1)return;
+  motionScenes.splice(activeMotionScene,1);activeMotionScene=Math.max(0,activeMotionScene-1);
+  const scene=motionScenes[activeMotionScene];motionLayers.splice(0,motionLayers.length,...scene.layers);
+  selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
+  renderMotionLayerList();renderMotionSceneList();
+});
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
@@ -2443,14 +2507,15 @@ function renderMotionLayerList() {
 }
 $('motionPlayhead').addEventListener('input',renderMotionPreview);
 $('motion').addEventListener('change',renderMotionPreview);
-$('motionDuration').addEventListener('change',renderMotionPreview);
+$('motionDuration').addEventListener('change',()=>{renderMotionPreview();renderMotionSceneList();});
 $('motionPlayPreview').addEventListener('click',()=>{
   if(motionPreviewFrame){cancelAnimationFrame(motionPreviewFrame);motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
   if(Number($('motionPlayhead').value)>=100)$('motionPlayhead').value=0;
-  const start=performance.now()-Number($('motionPlayhead').value)/100*Number($('motionDuration').value)*1000;
+  const sceneDuration=Number($('motionDuration').value)*1000/motionScenes.length;
+  const start=performance.now()-Number($('motionPlayhead').value)/100*sceneDuration;
   $('motionPlayPreview').textContent='توقف پیش‌نمایش';
   const tick=now=>{
-    const progress=Math.min(100,(now-start)/(Number($('motionDuration').value)*1000)*100);
+    const progress=Math.min(100,(now-start)/sceneDuration*100);
     $('motionPlayhead').value=progress;renderMotionPreview();
     if(progress>=100){motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
     motionPreviewFrame=requestAnimationFrame(tick);
@@ -2495,100 +2560,86 @@ $('motionLayerFiles').addEventListener('change', async event => {
   if (motionLayers.length) setStatus('لایه‌ها اضافه شدند. حرکت هر لایه را جداگانه انتخاب کن.');
 });
 renderMotionLayerList();
+renderMotionSceneList();
 
 function createMotionClip() {
-  const source = $('result');
-  if (!source.src || !source.complete || !source.naturalWidth) {
-    setStatus('اول یک تصویر تولید کن.', 'var(--warn)');
-    return;
-  }
-  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-    setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.', 'var(--warn)');
-    return;
-  }
-  const button = $('animate');
-  button.disabled = true;
-  $('videoPreview').hidden = true;
-  $('downloadVideo').hidden = true;
-  setStatus('در حال رندر صحنه چندلایه...');
-  const canvas = document.createElement('canvas');
-  canvas.width = 512; canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) { button.disabled=false; setStatus('ساخت صحنه ناموفق بود.','var(--bad)'); return; }
-  const stream = canvas.captureStream(24);
-  const candidates = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
-  const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+  const source=$('result');
+  if(!source.src||!source.complete||!source.naturalWidth){setStatus('اول یک تصویر تولید کن.','var(--warn)');return;}
+  if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){setStatus('ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
+  saveActiveMotionScene();
+  const exportScenes=motionScenes.map(scene=>({layers:scene.layers.slice()}));
+  const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
+  setStatus('در حال ساخت قسمت چندصحنه‌ای...');
+  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
+  const ctx=canvas.getContext('2d');
+  if(!ctx){button.disabled=false;setStatus('ساخت صحنه ناموفق بود.','var(--bad)');return;}
+  const stream=canvas.captureStream(24);
+  const candidates=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type))||'';
   let recorder;
-  try { recorder = new MediaRecorder(stream, mimeType ? {mimeType} : undefined); }
-  catch (error) {
-    stream.getTracks().forEach(track=>track.stop()); button.disabled=false;
-    setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: '+error.message,'var(--warn)'); return;
-  }
+  try{recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);}
+  catch(error){stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: '+error.message,'var(--warn)');return;}
   const chunks=[];
   recorder.ondataavailable=event=>{if(event.data&&event.data.size)chunks.push(event.data);};
-  recorder.onerror=()=>{
-    stream.getTracks().forEach(track=>track.stop()); button.disabled=false;
-    setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد.','var(--bad)');
-  };
+  recorder.onerror=()=>{stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد.','var(--bad)');};
   recorder.onstop=()=>{
     stream.getTracks().forEach(track=>track.stop());
     const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
     if(!blob.size){button.disabled=false;setStatus('فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.','var(--bad)');return;}
-    const url=URL.createObjectURL(blob);
-    $('videoPreview').src=url; $('videoPreview').hidden=false;
-    $('downloadVideo').href=url; $('downloadVideo').hidden=false;
-    button.disabled=false; setStatus('انیمیشن چندلایه آماده شد. خروجی WebM است.');
+    const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
+    $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
+    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است.');
   };
-  const duration=Number($('motionDuration').value)*1000;
+  const totalDuration=Number($('motionDuration').value)*1000;
+  const sceneDuration=totalDuration/exportScenes.length;
   const baseMotion=$('motion').value;
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
   const cameraScale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
   const baseFit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
-  const start=performance.now();
-  recorder.start(200);
-  function drawSprite(image,motion,progress,scale) {
-    const w=image.naturalWidth*scale, h=image.naturalHeight*scale;
-    let x=canvas.width/2, y=canvas.height/2, angle=0, alpha=1;
+  const start=performance.now();recorder.start(200);
+  function drawSprite(image,motion,progress,scale){
+    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+    let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
     const eased=progress*progress*(3-2*progress);
     if(motion==='move-right')x=-w/2+(canvas.width+w)*eased;
     if(motion==='move-left')x=canvas.width+w/2-(canvas.width+w)*eased;
     if(motion==='bounce')y-=Math.sin(progress*Math.PI*2)*58;
     if(motion==='rotate')angle=progress*Math.PI*2;
     if(motion==='fade')alpha=Math.abs(Math.sin(progress*Math.PI));
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
-    ctx.drawImage(image,-w/2,-h/2,w,h);ctx.restore();
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(image,-w/2,-h/2,w,h);ctx.restore();
   }
-  function draw(now) {
-    const progress=Math.min(1,(now-start)/duration);
+  function draw(now){
+    const elapsed=Math.min(totalDuration,now-start);
+    const sceneIndex=Math.min(exportScenes.length-1,Math.floor(elapsed/sceneDuration));
+    const sceneProgress=Math.min(1,Math.max(0,(elapsed-sceneIndex*sceneDuration)/sceneDuration));
+    const scene=exportScenes[sceneIndex];
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
-    if(baseIsSprite) drawSprite(source,baseMotion,progress,baseFit);
-    else {
-      const zoom=baseMotion==='zoom-out'?1.12-.12*progress:1+.12*progress;
+    if(baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
+    else{
+      const zoom=baseMotion==='zoom-out'?1.12-.12*sceneProgress:1+.12*sceneProgress;
       const width=source.naturalWidth*cameraScale*zoom,height=source.naturalHeight*cameraScale*zoom;
-      let panX=0;
-      if(baseMotion==='pan-right')panX=(progress-.5)*64;
-      if(baseMotion==='pan-left')panX=(.5-progress)*64;
+      let panX=0;if(baseMotion==='pan-right')panX=(sceneProgress-.5)*64;if(baseMotion==='pan-left')panX=(.5-sceneProgress)*64;
       ctx.drawImage(source,(canvas.width-width)/2+panX,(canvas.height-height)/2,width,height);
     }
-    motionLayers.forEach(layer=>{
-      const from=layer.startAt/100,to=layer.endAt/100;
-      if(progress<from||progress>to||to<=from)return;
-      const localProgress=Math.max(0,Math.min(1,(progress-from)/(to-from)));
+    scene.layers.forEach(layer=>{
+      const from=(layer.startAt??0)/100,to=(layer.endAt??100)/100;
+      if(sceneProgress<from||sceneProgress>to||to<=from)return;
+      const localProgress=Math.max(0,Math.min(1,(sceneProgress-from)/(to-from)));
       const eased=localProgress*localProgress*(3-2*localProgress);
-      const scale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
-      const width=layer.image.naturalWidth*scale,height=layer.image.naturalHeight*scale;
-      let x=(layer.startX+(layer.endX-layer.startX)*eased)*canvas.width/100;
-      let y=(layer.startY+(layer.endY-layer.startY)*eased)*canvas.height/100;
-      let angle=0,alpha=1;
+      const baseScale=Math.min((canvas.width*.34)/layer.image.naturalWidth,(canvas.height*.34)/layer.image.naturalHeight);
+      const layerScale=Math.max(.4,Math.min(2,Number(layer.scale)||1));
+      const width=layer.image.naturalWidth*baseScale*layerScale,height=layer.image.naturalHeight*baseScale*layerScale;
+      let x=((layer.startX??50)+((layer.endX??50)-(layer.startX??50))*eased)*canvas.width/100;
+      let y=((layer.startY??50)+((layer.endY??50)-(layer.startY??50))*eased)*canvas.height/100;
+      let angle=(Number(layer.rotation)||0)*Math.PI/180,alpha=1;
       if(layer.motion==='move-right')x+=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='move-left')x-=Math.sin(localProgress*Math.PI)*canvas.width*.18;
       if(layer.motion==='bounce')y-=Math.sin(localProgress*Math.PI*2)*58;
-      if(layer.motion==='rotate')angle=localProgress*Math.PI*2;
+      if(layer.motion==='rotate')angle+=localProgress*Math.PI*2;
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);
-      ctx.drawImage(layer.image,-width/2,-height/2,width,height);ctx.restore();
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(layer.image,-width/2,-height/2,width,height);ctx.restore();
     });
-    if(progress<1)requestAnimationFrame(draw);else recorder.stop();
+    if(elapsed<totalDuration)requestAnimationFrame(draw);else recorder.stop();
   }
   requestAnimationFrame(draw);
 }
