@@ -1,8 +1,8 @@
 const MODEL_CANDIDATES = [
-  "@cf/bytedance/stable-diffusion-xl-lightning",
-  "@cf/lykon/dreamshaper-8-lcm",
+  "@cf/black-forest-labs/flux-2-klein-9b",
+  "@cf/black-forest-labs/flux-2-klein-4b",
   "@cf/black-forest-labs/flux-1-schnell",
-  "@cf/black-forest-labs/flux-2-klein-9b"
+  "@cf/black-forest-labs/flux-2-dev"
 ];
 
 function errorText(error) {
@@ -84,9 +84,12 @@ export default {
     const failures = [];
     for (const model of MODEL_CANDIDATES) {
       try {
-        const input = { prompt, width: 1024, height: 576 };
-        if (model.includes("stable-diffusion") || model.includes("dreamshaper")) input.num_steps = 4;
-        else input.steps = 4;
+        const input = { prompt };
+        if (model.endsWith("flux-1-schnell")) input.steps = 4;
+        if (model.endsWith("flux-2-dev")) {
+          input.width = 1024;
+          input.height = 576;
+        }
         const result = await env.AI.run(model, input);
         const output = await imagePayload(result);
         if (!output.bytes || output.bytes.length < 1000 || output.bytes.length > 12 * 1024 * 1024) {
