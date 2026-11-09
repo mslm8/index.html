@@ -686,6 +686,13 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       </select>
     </div>
   </div>
+  <section class="motion-scene-panel" id="storyToScenesPanel">
+    <h3>تبدیل داستان به صحنه‌های اولیه</h3>
+    <label for="storyToScenesInput">داستان قسمت را بنویس؛ هر پاراگراف یک بخش داستانی باشد</label>
+    <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
+    <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
+    <small>این ابزار بدون اینترنت، متن را به حداکثر ۶ صحنه و دیالوگ‌های اولیه تقسیم می‌کند. برای تصویر و حرکت هر صحنه باید لایه‌های تصویری اضافه یا تنظیم شوند.</small>
+  </section>
   <section class="motion-scene-panel">
     <h3>صحنه‌های قسمت</h3>
     <div id="motionSceneList" class="motion-scene-list" aria-label="انتخاب صحنه"></div>
@@ -2402,6 +2409,27 @@ function switchMotionScene(index) {
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
 }
+$('storyToScenesButton').addEventListener('click',()=>{
+  const raw=$('storyToScenesInput').value.trim();
+  if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');return;}
+  saveActiveMotionScene();
+  const paragraphs=raw.split(/\\n+|(?<=[.!؟?])\\s+(?=[^\\s])/u).map(part=>part.trim()).filter(Boolean);
+  const groups=Array.from({length:Math.min(6,paragraphs.length)},()=>[]);
+  paragraphs.forEach((part,index)=>groups[Math.min(groups.length-1,Math.floor(index*groups.length/paragraphs.length))].push(part));
+  const baseLayers=motionLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined}));
+  const nextScenes=groups.map((parts,index)=>({
+    name:'صحنه '+(index+1),
+    layers:baseLayers.map(layer=>({...layer,motionKeys:Array.isArray(layer.motionKeys)?layer.motionKeys.map(key=>({...key})):undefined})),
+    dialogues:parts.slice(0,12).map(part=>({text:part.slice(0,180),startAt:0,endAt:100,speakerId:'',speaker:'',voiceName:''})),
+    backgroundImage:null,backgroundUrl:'',selectedIndex:baseLayers.length?0:-1
+  }));
+  motionScenes.splice(0,motionScenes.length,...nextScenes);
+  activeMotionScene=0;
+  motionLayers.splice(0,motionLayers.length,...motionScenes[0].layers);
+  selectedMotionLayer=motionLayers[0]||null;
+  renderMotionLayerList();renderMotionSceneList();renderMotionPreview();
+  setStatus('داستان به '+motionScenes.length+' صحنه اولیه تقسیم شد. برای هر صحنه پس‌زمینه و حرکت‌ها را تنظیم کن.');
+});
 $('addMotionScene').addEventListener('click',()=>{
   if(motionScenes.length>=6)return;
   saveActiveMotionScene();motionScenes.push({name:'صحنه '+(motionScenes.length+1),layers:[],dialogues:[],backgroundImage:null,backgroundUrl:'',selectedIndex:-1});
