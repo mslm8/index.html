@@ -700,8 +700,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <button id="autoEpisodeButton" type="button" class="primary">ساخت خودکار قسمت از متن</button>
     <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
     <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
-    <button id="autoSceneMotionButton" type="button" class="secondary">ساخت حرکت خودکار شخصیت‌ها و دوربین</button>
-    <small>حرکت خودکار روی لایه‌های اصلی هر صحنه فریم حرکتی می‌سازد؛ اجزای متصل به آن‌ها حرکت والد را دنبال می‌کنند. دوربین نیز برای هر صحنه جداگانه تنظیم می‌شود.</small>
+    <button id="autoSceneMotionButton" type="button" class="secondary">هوشمندسازی حرکت از روی داستان</button>
+    <small>موتور متن داستان و دیالوگ هر صحنه را از نظر حرکت و احساس تحلیل می‌کند و حرکت بدن، ژست دست، حالت چهره و دوربین را به‌صورت قاعده‌محور پیشنهاد می‌دهد؛ نتیجه را می‌توانی دستی اصلاح کنی.</small>
   </section>
   <section class="motion-scene-panel">
     <h3>صحنه‌های قسمت</h3>
@@ -2436,27 +2436,57 @@ function switchMotionScene(index) {
   renderMotionLayerList();renderMotionSceneList();
 }
  $('motionSceneCamera').addEventListener('change',()=>{motionScenes[activeMotionScene].cameraMotion=$('motionSceneCamera').value;renderMotionPreview();});
+function inferSceneDirection(scene,index){
+  const story=String(scene.storyText||'')+' '+(scene.dialogues||[]).map(item=>item.text||'').join(' ');
+  const has=pattern=>pattern.test(story);
+  const action=has(/\b(run|running|فرار|بدو|می\s*دود|دوید)\b/u)?'run':
+    has(/\b(jump|jumping|پرش|می\s*پرد|پرید)\b/u)?'jump':
+    has(/\b(walk|walking|راه\s*می\s*رود|قدم|وارد|نزدیک\s*می\s*شود)\b/u)?'walk':
+    has(/\b(fly|flying|پرواز|شناور)\b/u)?'sway':'idle';
+  const emotion=has(/\b(angry|anger|عصبانی|خشم|داد\s*زد)\b/u)?'angry':
+    has(/\b(sad|cry|ناراحت|غمگین|گریه)\b/u)?'sad':
+    has(/\b(surprise|surprised|shocked|تعجب|ناگهان|باور\s*نکردنی)\b/u)?'surprised':
+    has(/\b(happy|laugh|خوشحال|خنده|شاد)\b/u)?'happy':'none';
+  const camera=has(/\b(run|فرار|تعقیب|دنبال)\b/u)?'pan-right':
+    has(/\b(reveal|کشف|آشکار|نگاه\s*کن)\b/u)?'zoom-in':
+    has(/\b(دور\s*می\s*شود|خروج|خداحافظ|تمام)\b/u)?'zoom-out':
+    ['zoom-in','pan-right','zoom-out','pan-left'][index%4];
+  return {action,emotion,camera,gesture:has(/\b(wave|سلام|دست\s*تکان|اشاره|point|اشاره\s*می)\b/u)?'wave':
+    has(/\b(نه|اعتراض|بحث|توضیح|می\s*گوید|گفت)\b/u)?'talk':'neutral'};
+}
 $('autoSceneMotionButton').addEventListener('click',()=>{
-  saveActiveMotionScene();let animated=0;
+  saveActiveMotionScene();let animated=0,understood=0;
   motionScenes.forEach((scene,index)=>{
-    scene.cameraMotion=['zoom-in','pan-right','zoom-out','pan-left','zoom-in','pan-right'][index%6];
+    const plan=inferSceneDirection(scene,index);
+    scene.cameraMotion=plan.camera;scene.autoDirection=plan;
     const roots=scene.layers.filter(layer=>layer.image&&!layer.parentLayerId);
     roots.forEach((layer,rootIndex)=>{
       const existing=Array.isArray(layer.motionKeys)&&layer.motionKeys.length?layer.motionKeys.slice().sort((a,b)=>a.at-b.at)[0]:null;
       const x=Math.max(8,Math.min(92,Number(existing?.x??layer.startX??50)));
       const y=Math.max(12,Math.min(88,Number(existing?.y??layer.startY??50)));
-      const drift=(rootIndex%2===0?1:-1)*5;
+      const drift=(rootIndex%2===0?1:-1)*(plan.action==='run'?10:plan.action==='walk'?7:4);
       layer.motionKeys=[
-        {at:0,x:Math.max(5,Math.min(95,x-drift)),y:y+2,rotation:Number(existing?.rotation??layer.rotationStart)||0},
-        {at:50,x,y:Math.max(5,Math.min(95,y-2)),rotation:Number(existing?.rotation??layer.rotationStart)||0},
-        {at:100,x:Math.max(5,Math.min(95,x+drift)),y:y+2,rotation:Number(existing?.rotation??layer.rotationEnd)||0}
+        {at:0,x:Math.max(5,Math.min(95,x-drift)),y:y+(plan.action==='jump'?8:2),rotation:Number(existing?.rotation??layer.rotationStart)||0},
+        {at:50,x,y:Math.max(5,Math.min(88,y-(plan.action==='jump'?12:2))),rotation:Number(existing?.rotation??layer.rotationStart)||0},
+        {at:100,x:Math.max(5,Math.min(95,x+drift)),y:y+(plan.action==='jump'?8:2),rotation:Number(existing?.rotation??layer.rotationEnd)||0}
       ];
-      if(!layer.motion||layer.motion==='still')layer.motion='walk';
+      if(layer.rigRole==='body'||String(layer.rigId||'').endsWith('-body')||!layer.rigId)layer.motion=plan.action;
+      if(layer.rigRole==='head'||layer.mouthMode){
+        layer.faceExpression=plan.emotion;
+        if((scene.dialogues||[]).length)layer.mouthMode='talk';
+      }
+      if(layer.rigRole&&layer.rigRole.startsWith('arm-')&&plan.gesture!=='neutral'){
+        const sign=layer.rigRole.endsWith('left')?-1:1;
+        const swing=plan.gesture==='wave'?sign*42:sign*24;
+        layer.motionKeys=[{at:0,x:Number(layer.startX??50),y:Number(layer.startY??60),rotation:0},{at:35,x:Number(layer.startX??50),y:Number(layer.startY??60),rotation:swing},{at:65,x:Number(layer.startX??50),y:Number(layer.startY??60),rotation:plan.gesture==='wave'?-swing:swing*.5},{at:100,x:Number(layer.endX??50),y:Number(layer.endY??60),rotation:0}];
+      }
       animated++;
     });
+    if(roots.length)understood++;
   });
   renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-  setStatus(animated?'حرکت اولیه برای '+animated+' لایه اصلی در '+motionScenes.length+' صحنه ساخته شد؛ حرکت دوربین هم برای هر صحنه تنظیم شد.':'لایه تصویری برای متحرک‌سازی پیدا نشد؛ ابتدا تصویرها را به‌صورت لایه اضافه کن.','var(--b)');
+  const summary=motionScenes.map((scene,index)=>'صحنه '+(index+1)+': '+({run:'دویدن',walk:'راه‌رفتن',jump:'پرش',sway:'شناوری',idle:'ایستادن'}[scene.autoDirection?.action||'idle'])+'، '+({angry:'عصبانی',sad:'ناراحت',surprised:'متعجب',happy:'شاد',none:'عادی'}[scene.autoDirection?.emotion||'none'])).join(' | ');
+  setStatus(animated?'تحلیل داستان انجام شد: '+understood+' صحنه دارای لایه، '+animated+' لایه بررسی شد. حرکت، حالت چهره، ژست دست و دوربین بر اساس کلمات داستان تنظیم شدند. '+summary:'لایه تصویری برای متحرک‌سازی پیدا نشد؛ ابتدا تصویر یا شخصیت اضافه کن.','var(--b)');
 });
 $('autoTimeDialoguesButton').addEventListener('click',()=>{
   saveActiveMotionScene();
