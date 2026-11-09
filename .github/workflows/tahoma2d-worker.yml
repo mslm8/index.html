@@ -95,8 +95,7 @@ jobs:
           EOF
           set +e
           cd "$TAHOMA_APPDIR"
-          export TAHOMA2DROOT="$TAHOMA_ROOT"
-          timeout --signal=TERM 35s xvfb-run -a ./AppRun "$SCRIPT" > "$LOG" 2>&1
+          timeout --signal=TERM 35s xvfb-run -a ./AppRun -TAHOMA2DROOT "$TAHOMA_ROOT" "$SCRIPT" > "$LOG" 2>&1
           code=$?
           set -e
           cat "$LOG"
@@ -113,9 +112,8 @@ jobs:
         run: |
           set +e
           cd "$TAHOMA_APPDIR"
-          export TAHOMA2DROOT="$TAHOMA_ROOT"
           timeout --signal=TERM 20s xvfb-run -a \
-            ./AppRun > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
+            ./AppRun -TAHOMA2DROOT "$TAHOMA_ROOT" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
           code=$?
           set -e
           cat "$RUNNER_TEMP/tahoma2d-startup.log"
