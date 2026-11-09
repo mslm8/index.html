@@ -154,6 +154,17 @@ body:not(.authenticated)>main{display:none!important}
       </select>
     </div>
     <div>
+      <label for="focusTarget">نقطه فوکوس دوربین</label>
+      <select id="focusTarget">
+        <option value="auto">انتخاب خودکار</option>
+        <option value="subject">فوکوس روی سوژه اصلی</option>
+        <option value="eyes">فوکوس دقیق روی چشم‌ها</option>
+        <option value="foreground">فوکوس روی پیش‌زمینه</option>
+        <option value="background">فوکوس روی پس‌زمینه</option>
+        <option value="center">فوکوس در مرکز کادر</option>
+      </select>
+    </div>
+    <div>
       <label for="style">سبک هنری</label>
       <select id="style">
         <option value="none">بدون تغییر سبک</option>
@@ -589,7 +600,15 @@ async function generateImage() {
     macro: 'Photography: macro close-up with precise subject detail and a gently blurred background.'
   };
   const selectedDepth = depthPrompts[$('depth').value] || '';
-  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth].filter(Boolean);
+  const focusPrompts = {
+    subject: 'Camera focus: keep the primary subject in crisp, precise focus.',
+    eyes: 'Camera focus: prioritize sharp, natural-looking focus on the subject eyes.',
+    foreground: 'Camera focus: keep foreground elements sharp, with the scene behind them less emphasized.',
+    background: 'Camera focus: keep the background details sharp and clearly legible.',
+    center: 'Camera focus: place the sharpest focus around the center of the composition.'
+  };
+  const selectedFocus = focusPrompts[$('focusTarget').value] || '';
+  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth, selectedFocus].filter(Boolean);
   const styledPrompt = promptParts.join('. ');
   const fullPrompt = translatedNegative
     ? styledPrompt + ' ### ' + translatedNegative
@@ -790,7 +809,7 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
   for (const id of allowed) {
     if (typeof data.fields[id] !== 'string') continue;
     const el = $(id);
@@ -856,7 +875,7 @@ function projectFields() {
     format: 'ai-animator-project',
     version: 1,
     savedAt: new Date().toISOString(),
-    fields: ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
+    fields: ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
       .reduce((out,id) => {
         const el = $(id);
         if (el) out[id] = el.value;
