@@ -130,7 +130,6 @@ body.authenticated main>header{flex:0 0 auto;padding:12px 16px;margin:0 0 8px;bo
 body.authenticated main>header .pill{font-size:10px;padding:3px 8px}
 body.authenticated main>header h1{font-size:clamp(19px,4vw,26px);margin:5px 0 3px}
 body.authenticated main>header p{font-size:11px;line-height:1.45}
-body.authenticated #accountBar{flex:0 0 auto;margin:0 0 7px;padding:7px 10px}
 body.authenticated #studioNav{position:relative;top:auto;bottom:auto;order:10;flex:0 0 auto;margin:7px 0 0;padding:5px;gap:4px}
 body.authenticated #studioNav button{font-size:clamp(10px,2.5vw,12px);padding:8px 2px;min-height:38px}
 body.authenticated #generationCard,
@@ -154,8 +153,7 @@ body.authenticated .card{margin:5px 0 12px;padding:15px}
 @keyframes appPageEnter{from{opacity:.72;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 body.authenticated #generationCard:not([hidden]),
 body.authenticated .viewPanel:not([hidden]){animation:appPageEnter .2s ease-out both}
-body.authenticated main>header:not([hidden]),
-body.authenticated #accountBar:not([hidden]){animation:appPageEnter .2s ease-out both}
+body.authenticated main>header:not([hidden]){animation:appPageEnter .2s ease-out both}
 body.authenticated main>footer{display:none}
 
 /* Persistent bottom navigation; each tab displays its own full page */
@@ -164,15 +162,15 @@ body.authenticated main>footer{display:none}
  body.authenticated #studioNav{
   position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));
   top:auto;z-index:1000;order:20;width:auto;margin:0;
-  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
   gap:5px;padding:7px;border-radius:18px;
   box-shadow:0 8px 30px rgba(0,0,0,.42)
  }
  body.authenticated #studioNav button{min-width:0;width:100%;white-space:nowrap}
- body.authenticated>main>header[hidden],body.authenticated #accountBar[hidden]{display:none!important}
+ body.authenticated>main>header[hidden]{display:none!important}
  body.authenticated #generationCard,body.authenticated #toolsPanel,
  body.authenticated #projectsPanel,body.authenticated #historyPanel,
- body.authenticated #guidePanel{flex:1 1 0}
+ body.authenticated #guidePanel,body.authenticated #accountPanel{flex:1 1 0}
 }
 @media(max-width:520px){
  body.authenticated>main{padding-bottom:70px}
@@ -205,7 +203,8 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   <h1>AI Animator Studio</h1>
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
-<div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
+
+<section class="card viewPanel" id="accountPanel" hidden><h2>حساب کاربری</h2><p id="accountEmail">وارد شده‌ای</p><button id="logoutButton" class="secondary" type="button">خروج از حساب</button><p id="accountMessage" role="status" aria-live="polite"></p></section>
 <section class="card" id="generationCard">
   <h2>تولید تصویر</h2>
   <label for="prompt">توضیح صحنه</label>
@@ -514,7 +513,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 </section>
 <footer><small>AI Animator Studio</small></footer>
 </div>
-<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button></nav>
+<nav id="studioNav" aria-label="صفحه‌های برنامه"><button type="button" data-view="generation" class="active">تولید تصویر</button><button type="button" data-view="tools">ویرایش</button><button type="button" data-view="projects">پروژه‌ها</button><button type="button" data-view="history">تاریخچه</button><button type="button" data-view="guide">راهنما</button><button type="button" data-view="account">حساب</button></nav>
 </main>
 
 <script>
@@ -1672,6 +1671,7 @@ $('cancel').addEventListener('click', cancelRequest);
   const login = document.getElementById('googleLogin');
   const logout = document.getElementById('logoutButton');
   const accountEmail = document.getElementById('accountEmail');
+  const accountMessage = document.getElementById('accountMessage');
   const errorBox = document.getElementById('authError');
   if (!window.supabase || !gate || !login) {
     if (errorBox) errorBox.textContent = 'بارگذاری سرویس ورود ناموفق بود. صفحه را دوباره بارگذاری کن.';
@@ -1688,6 +1688,7 @@ $('cancel').addEventListener('click', cancelRequest);
     document.body.classList.add('authenticated');
     gate.hidden = true;
     errorBox.textContent = '';
+    if (accountMessage) accountMessage.textContent = '';
     if (accountEmail) accountEmail.textContent = session && session.user && session.user.email ? 'وارد شده‌ای: ' + session.user.email : 'وارد شده‌ای';
     if (!modelsLoaded) {
       modelsLoaded = true;
@@ -1729,10 +1730,12 @@ $('cancel').addEventListener('click', cancelRequest);
   logout.addEventListener('click', async () => {
     logout.disabled = true;
     errorBox.textContent = '';
+    if (accountMessage) accountMessage.textContent = '';
     const { error } = await client.auth.signOut();
     logout.disabled = false;
     if (error) {
-      errorBox.textContent = 'خروج ناموفق بود: ' + error.message;
+      if (accountMessage) accountMessage.textContent = 'خروج ناموفق بود: ' + error.message;
+      else errorBox.textContent = 'خروج ناموفق بود: ' + error.message;
       return;
     }
     document.body.classList.remove('authenticated');
@@ -1774,7 +1777,7 @@ $('cancel').addEventListener('click', cancelRequest);
  const nav=document.getElementById("studioNav");
  if(!nav || nav.dataset.ready) return;
  nav.dataset.ready="1";
- const views={generation:document.getElementById("generationCard"),tools:document.getElementById("toolsPanel"),projects:document.getElementById("projectsPanel"),history:document.getElementById("historyPanel"),guide:document.getElementById("guidePanel")};
+ const views={generation:document.getElementById("generationCard"),tools:document.getElementById("toolsPanel"),projects:document.getElementById("projectsPanel"),history:document.getElementById("historyPanel"),guide:document.getElementById("guidePanel"),account:document.getElementById("accountPanel")};
  nav.addEventListener("click",event=>{
   const button=event.target.closest("button[data-view]");
   if(!button) return;
@@ -1782,9 +1785,7 @@ $('cancel').addEventListener('click', cancelRequest);
   Object.entries(views).forEach(([name,panel])=>{if(panel) panel.hidden=name!==selected;});
   nav.querySelectorAll("button[data-view]").forEach(item=>{const active=item===button;item.classList.toggle("active",active);item.setAttribute("aria-pressed",String(active));});
   const header=document.querySelector("body.authenticated>main>header");
-  const account=document.getElementById("accountBar");
   if(header) header.hidden=selected!=="generation";
-  if(account) account.hidden=selected!=="generation";
   const activePanel=views[selected];
   if(activePanel) activePanel.scrollTop=0;
  });
