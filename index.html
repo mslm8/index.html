@@ -172,8 +172,19 @@ body:not(.authenticated)>main{display:none!important}
         <option value="low">زاویه پایین · نمای قدرتمند</option>
         <option value="high">زاویه بالا · نگاه از بالا</option>
         <option value="threequarter">سه‌ربع · پرسپکتیو طبیعی</option>
-        <option value="side">نمای横側 · نیم‌رخ</option>
+        <option value="side">نمای جانبی · نیم‌رخ</option>
         <option value="overhead">نمای کاملاً از بالا</option>
+      </select>
+    </div>
+    <div>
+      <label for="cameraDistance">فاصله دوربین از سوژه</label>
+      <select id="cameraDistance">
+        <option value="auto">خودکار</option>
+        <option value="extremeClose">بسیار نزدیک · جزئیات</option>
+        <option value="close">نزدیک · پرتره</option>
+        <option value="medium">متوسط · سوژه و اطراف</option>
+        <option value="far">دور · تمام سوژه</option>
+        <option value="extremeWide">بسیار دور · نمای محیط</option>
       </select>
     </div>
     <div>
@@ -629,7 +640,15 @@ async function generateImage() {
     overhead: 'Camera angle: directly overhead top-down composition.'
   };
   const selectedCamera = cameraPrompts[$('cameraAngle').value] || '';
-  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth, selectedFocus, selectedCamera].filter(Boolean);
+  const distancePrompts = {
+    extremeClose: 'Camera distance: extreme close-up, frame fine subject details while keeping important features inside the image.',
+    close: 'Camera distance: close shot, frame the subject prominently with limited surrounding space.',
+    medium: 'Camera distance: medium shot, show the subject and a balanced amount of surrounding context.',
+    far: 'Camera distance: long shot, show the complete subject with clear space around it.',
+    extremeWide: 'Camera distance: extreme wide shot, make the environment prominent while keeping the subject readable.'
+  };
+  const selectedDistance = distancePrompts[$('cameraDistance').value] || '';
+  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth, selectedFocus, selectedCamera, selectedDistance].filter(Boolean);
   const styledPrompt = promptParts.join('. ');
   const fullPrompt = translatedNegative
     ? styledPrompt + ' ### ' + translatedNegative
@@ -830,7 +849,7 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','cameraAngle','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
   for (const id of allowed) {
     if (typeof data.fields[id] !== 'string') continue;
     const el = $(id);
@@ -896,7 +915,7 @@ function projectFields() {
     format: 'ai-animator-project',
     version: 1,
     savedAt: new Date().toISOString(),
-    fields: ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','cameraAngle','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
+    fields: ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
       .reduce((out,id) => {
         const el = $(id);
         if (el) out[id] = el.value;
