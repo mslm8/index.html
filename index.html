@@ -955,9 +955,27 @@ async function apiFetch(path, options = {}) {
   try { data = text ? JSON.parse(text) : {}; } catch {}
   if (!response.ok) {
     const message = data.message || data.rc || ('HTTP ' + response.status);
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return data;
+}
+
+async function retrySafeGet(path, attempts = 3) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await apiFetch(path, {method:'GET'});
+    } catch (error) {
+      lastError = error;
+      const status = Number(error && error.status || 0);
+      const retryable = !status || status === 408 || status === 429 || status >= 500;
+      if (!retryable || attempt === attempts - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  throw lastError || new Error('دریافت پاسخ سرویس ناموفق بود.');
 }
 
 function modelScore(model) {
@@ -1309,7 +1327,7 @@ async function pollRequest(id) {
     if (check.faulted) throw new Error('درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.');
     if (check.done) {
       setStatus('تصویر آماده شد؛ در حال دریافت نتیجه...');
-      const finalResult = await apiFetch('/generate/status/' + encodeURIComponent(id));
+      const finalResult = await retrySafeGet('/generate/status/' + encodeURIComponent(id), 3);
       const generation = finalResult.generations && finalResult.generations[0];
       if (!generation || !generation.img) throw new Error('درخواست تمام شد اما تصویر در پاسخ وجود نداشت.');
       if (generation.img === 'CENSORED' || (typeof generation.img === 'string' && generation.img.trim().toUpperCase() === 'CENSORED')) {
