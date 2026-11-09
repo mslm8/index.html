@@ -51,6 +51,8 @@ jobs:
           NODE
       - name: Check browser-side rescue console JavaScript
         run: node --check production-rescue.js
+      - name: Check AI manager browser JavaScript
+        run: node --check manager.js
       - name: Run network resilience regression tests
         run: node --test tests/reliability.test.mjs
       - name: Check Cloudflare Worker JavaScript
@@ -61,6 +63,8 @@ jobs:
           deno-version: v2.x
       - name: Type-check Supabase Edge Function
         run: deno check supabase/functions/fal-gateway/index.ts
+      - name: Type-check AI manager Edge Function
+        run: deno check supabase/functions/studio-manager/index.ts
   deploy:
     needs: validate
     environment:
