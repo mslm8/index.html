@@ -25,37 +25,48 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb xz-utils libgl1 libopengl0 libegl1 libxkbcommon-x11-0 libxcb-cursor0
 
-      - name: Download and extract official Tahoma2D Debian package
+      - name: Download portable Tahoma2D and restore official resources
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tahoma2d"
           curl --fail --location --retry 3 \
-            "https://github.com/tahoma2d/tahoma2d/releases/download/v1.6.3/Tahoma2D-linux-clang.deb" \
-            --output "$RUNNER_TEMP/tahoma2d.deb"
-          mkdir -p "$RUNNER_TEMP/tahoma2d-root"
-          dpkg-deb -x "$RUNNER_TEMP/tahoma2d.deb" "$RUNNER_TEMP/tahoma2d-root"
-          echo "TAHOMA_ROOT=$RUNNER_TEMP/tahoma2d-root" >> "$GITHUB_ENV"
-          echo "Tahoma2D files:"
-          find "$RUNNER_TEMP/tahoma2d-root/usr" -maxdepth 5 \
-            \( -type f -o -type d \) \
-            \( -iname '*tahoma*' -o -iname 'stuff' -o -iname '*.js' \) -print | head -200
-          test -x "$RUNNER_TEMP/tahoma2d-root/usr/local/bin/tahoma2d"
-          echo "--- installed resource tree ---"
-          find "$RUNNER_TEMP/tahoma2d-root/usr/local" -maxdepth 6 -type d -print | head -240
-          STUFF_DIR="$(find "$RUNNER_TEMP/tahoma2d-root/usr/local" -type d -name stuff -print -quit)"
-          if [ -z "$STUFF_DIR" ]; then
-            echo "Tahoma2D resource directory named stuff was not found."
-            find "$RUNNER_TEMP/tahoma2d-root/usr/local" -maxdepth 7 -type f | head -240
+            "https://github.com/tahoma2d/tahoma2d/releases/download/v1.6.3/Tahoma2D-linux-clang.tar.gz" \
+            --output "$RUNNER_TEMP/tahoma2d-linux.tar.gz"
+          tar -xzf "$RUNNER_TEMP/tahoma2d-linux.tar.gz" -C "$RUNNER_TEMP/tahoma2d"
+          APPIMAGE="$(find "$RUNNER_TEMP/tahoma2d" -type f -name 'Tahoma2D*.AppImage' -print -quit)"
+          if [ -z "$APPIMAGE" ]; then
+            echo "Could not locate official Tahoma2D AppImage in release archive."
+            find "$RUNNER_TEMP/tahoma2d" -maxdepth 4 -print | head -200
             exit 1
           fi
-          echo "TAHOMA_STUFF=$STUFF_DIR" >> "$GITHUB_ENV"
-          echo "Found Tahoma2D resources: $STUFF_DIR"
+          chmod +x "$APPIMAGE"
+          (cd "$(dirname "$APPIMAGE")" && "./$(basename "$APPIMAGE")" --appimage-extract)
+          APPDIR="$(find "$(dirname "$APPIMAGE")" -maxdepth 2 -type d -name squashfs-root -print -quit)"
+          if [ -z "$APPDIR" ]; then
+            echo "AppImage extraction did not produce squashfs-root."
+            exit 1
+          fi
+          echo "TAHOMA_APPDIR=$APPDIR" >> "$GITHUB_ENV"
+
+          git clone --depth 1 --filter=blob:none --sparse --branch v1.6.3 \
+            https://github.com/tahoma2d/tahoma2d.git "$RUNNER_TEMP/tahoma2d-source"
+          git -C "$RUNNER_TEMP/tahoma2d-source" sparse-checkout set stuff
+          test -d "$RUNNER_TEMP/tahoma2d-source/stuff/config"
+          mkdir -p "$APPDIR/usr/share/tahoma2d"
+          cp -a "$RUNNER_TEMP/tahoma2d-source/stuff" "$APPDIR/usr/share/tahoma2d/stuff"
+          test -d "$APPDIR/usr/share/tahoma2d/stuff/config"
+          echo "TAHOMA_ROOT=$APPDIR/usr/share/tahoma2d" >> "$GITHUB_ENV"
+          echo "Restored official stuff resources from tag v1.6.3"
+          echo "AppImage root: $APPDIR"
+          echo "Resource root: $APPDIR/usr/share/tahoma2d"
+          find "$APPDIR/usr/share/tahoma2d/stuff" -maxdepth 2 -type d -print | head -100
 
       - name: Inspect Tahoma2D runtime and resource paths
         shell: bash
         run: |
           set +e
-          BIN="$TAHOMA_ROOT/usr/local/bin/tahoma2d"
+          BIN="$TAHOMA_APPDIR/AppRun"
           LOG="$RUNNER_TEMP/tahoma2d-cli-probe.log"
           : > "$LOG"
           echo "Executable: $BIN" | tee -a "$LOG"
@@ -64,9 +75,9 @@ jobs:
           "$BIN" -help >> "$LOG" 2>&1
           echo "help_exit_code=$?" >> "$LOG"
           echo "--- resources ---" >> "$LOG"
-          find "$TAHOMA_ROOT/usr/local/share" -maxdepth 6 -type d -print >> "$LOG" 2>&1
+          find "$TAHOMA_ROOT" -maxdepth 6 -type d -print >> "$LOG" 2>&1
           echo "--- script files ---" >> "$LOG"
-          find "$TAHOMA_ROOT/usr/local/share" -type f -iname '*.js' -print | head -100 >> "$LOG" 2>&1
+          find "$TAHOMA_ROOT/stuff" -type f -iname '*.js' -print | head -100 >> "$LOG" 2>&1
           cat "$LOG"
           set -e
 
@@ -83,7 +94,7 @@ jobs:
           print("TAHOMA_SCENE_SAVE_OK");
           EOF
           set +e
-          timeout --signal=TERM 35s xvfb-run -a "$TAHOMA_ROOT/usr/local/bin/tahoma2d" -TAHOMA2DROOT "$(dirname "$TAHOMA_STUFF")" "$SCRIPT" > "$LOG" 2>&1
+          timeout --signal=TERM 35s xvfb-run -a "$TAHOMA_APPDIR/AppRun" -TAHOMA2DROOT "$TAHOMA_ROOT" "$SCRIPT" > "$LOG" 2>&1
           code=$?
           set -e
           cat "$LOG"
@@ -100,7 +111,7 @@ jobs:
         run: |
           set +e
           timeout --signal=TERM 20s xvfb-run -a \
-            "$TAHOMA_ROOT/usr/local/bin/tahoma2d" -TAHOMA2DROOT "$(dirname "$TAHOMA_STUFF")" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
+            "$TAHOMA_APPDIR/AppRun" -TAHOMA2DROOT "$TAHOMA_ROOT" > "$RUNNER_TEMP/tahoma2d-startup.log" 2>&1
           code=$?
           set -e
           cat "$RUNNER_TEMP/tahoma2d-startup.log"
