@@ -104,6 +104,13 @@
       rows.push({ name: "Supabase fal-gateway", ok: !!result.data?.ok, detail: result.data?.cloudflareImageCredentialState || "پاسخ سلامت دریافت شد؛ دسترسی واقعی مدل با تولید آزمایشی مشخص می‌شود." });
     } catch (error) { rows.push({ name: "Supabase fal-gateway", ok: false, detail: redact(error.message || error) }); }
     try {
+      if (!client || !session) throw new Error("برای بررسی موتور مدیر، ابتدا وارد حساب شو.");
+      const result = await client.functions.invoke("studio-manager", { body: { action: "health" } });
+      if (result.error) throw result.error;
+      const mode = result.data?.mode === "ai_ready" ? "مدل زبانی آماده است." : "تحلیل قواعدمحور فعال است؛ اتصال مدل زبانی اختیاری است.";
+      rows.push({ name: "موتور مدیر هوشمند", ok: !!result.data?.ok, detail: mode + (result.data?.model ? " · " + result.data.model : "") });
+    } catch (error) { rows.push({ name: "موتور مدیر هوشمند", ok: false, detail: redact(error.message || error) }); }
+    try {
       const response = await timeoutFetch("https://api.github.com/repos/mslm8/index.html/actions/runs?per_page=1");
       const data = await response.json();
       const run = data.workflow_runs?.[0];
@@ -143,7 +150,8 @@
       }
       if (!result.data?.ok || !result.data.report) throw new Error(result.data?.error || "پاسخ مدیر هوشمند معتبر نیست.");
       renderReport(result.data.report);
-      statusBox.textContent = "تحلیل هوشمند انجام شد · مدل " + (result.data.model || "نامشخص");
+      const modeLabel = result.data.mode === "rules_only" ? "تحلیل قواعدمحور" : result.data.mode === "rules_fallback" ? "تحلیل جایگزین قواعدمحور" : "تحلیل هوشمند";
+      statusBox.textContent = modeLabel + " انجام شد · " + (result.data.model || "موتور داخلی");
     } catch (error) {
       reportBox.textContent = redact(error.message || error);
       statusBox.textContent = "تحلیل هوشمند در دسترس نیست؛ بررسی پایه همچنان فعال است.";
