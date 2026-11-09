@@ -26,7 +26,7 @@ test('analytics tracks only an explicit allowlist of studio actions', () => {
     'storyToScenesButton', 'aiStoryEngineButton', 'download', 'downloadVideo',
     'saveNamedProject', 'exportProject', 'productionExportShots',
     'runManagerDiagnostics', 'exportManagerReport']) {
-    assert.match(analytics, new RegExp('["\\']' + id + '["\\']'));
+    assert.ok(analytics.includes("'" + id + "'") || analytics.includes('"' + id + '"'), 'missing analytics mapping for ' + id);
   }
   assert.match(analytics, /addEventListener\(['"]click['"]/);
 });
