@@ -2750,11 +2750,16 @@ function getRigWorldTransform(layer,layers,progress,canvas){
     if(item.motion==='sway')y+=Math.sin(p*Math.PI*4)*5;
     if(item.motion==='walk')y-=Math.abs(Math.sin(p*Math.PI*6))*10;
     const baseAngle=((Number(item.rotation)||0)+Number(first?.rotation??item.rotationStart??0))*Math.PI/180;
-    const jointRotation=(Number(item.jointRotation)||0)*Math.PI/180;
-    const localDelta=angle-baseAngle+jointRotation;
+    let jointRotation=(Number(item.jointRotation)||0)*Math.PI/180;
     const ownScale=Math.max(.4,Math.min(2,Number(item.scale)||1));
     let inheritedScale=1,inheritedDelta=0;
     const parent=item.parentLayerId?byId(item.parentLayerId):null;
+    if(parent&&parent.motion==='walk'){
+      const role=item.rigRole||'none';
+      const limbAmplitude=role.startsWith('leg-')?24:role.startsWith('arm-')?16:0;
+      if(limbAmplitude){const phase=role.endsWith('right')?Math.PI:0;jointRotation+=Math.sin(p*Math.PI*6+phase)*limbAmplitude*Math.PI/180;}
+    }
+    const localDelta=angle-baseAngle+jointRotation;
     if(parent&&!seen.has(parent.rigId)){
       const nextSeen=new Set(seen);nextSeen.add(parent.rigId);
       const pt=resolve(parent,nextSeen);
@@ -2888,6 +2893,13 @@ function renderMotionLayerList() {
     rigSelect.addEventListener('click',event=>event.stopPropagation());
     rigSelect.addEventListener('change',event=>{event.stopPropagation();const next=rigSelect.value;let cursor=motionLayers.find(item=>item.rigId===next),seen=new Set([layer.rigId]);while(cursor){if(seen.has(cursor.rigId)){setStatus('این اتصال باعث حلقه در زنجیره والدها می‌شود.','var(--warn)');rigSelect.value=layer.parentLayerId||'';return;}seen.add(cursor.rigId);cursor=motionLayers.find(item=>item.rigId===cursor.parentLayerId);}layer.parentLayerId=next;setStatus('اتصال والد/فرزند فعال شد؛ حرکت و چرخش والد به این لایه منتقل می‌شود.');});
     rigWrap.append(rigCaption,rigSelect);controls.appendChild(rigWrap);
+    const roleWrap=document.createElement('label');roleWrap.className='motion-keyframe-control';
+    const roleCaption=document.createElement('span');roleCaption.textContent='نقش عضو برای راه‌رفتن خودکار والد';
+    const roleSelect=document.createElement('select');
+    [['none','بدون حرکت خودکار'],['arm-left','دست چپ'],['arm-right','دست راست'],['leg-left','پای چپ'],['leg-right','پای راست']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;roleSelect.appendChild(option);});
+    roleSelect.value=layer.rigRole||'none';roleSelect.addEventListener('click',event=>event.stopPropagation());
+    roleSelect.addEventListener('change',event=>{event.stopPropagation();layer.rigRole=roleSelect.value;renderMotionPreview();});
+    roleWrap.append(roleCaption,roleSelect);controls.appendChild(roleWrap);
     [['jointX','نقطه اتصال افقی روی والد'],['jointY','نقطه اتصال عمودی روی والد']].forEach(([key,label])=>{
       if(!Number.isFinite(Number(layer[key])))layer[key]=50;
       const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
