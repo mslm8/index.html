@@ -1105,7 +1105,7 @@ async function translateToEnglish(text) {
 async function generateImage() {
   const prompt = $('prompt').value.trim();
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
-  if (activeRequestId || polling) return;
+  if (generationInProgress || activeRequestId || polling) return;
 
   const settingIds = ['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
   lastGenerationSettings = Object.fromEntries(settingIds.map(id => [id, $(id).value]));
