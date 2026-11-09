@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   install-and-launch:
-    name: Install and launch Tahoma2D on a free Linux runner
+    name: Install and inspect Tahoma2D on a free Linux runner
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -47,6 +47,23 @@ jobs:
           "$APPIMAGE" --appimage-extract
           echo "TAHOMA_APPDIR=$(dirname "$APPIMAGE")/squashfs-root" >> "$GITHUB_ENV"
 
+      - name: Inspect command-line and scripting entry points
+        shell: bash
+        run: |
+          set +e
+          BIN="$(find "$TAHOMA_APPDIR" -type f -executable \( -name 'Tahoma2D' -o -name 'tahoma2d' \) -print -quit)"
+          if [ -z "$BIN" ]; then
+            echo "Tahoma2D executable not found in extracted AppDir" | tee "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+            find "$TAHOMA_APPDIR" -maxdepth 4 -type f -executable -print >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+          else
+            echo "Executable: $BIN" | tee "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+            timeout --signal=TERM 12s xvfb-run -a "$BIN" --help >> "$RUNNER_TEMP/tahoma2d-cli-probe.log" 2>&1
+            echo "help_exit_code=$?" >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+            strings "$BIN" | grep -Ei -- '--(render|batch|execute|script|project|scene)|ToonzScript|command.?line' | sort -u | head -100 >> "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+          fi
+          cat "$RUNNER_TEMP/tahoma2d-cli-probe.log"
+          set -e
+
       - name: Verify Tahoma2D can start in a virtual display
         shell: bash
         run: |
@@ -65,11 +82,13 @@ jobs:
             exit "$code"
           fi
 
-      - name: Upload startup log
+      - name: Upload startup and CLI probe logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tahoma2d-startup-log
-          path: ${{ runner.temp }}/tahoma2d-startup.log
+          name: tahoma2d-runtime-inspection
+          path: |
+            ${{ runner.temp }}/tahoma2d-startup.log
+            ${{ runner.temp }}/tahoma2d-cli-probe.log
           if-no-files-found: ignore
           retention-days: 3
