@@ -547,7 +547,7 @@ async function generateImage() {
         nsfw: false,
         censor_nsfw: true,
         trusted_workers: false,
-        slow_workers: true,
+        slow_workers: false,
         extra_slow_workers: false,
         allow_downgrade: true,
         replacement_filter: true,
@@ -558,7 +558,7 @@ async function generateImage() {
     if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
     activeRequestId = submitted.id;
     $('cancel').disabled = false;
-    setStatus('درخواست ثبت شد. موتور هوشمند سریع‌ترین گزینه‌های فعال را به‌صورت خودکار در نظر گرفته است؛ ممکن است صف کمی طول بکشد.');
+    setStatus('درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.');
     await pollRequest(submitted.id);
   } catch (error) {
     setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
