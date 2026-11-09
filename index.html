@@ -2977,7 +2977,7 @@ async function generateCloudflareBackground(prompt,status){
   // First route: dedicated Cloudflare Worker, avoiding the Supabase request-body
   // streaming path that previously remained open until the Edge runtime dropped it.
   try{
-    status.textContent='مسیر مستقیم تصویر: Cloudflare Worker...';
+    status.textContent='موتور تصویر Cloudflare: انتخاب خودکار از چند مدل و بررسی مجوز...';
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort('worker-timeout'),50000);
     let response;
@@ -2994,11 +2994,19 @@ async function generateCloudflareBackground(prompt,status){
     if(blob.size<1000||blob.size>12*1024*1024)throw Object.assign(new Error('اندازه تصویر Worker معتبر نیست.'),{code:'WORKER_IMAGE_SIZE'});
     const dataUrl=await toDataUrl(blob);
     if(!/^data:image\/(?:jpeg|png|webp);base64,/i.test(dataUrl))throw Object.assign(new Error('فرمت تصویر Worker پشتیبانی نمی‌شود.'),{code:'WORKER_INVALID_IMAGE'});
-    liveBuildLog('تصویر با مسیر مستقیم Worker تولید شد.');
+    const selectedModel=response.headers.get('X-AI-Model')||'مدل خودکار Cloudflare';
+    liveBuildLog('تصویر با موتور چندمدلی Worker تولید شد؛ مدل: '+selectedModel);
     return dataUrl;
   }catch(workerError){
-    attempts.push('Worker: '+String(workerError?.message||workerError).slice(0,220));
-    liveBuildLog('مسیر مستقیم Worker در دسترس نبود؛ مسیر پشتیبان Supabase امتحان می‌شود.');
+    const workerDetail=String(workerError?.message||workerError).slice(0,260);
+    attempts.push('Worker: '+workerDetail);
+    // A model allowlist denial is an account/model permission problem, not a
+    // transport failure. Calling the same Cloudflare model again through
+    // Supabase only duplicates the failure and wastes execution time.
+    if(workerError?.code==='NO_ALLOWED_IMAGE_MODEL'||/model.{0,40}(not allowed|not available)|not allowed.{0,40}model/i.test(workerDetail)){
+      throw Object.assign(new Error('هیچ‌یک از مدل‌های تصویری فعال Cloudflare برای این حساب مجاز نیست. مسیر تکراری Supabase عمداً اجرا نشد تا خطای 503 بی‌فایده ایجاد نشود. مدل‌های حساب باید در Cloudflare فعال شوند.'),{code:'NO_ALLOWED_IMAGE_MODEL',retryable:false});
+    }
+    liveBuildLog('مسیر مستقیم Worker ناموفق بود؛ مسیر پشتیبان فقط برای خطاهای اتصال یا سرویس بررسی می‌شود.');
   }
   // Second route: authenticated Supabase Edge Function, bounded on the client.
   const client=window.__aiAnimatorSupabaseClient;
@@ -3275,7 +3283,7 @@ async function autoBuildEpisodeFromStory(){
       let lastSceneError=null;
       // Cloudflare is the only image provider in story mode. Never call AI Horde.
       try{
-        status.textContent='در حال تولید تصویر صحنه '+(index+1)+' با Cloudflare FLUX.1 Schnell...';
+        status.textContent='در حال تولید تصویر صحنه '+(index+1)+' با موتور چندمدلی Cloudflare...';
         generatedUrl=await generateCloudflareBackground(scenePrompt,status);
         liveBuildLog('تصویر صحنه '+(index+1)+' از Cloudflare دریافت شد.');
       }catch(error){
