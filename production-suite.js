@@ -265,7 +265,8 @@
       state.targetMinutes = Number($('productionMinutes').value) || 1; renderTimeline(); persist();
     });
   });
-  $('productionRunContinuity')?.addEventListener('click', runContinuityAudit);\n  $('productionStory').addEventListener('input', () => { state.story = $('productionStory').value; persist(); });
+  $('productionRunContinuity')?.addEventListener('click', runContinuityAudit);
+  $('productionStory').addEventListener('input', () => { state.story = $('productionStory').value; persist(); });
   $('productionSplitStory').addEventListener('click', splitStory);
   $('productionAddScene').addEventListener('click', () => {
     const scene = { id:uid(), title:'صحنه ' + (state.scenes.length + 1), location:'', characters:'', shot:'wide', camera:'static', duration:5, visual:'', action:'', dialogue:'', notes:'' };
