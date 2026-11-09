@@ -588,9 +588,10 @@ async function generateImage() {
 async function pollRequest(id) {
   polling = true;
   const started = Date.now();
-  while (Date.now() - started < 15 * 60 * 1000) {
+  // Volunteer workers can take a long time to become available; poll less often and allow a longer wait.
+  while (Date.now() - started < 30 * 60 * 1000) {
     if (activeRequestId !== id) return;
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
     if (activeRequestId !== id) return;
     const check = await apiFetch('/generate/check/' + encodeURIComponent(id));
     if (check.faulted) throw new Error('درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.');
@@ -608,11 +609,13 @@ async function pollRequest(id) {
     const position = Number(check.queue_position || 0);
     const wait = Number(check.wait_time || 0);
     let message = check.processing ? 'در حال ساخت تصویر روی رایانه داوطلب...' : 'در صف انتظار برای رایانه داوطلب...';
+    const elapsedMinutes = Math.floor((Date.now() - started) / 60000);
+    message += '\nزمان سپری‌شده: ' + elapsedMinutes + ' دقیقه';
     if (position > 0) message += '\nجایگاه صف: ' + position;
     if (wait > 0) message += '\nزمان تخمینی صف: حدود ' + Math.ceil(wait / 60) + ' دقیقه';
     setStatus(message);
   }
-  throw new Error('درخواست بیش از ۱۵ دقیقه در صف ماند. بعداً دوباره امتحان کن.');
+  throw new Error('درخواست بیش از ۳۰ دقیقه منتظر ماند و متوقف شد. احتمالاً پردازشگر سازگار آزاد نبوده است؛ مدل‌های فعال را دوباره بررسی کن.');
 }
 
 let historyDbPromise = null;
