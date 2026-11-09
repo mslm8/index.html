@@ -1164,8 +1164,8 @@ function setStatus(message, color) {
   $('status').style.color = color || 'var(--b)';
 }
 async function apiFetch(path, options = {}) {
-  const base = new URL(API);
-  const target = new URL(String(path || ''), base);
+  const base = new URL(API.endsWith('/') ? API : API + '/');
+  const target = new URL(String(path || '').replace(/^\\/+/, ''), base);
   if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) {
     throw Object.assign(new Error('مسیر درخواست سرویس معتبر نیست.'), {code:'INVALID_API_PATH'});
   }
@@ -3006,7 +3006,7 @@ function buildSceneImagePrompt(scene,index,total){
   return [
     'Create a polished original 2D animated television cartoon BACKGROUND PLATE with professional clean line art, rich painted environment, cinematic composition, coherent perspective and beautiful lighting.',
     'ENVIRONMENT CONTINUITY: maintain a consistent visual direction, architecture, color palette, perspective and lighting language across all locations in this episode.',
-    'SCENE '+(index+1)+' OF '+total+': '+String(scene.storyText||''),
+    'SCENE '+(index+1)+' OF '+total+': '+String(scene.storyText||'').slice(0,650),
     'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
   ].join('\n\n').slice(0,2048);
 }
@@ -3034,7 +3034,11 @@ async function retryQueuedSceneImages(){
   try{
     for(const item of pending.sort((a,b)=>a.sceneIndex-b.sceneIndex)){
       const scene=motionScenes[item.sceneIndex];
-      if(scene.backgroundImage?.naturalWidth){successes++;continue;}
+      if(scene.backgroundImage?.naturalWidth){
+        successes++;
+        writeSceneRetryQueue(readSceneRetryQueue().filter(entry=>!(entry.storyHash===storyHash&&entry.sceneIndex===item.sceneIndex)));
+        continue;
+      }
       liveBuildUpdate(2,'در حال بازیابی تصویر '+(item.sceneIndex+1)+' از صف ذخیره‌شده.',76);
       try{
         const url=await generateCloudflareBackground(item.prompt,status);
@@ -3066,6 +3070,7 @@ async function retryQueuedSceneImages(){
   }
 }
 $('retrySceneImagesButton').addEventListener('click',retryQueuedSceneImages);
+$('storyToScenesInput').addEventListener('input',updateSceneRetryButton);
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
