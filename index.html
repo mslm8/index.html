@@ -2900,21 +2900,44 @@ function getRigWorldTransform(layer,layers,progress,canvas){
 }
 function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
   const active=(dialogues||[]).some(item=>item.text&&(layer.characterId?item.speakerId===layer.characterId:(item.speaker===layer.characterName||item.speaker===layer.name))&&progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100);
+  const expression=layer.faceExpression||'none';
+  if(layer.eyeAnimation){
+    const blinkRate=Math.max(1,Math.min(10,Number(layer.blinkRate)||4));
+    const blinkPulse=Math.sin(progress*Math.PI*2*blinkRate);
+    const blinking=blinkPulse>.965;
+    const eyeY=(Number(layer.eyeY??43)/100-.5)*height;
+    const leftX=(Number(layer.leftEyeX??36)/100-.5)*width;
+    const rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
+    const eyeW=width*.105,eyeH=height*.075;
+    ctx.save();ctx.lineWidth=Math.max(1,width*.006);ctx.strokeStyle=layer.eyeColor||'#292536';ctx.fillStyle=layer.eyeFill||'#fff';
+    for(const x of [leftX,rightX]){
+      ctx.beginPath();
+      if(blinking){ctx.moveTo(x-eyeW/2,eyeY);ctx.quadraticCurveTo(x,eyeY+height*.018,x+eyeW/2,eyeY);}
+      else{ctx.ellipse(x,eyeY,eyeW/2,eyeH/2,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.fillStyle=layer.pupilColor||'#25243a';ctx.ellipse(x,eyeY,eyeW*.17,eyeH*.29,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=layer.eyeFill||'#fff';}
+      if(blinking)ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if(expression!=='none'){
+    const browY=(Number(layer.eyeY??43)/100-.5)*height-height*.075;
+    const leftX=(Number(layer.leftEyeX??36)/100-.5)*width,rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
+    ctx.save();ctx.strokeStyle=layer.browColor||'#30202a';ctx.lineWidth=Math.max(2,width*.012);ctx.lineCap='round';
+    [[leftX,-1],[rightX,1]].forEach(([x,side])=>{ctx.beginPath();const tilt=expression==='angry'?side*height*.035:expression==='sad'?-side*height*.025:expression==='surprised'?-side*height*.008:0;ctx.moveTo(x-width*.055,browY+tilt);ctx.lineTo(x+width*.055,browY-tilt);ctx.stroke();});
+    ctx.restore();
+  }
   const mode=active?'talk':(layer.mouthMode||'off');
   if(mode==='off')return;
   const x=(Number(layer.mouthX??50)/100-.5)*width;
   const y=(Number(layer.mouthY??72)/100-.5)*height;
   const talkOpen=mode==='talk'&&(Math.sin(progress*Math.PI*24)>-.15);
-  const open=mode==='open'||talkOpen;
+  const open=mode==='open'||talkOpen||expression==='surprised';
   ctx.save();ctx.lineWidth=Math.max(1,width*.008);ctx.strokeStyle=layer.mouthColor||'#30202a';ctx.fillStyle=layer.mouthFill||'#6e2638';
   ctx.beginPath();
-  if(mode==='smile'||mode==='frown'){
-    ctx.ellipse(x,y,width*.075,height*.025,0,mode==='smile'?0:Math.PI,mode==='smile'?Math.PI:Math.PI*2);
-  }else if(open){
-    ctx.ellipse(x,y,width*.055,height*.045,0,0,Math.PI*2);
-  }else{
-    ctx.moveTo(x-width*.07,y);ctx.quadraticCurveTo(x,y+(mode==='frown'?-height*.035:height*.035),x+width*.07,y);
-  }
+  if(mode==='smile'||expression==='happy'||expression==='smile'||mode==='frown'||expression==='sad'||expression==='angry'){
+    const smile=mode==='smile'||expression==='happy'||expression==='smile';
+    ctx.ellipse(x,y,width*.075,height*.025,0,smile?0:Math.PI,smile?Math.PI:Math.PI*2);
+  }else if(open){ctx.ellipse(x,y,width*.055,height*.045,0,0,Math.PI*2);}
+  else{ctx.moveTo(x-width*.07,y);ctx.quadraticCurveTo(x,y+height*.035,x+width*.07,y);}
   if(open){ctx.fill();ctx.stroke();}else ctx.stroke();
   ctx.restore();
 }
@@ -3075,6 +3098,24 @@ function renderMotionLayerList() {
       input.addEventListener('click',event=>event.stopPropagation());input.addEventListener('input',event=>{layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
       line.append(input,output);wrap.append(caption,line);mouthControls.appendChild(wrap);
     });
+    const faceExpressionWrap=document.createElement('label');faceExpressionWrap.className='motion-keyframe-control';
+    const faceExpressionCaption=document.createElement('span');faceExpressionCaption.textContent='حالت چهره';
+    const faceExpressionSelect=document.createElement('select');
+    [['none','بدون افکت اضافه'],['happy','شاد'],['sad','ناراحت'],['angry','عصبانی'],['surprised','متعجب']].forEach(([value,label])=>faceExpressionSelect.add(new Option(label,value)));
+    faceExpressionSelect.value=layer.faceExpression||'none';faceExpressionSelect.addEventListener('click',event=>event.stopPropagation());
+    faceExpressionSelect.addEventListener('change',()=>{layer.faceExpression=faceExpressionSelect.value;renderMotionPreview();});
+    faceExpressionWrap.append(faceExpressionCaption,faceExpressionSelect);mouthControls.appendChild(faceExpressionWrap);
+    const eyeAnimationWrap=document.createElement('label');eyeAnimationWrap.className='motion-keyframe-control';
+    const eyeAnimationInput=document.createElement('input');eyeAnimationInput.type='checkbox';eyeAnimationInput.checked=!!layer.eyeAnimation;
+    eyeAnimationInput.addEventListener('click',event=>event.stopPropagation());eyeAnimationInput.addEventListener('change',()=>{layer.eyeAnimation=eyeAnimationInput.checked;renderMotionPreview();});
+    const eyeAnimationCaption=document.createElement('span');eyeAnimationCaption.textContent='پلک‌زدن خودکار چشم‌ها';
+    eyeAnimationWrap.append(eyeAnimationInput,eyeAnimationCaption);mouthControls.appendChild(eyeAnimationWrap);
+    const blinkRateWrap=document.createElement('label');blinkRateWrap.className='motion-keyframe-control';
+    const blinkRateCaption=document.createElement('span');blinkRateCaption.textContent='سرعت پلک‌زدن';
+    const blinkRateInput=document.createElement('input');blinkRateInput.type='range';blinkRateInput.min=1;blinkRateInput.max=10;blinkRateInput.step=1;blinkRateInput.value=Number(layer.blinkRate)||4;
+    const blinkRateOutput=document.createElement('output');blinkRateOutput.textContent=blinkRateInput.value;
+    blinkRateInput.addEventListener('click',event=>event.stopPropagation());blinkRateInput.addEventListener('input',()=>{layer.blinkRate=Number(blinkRateInput.value);blinkRateOutput.textContent=blinkRateInput.value;renderMotionPreview();});
+    blinkRateWrap.append(blinkRateCaption,blinkRateInput,blinkRateOutput);mouthControls.appendChild(blinkRateWrap);
     const mouthHint=document.createElement('small');mouthHint.textContent='این افکت روی تصویر همین لایه رسم می‌شود؛ برای نتیجه بهتر، لایه سر را انتخاب کن و شخصیت گوینده را به آن وصل کن. هنگام دیالوگ همان شخصیت، دهان به‌صورت خودکار حرکت می‌کند.';
     mouthControls.appendChild(mouthHint);mouthPanel.appendChild(mouthControls);controls.appendChild(mouthPanel);
 
