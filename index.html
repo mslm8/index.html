@@ -41,6 +41,8 @@ small{color:var(--muted);line-height:1.8}
 body:not(.authenticated)>main{display:none!important}
 
 #compareStage{position:relative;width:100%;overflow:hidden;border-radius:12px;background:#0b1020;line-height:0}#compareStage img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain}#compareAfter{position:absolute;inset:0;width:100%;height:100%;clip-path:inset(0 50% 0 0)}#compareRange{width:100%;margin:12px 0}#compareLabels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+
+#cropPreview{display:block;width:100%;max-height:55vh;object-fit:contain;background:#0b1020;border-radius:10px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -142,6 +144,35 @@ body:not(.authenticated)>main{display:none!important}
 </section>
 
 </section>
+
+<section class="card" id="cropCard" hidden>
+  <h2>برش و چرخش تصویر</h2>
+  <p><small>تصویر را ۹۰ درجه بچرخان یا نسبت برش را انتخاب کن. نسخه اصلی در تاریخچه باقی می‌ماند.</small></p>
+  <canvas id="cropPreview"></canvas>
+  <div class="grid">
+    <div>
+      <label for="cropRatio">نسبت برش</label>
+      <select id="cropRatio">
+        <option value="original">بدون برش · اندازه اصلی</option>
+        <option value="1">مربع · ۱:۱</option>
+        <option value="1.3333333">افقی · ۴:۳</option>
+        <option value="0.75">عمودی · ۳:۴</option>
+        <option value="1.7777778">عریض · ۱۶:۹</option>
+        <option value="0.5625">بلند · ۹:۱۶</option>
+      </select>
+    </div>
+    <div class="row" style="align-items:end">
+      <button id="rotateLeft" class="secondary" type="button">چرخش چپ ۹۰°</button>
+      <button id="rotateRight" class="secondary" type="button">چرخش راست ۹۰°</button>
+    </div>
+  </div>
+  <div class="row">
+    <button id="applyCrop" class="primary" type="button">اعمال برش و چرخش</button>
+    <button id="resetCrop" class="secondary" type="button">بازنشانی پیش‌نمایش</button>
+  </div>
+  <small id="cropHint">برش از مرکز تصویر انجام می‌شود؛ نسخه اصلی با امکان بازگشت حفظ می‌شود.</small>
+</section>
+
 
 <section class="card" id="editCard" hidden>
   <h2>ویرایش هوشمند تصویر</h2>
@@ -644,6 +675,75 @@ $('compareRange').addEventListener('input', event => {
   $('compareAfter').style.clipPath = 'inset(0 ' + (100 - Number(event.target.value)) + '% 0 0)';
 });
 
+
+let cropRotation = 0;
+let cropSourceUrl = '';
+function drawCropPreview() {
+  const canvas = $('cropPreview');
+  const image = $('result');
+  if (!image.complete || !image.naturalWidth) return;
+  const rotated = Math.abs(cropRotation % 180) === 90;
+  const w = rotated ? image.naturalHeight : image.naturalWidth;
+  const h = rotated ? image.naturalWidth : image.naturalHeight;
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(cropRotation * Math.PI / 180);
+  ctx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+  ctx.restore();
+  const ratio = $('cropRatio').value;
+  if (ratio !== 'original') {
+    const target = Number(ratio);
+    const cropW = Math.min(w, h * target);
+    const cropH = Math.min(h, w / target);
+    const x = (w - cropW) / 2;
+    const y = (h - cropH) / 2;
+    const preview = document.createElement('canvas');
+    preview.width = Math.max(1, Math.round(cropW));
+    preview.height = Math.max(1, Math.round(cropH));
+    preview.getContext('2d').drawImage(canvas, x, y, cropW, cropH, 0, 0, preview.width, preview.height);
+    canvas.width = preview.width;
+    canvas.height = preview.height;
+    canvas.getContext('2d').drawImage(preview, 0, 0);
+  }
+}
+function openCropTool() {
+  cropRotation = 0;
+  cropSourceUrl = currentImageUrl || '';
+  $('cropRatio').value = 'original';
+  $('cropCard').hidden = !cropSourceUrl;
+  if (cropSourceUrl) drawCropPreview();
+}
+function applyCropTransform() {
+  if (!currentImageUrl || generationInProgress) return;
+  const canvas = $('cropPreview');
+  if (!canvas.width || !canvas.height) return;
+  try {
+    const output = document.createElement('canvas');
+    const maxEdge = 1536;
+    const scale = Math.min(1, maxEdge / Math.max(canvas.width, canvas.height));
+    output.width = Math.max(1, Math.round(canvas.width * scale));
+    output.height = Math.max(1, Math.round(canvas.height * scale));
+    const ctx = output.getContext('2d');
+    if (!ctx) throw new Error('ساخت تصویر خروجی ممکن نشد.');
+    ctx.drawImage(canvas, 0, 0, output.width, output.height);
+    const data = output.toDataURL('image/webp', 0.92);
+    if (!data.startsWith('data:image/webp;base64,')) throw new Error('خروجی WebP ساخته نشد.');
+    displayImage(data, '', 'برش و چرخش');
+    $('cropHint').textContent = 'تغییر اعمال شد؛ نسخه قبلی با دکمه بازگشت قابل بازیابی است.';
+    openCropTool();
+  } catch (error) {
+    $('cropHint').textContent = 'اعمال تغییر ناموفق بود: ' + error.message;
+  }
+}
+$('rotateLeft').addEventListener('click', () => { cropRotation = (cropRotation + 270) % 360; drawCropPreview(); });
+$('rotateRight').addEventListener('click', () => { cropRotation = (cropRotation + 90) % 360; drawCropPreview(); });
+$('cropRatio').addEventListener('change', drawCropPreview);
+$('resetCrop').addEventListener('click', openCropTool);
+$('applyCrop').addEventListener('click', applyCropTransform);
+
 function displayImage(imageValue, seed, model) {
   const url = imageSource(imageValue);
   if (currentImageUrl && currentImageUrl !== url) {
@@ -665,6 +765,7 @@ function displayImage(imageValue, seed, model) {
   img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
   img.src = url;
   img.hidden = false;
+  $('cropCard').hidden = false;
   $('motionCard').hidden = false;
   $('editCard').hidden = false;
   $('animate').disabled = false;
@@ -731,8 +832,10 @@ function restorePreviousImage() {
     resetMaskCanvas();
     $('undoImage').hidden = previousImages.length === 0;
     updateComparison();
+    $('cropCard').hidden = false;
     $('motionCard').hidden = false;
     $('editCard').hidden = false;
+    openCropTool();
     $('animate').disabled = false;
     $('editHint').textContent = 'تصویر قبلی بازیابی شد. انتخاب ناحیه قبلی پاک شده است.';
     setStatus('به نسخه قبلی تصویر برگشتی.');
