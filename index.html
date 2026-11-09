@@ -4,146 +4,274 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101323">
-<script src="https://js.puter.com/v2/"></script>
 <title>AI Animator Studio</title>
 <style>
-:root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd;--warn:#ffd27a}
+:root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd;--warn:#ffd27a;--bad:#ff8b8b}
 *{box-sizing:border-box}
 body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
-main{max-width:760px;margin:auto;padding:18px 14px 40px}
+main{max-width:780px;margin:auto;padding:18px 14px 40px}
 header{padding:18px 4px}
-h1{font-size:25px;margin:0 0 6px}
-h2{font-size:17px;margin:0 0 8px}
+h1{font-size:25px;margin:10px 0 6px}
+h2{font-size:17px;margin:0 0 10px}
 p{color:var(--muted);line-height:1.8}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
 label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}
-textarea{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;min-height:130px;resize:vertical}
+textarea,select,input{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit}
+textarea{min-height:120px;resize:vertical}
 button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer}
 button:disabled{opacity:.5;cursor:not-allowed}
-#generate{width:100%;margin-top:12px}
+.primary{width:100%;margin-top:12px}
+.secondary{background:#303953}
+.danger{background:#8b3545}
 #status{font-size:13px;color:var(--b);margin-top:12px;white-space:pre-wrap;line-height:1.8}
-img{display:block;max-width:100%;border-radius:12px;margin-top:14px}
+#result{display:block;max-width:100%;max-height:75vh;border-radius:12px;margin-top:14px}
 a{color:var(--b)}
 small{color:var(--muted);line-height:1.8}
 .pill{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:5px 10px;color:var(--b);font-size:12px}
-.note{border-right:3px solid var(--warn);padding:8px 12px;background:#26243a;border-radius:8px}
+.note{border-right:3px solid var(--warn);padding:9px 12px;background:#26243a;border-radius:8px;margin-top:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row button{flex:1}
+[hidden]{display:none!important}
+@media(max-width:520px){.grid{grid-template-columns:1fr}h1{font-size:22px}}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <div class="row"><span class="pill">نسخه آزمایشی</span><span class="pill">مناسب موبایل</span></div>
+  <span class="pill">نسخه آزمایشی · بدون کلید API</span>
   <h1>AI Animator Studio</h1>
-  <p>ساخت تصویر از توضیح متنی؛ با نمایش خطاهای واقعی و بدون خرید خودکار اعتبار.</p>
+  <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
 
 <section class="card">
   <h2>تولید تصویر</h2>
-  <label for="prompt">توضیح دقیق صحنه</label>
-  <textarea id="prompt" maxlength="1500" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است؛ هر دو در یک مزرعه سرسبز هستند. تصویر باید دقیقاً همین دو حیوان و همین عمل را نشان دهد."></textarea>
-  <small id="counter">۰ از ۱۵۰۰ نویسه</small>
-  <button id="generate" type="button">تولید تصویر</button>
-  <div id="status" role="status" aria-live="polite">توضیح صحنه را وارد کن و دکمه تولید را بزن.</div>
+  <label for="prompt">توضیح صحنه</label>
+  <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
+  <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
+  <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
+  <div class="grid">
+    <div>
+      <label for="model">مدل تصویرسازی فعال</label>
+      <select id="model"><option value="">در حال دریافت فهرست مدل‌ها...</option></select>
+    </div>
+    <div>
+      <label for="size">اندازه تصویر</label>
+      <select id="size">
+        <option value="512">512 × 512 · سازگاری بیشتر</option>
+        <option value="768">768 × 768 · جزئیات بیشتر</option>
+        <option value="1024">1024 × 1024 · در صورت پشتیبانی کارگر</option>
+      </select>
+    </div>
+  </div>
+  <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
+  <div class="row">
+    <button id="cancel" class="danger" type="button" disabled>لغو درخواست</button>
+    <button id="refreshModels" class="secondary" type="button">به‌روزرسانی مدل‌ها</button>
+  </div>
+  <div id="status" role="status" aria-live="polite">در حال بررسی سرویس رایگان...</div>
   <img id="result" hidden alt="تصویر تولیدشده">
-  <p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر در صفحه جداگانه</a></p>
+  <p><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a></p>
 </section>
 
 <section class="card">
-  <h2>وضعیت موتور ویدئو</h2>
-  <p>موتور ویدئو هنوز به این وب‌سایت متصل نشده است. ابزارهای متصل به ChatGPT مستقیماً در اختیار صفحه عمومی سایت قرار نمی‌گیرند؛ برای اتصال امن آن‌ها به یک بک‌اند نیاز داریم.</p>
-  <div class="note"><small>هیچ کلید API یا رمز محرمانه‌ای نباید داخل کد عمومی سایت قرار بگیرد. فعلاً هیچ سرویس پولی یا خرید اعتباری به‌صورت خودکار فعال نمی‌شود.</small></div>
+  <h2>وضعیت ساخت ویدئو</h2>
+  <p>تولید ویدئوی هوش مصنوعی هنوز به این سایت وصل نشده است. سرویس‌های ویدئویی متصل به ChatGPT از داخل صفحه عمومی سایت قابل‌فراخوانی نیستند و موتورهای ابری فعلی هزینه دارند. تا پیدا شدن راه‌حل رایگان و امن، دکمه ویدئو را فعال نمی‌کنم.</p>
 </section>
 
 <section class="card">
-  <h2>محدودیت فعلی</h2>
-  <p>تولید تصویر از طریق سرویس مرورگری Puter امتحان می‌شود. اگر سرویس ورود، اعتبار یا پرداخت بخواهد، سایت متوقف می‌شود و چیزی خریداری نمی‌کند. کیفیت و تطابق کامل با متن تضمین‌شدنی نیست.</p>
+  <h2>محدودیت‌های سرویس رایگان تصویر</h2>
+  <div class="note"><small>این سرویس با رایانه‌های داوطلبان کار می‌کند؛ درخواست ناشناس اولویت پایین‌تری دارد و ممکن است در صف بماند یا به‌دلیل نبود کارگر مناسب منقضی شود. هزینه پولی ندارد، اما سرعت و دسترس‌پذیری تضمین‌شده نیست.</small></div>
+  <p><small>برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. درخواست‌ها روی رایانه داوطلبان پردازش می‌شوند و اپراتور آن رایانه ممکن است به متن و تصویر دسترسی داشته باشد.</small></p>
+  <p><small>برای نتیجه دقیق‌تر، تعداد سوژه‌ها، نوع هر سوژه و کاری که انجام می‌دهد را روشن و جداگانه بنویس. هیچ مدل تصویری پیروی کامل از متن را تضمین نمی‌کند.</small></p>
+  <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">صفحه رسمی تولید تصویر AI Horde</a> در دسترس است.</small></p>
 </section>
 <footer><small>AI Animator Studio</small></footer>
 </main>
 
 <script>
+const API = 'https://aihorde.net/api/v2';
+const ANON_KEY = '0000000000';
+const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
-const promptBox = $('prompt');
-const button = $('generate');
-const statusBox = $('status');
-const result = $('result');
-const openImage = $('openImage');
+let activeRequestId = null;
+let polling = false;
+let currentImageUrl = null;
 
-promptBox.addEventListener('input', () => {
-  $('counter').textContent = promptBox.value.length.toLocaleString('fa-IR') + ' از ۱۵۰۰ نویسه';
-});
-
-function showError(message) {
-  statusBox.textContent = message;
-  button.disabled = false;
+function setStatus(message, color) {
+  $('status').textContent = message;
+  $('status').style.color = color || 'var(--b)';
+}
+async function apiFetch(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  headers.set('apikey', ANON_KEY);
+  headers.set('Client-Agent', CLIENT_AGENT);
+  if (options.body) headers.set('Content-Type', 'application/json');
+  const response = await fetch(API + path, {...options, headers});
+  const text = await response.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch {}
+  if (!response.ok) {
+    const message = data.message || data.rc || ('HTTP ' + response.status);
+    throw new Error(message);
+  }
+  return data;
 }
 
-button.addEventListener('click', generateImage);
+async function loadModels() {
+  const select = $('model');
+  $('refreshModels').disabled = true;
+  select.innerHTML = '<option value="">در حال دریافت مدل‌های فعال...</option>';
+  setStatus('در حال بررسی اتصال و مدل‌های فعال...');
+  try {
+    const models = await apiFetch('/status/models?type=image');
+    const available = Array.isArray(models) ? models.filter(m => m && m.name && Number(m.count || 0) > 0) : [];
+    available.sort((a,b) => Number(b.count || 0) - Number(a.count || 0));
+    select.innerHTML = '';
+    if (!available.length) {
+      select.innerHTML = '<option value="">فعلاً مدل فعالی گزارش نشده</option>';
+      setStatus('اتصال برقرار است، اما در حال حاضر مدل فعالی برای تصویر گزارش نشده است.', 'var(--warn)');
+      $('generate').disabled = true;
+      return;
+    }
+    for (const item of available) {
+      const option = document.createElement('option');
+      option.value = item.name;
+      option.textContent = item.name + ' · ' + item.count + ' کارگر';
+      select.appendChild(option);
+    }
+    const preferred = available.find(m => /AlbedoBase XL 3.1|Juggernaut XL|DreamShaper XL/i.test(m.name));
+    if (preferred) select.value = preferred.name;
+    $('generate').disabled = false;
+    setStatus('اتصال برقرار است؛ ' + available.length + ' مدل فعال پیدا شد. درخواست ناشناس ممکن است در صف بماند.');
+  } catch (error) {
+    select.innerHTML = '<option value="">فهرست مدل‌ها دریافت نشد</option>';
+    $('generate').disabled = true;
+    setStatus('اتصال به سرویس تصویر برقرار نشد: ' + error.message + ' اگر خطا ادامه داشت، از لینک رسمی پایین همین صفحه استفاده کن.', 'var(--warn)');
+  } finally {
+    $('refreshModels').disabled = false;
+  }
+}
 
 async function generateImage() {
-  const prompt = promptBox.value.trim();
-  if (!prompt) {
-    statusBox.textContent = 'اول توضیح صحنه را بنویس.';
-    return;
-  }
-  if (prompt.length > 1500) {
-    statusBox.textContent = 'متن باید حداکثر ۱۵۰۰ نویسه باشد.';
-    return;
-  }
-  if (!window.puter || !puter.ai || typeof puter.ai.txt2img !== 'function') {
-    showError('موتور تصویر در این مرورگر بارگذاری نشد. اتصال اینترنت و بارگذاری صفحه را بررسی کن.');
-    return;
-  }
+  const prompt = $('prompt').value.trim();
+  const model = $('model').value;
+  if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
+  if (!model) { setStatus('یک مدل فعال انتخاب کن.', 'var(--warn)'); return; }
+  if (activeRequestId || polling) return;
 
-  button.disabled = true;
-  result.hidden = true;
-  openImage.hidden = true;
-  statusBox.textContent = 'در حال ارسال درخواست تصویرسازی...';
-
-  const detailedPrompt =
-    'Create a literal, faithful image of this exact scene. Preserve every named subject, its identity, count, color, and action. Do not replace one animal or object with another. Do not add people or change the described action. Scene: ' +
-    prompt;
+  const negative = $('negative').value.trim();
+  const fullPrompt = negative ? prompt + ' ### ' + negative : prompt;
+  const dimension = Number($('size').value);
+  $('generate').disabled = true;
+  $('cancel').disabled = true;
+  $('result').hidden = true;
+  $('download').hidden = true;
+  setStatus('در حال ارسال درخواست به صف رایگان...');
 
   try {
-    const generated = await puter.ai.txt2img(detailedPrompt, {
-      model: 'gpt-image-2.6-flare',
-      quality: 'low'
+    const submitted = await apiFetch('/generate/async', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: fullPrompt,
+        params: {
+          width: dimension,
+          height: dimension,
+          steps: 25,
+          n: 1,
+          cfg_scale: 7.5,
+          sampler_name: 'k_euler_a',
+          karras: true
+        },
+        models: [model],
+        nsfw: false,
+        censor_nsfw: true,
+        trusted_workers: false,
+        slow_workers: true,
+        extra_slow_workers: true,
+        allow_downgrade: true,
+        replacement_filter: true,
+        r2: true,
+        shared: false
+      })
     });
-
-    const imageUrl = generated && (generated.src || generated.url);
-    if (!imageUrl) {
-      throw new Error('سرویس تصویری بدون نشانی تصویر پاسخ داد.');
-    }
-
-    result.onload = () => {
-      statusBox.textContent = 'تصویر آماده شد. برای ذخیره، روی تصویر نگه‌دار یا آن را در صفحه جداگانه باز کن.';
-      openImage.href = imageUrl;
-      openImage.hidden = false;
-      button.disabled = false;
-    };
-    result.onerror = () => {
-      result.hidden = true;
-      showError('تصویر ساخته شد، اما بارگذاری آن ناموفق بود. دوباره تلاش کن.');
-    };
-    result.src = imageUrl;
-    result.hidden = false;
-    statusBox.textContent = 'پاسخ دریافت شد؛ در حال نمایش تصویر...';
+    if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
+    activeRequestId = submitted.id;
+    $('cancel').disabled = false;
+    setStatus('درخواست ثبت شد. در صف انتظار هستی؛ ممکن است چند دقیقه طول بکشد.');
+    await pollRequest(submitted.id);
   } catch (error) {
-    const message = String(error && (error.message || error.code) || error);
-    if (/402|insufficient_funds|credit|allowance|payment/i.test(message)) {
-      showError('سرویس برای این درخواست اعتبار یا پرداخت می‌خواهد. برای جلوگیری از هزینه، هیچ ارتقا یا خریدی انجام نده.');
-    } else if (/auth|sign.?in|login|unauthor/i.test(message)) {
-      showError('این سرویس ورود به حساب می‌خواهد. برای این پروژه شماره تلفن یا اطلاعات پرداخت وارد نکن؛ فعلاً تولید تصویر در این سرویس در دسترس نیست.');
-    } else {
-      showError('تولید تصویر ناموفق بود: ' + message);
-    }
+    setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
+  } finally {
+    activeRequestId = null;
+    polling = false;
+    $('generate').disabled = !$('model').value;
+    $('cancel').disabled = true;
   }
 }
 
-window.addEventListener('error', () => {
-  showError('خطای اجرای صفحه رخ داد. صفحه را دوباره بارگذاری کن.');
-});
+async function pollRequest(id) {
+  polling = true;
+  const started = Date.now();
+  while (Date.now() - started < 15 * 60 * 1000) {
+    if (activeRequestId !== id) return;
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    if (activeRequestId !== id) return;
+    const check = await apiFetch('/generate/check/' + encodeURIComponent(id));
+    if (check.faulted) throw new Error('درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.');
+    if (check.done) {
+      setStatus('تصویر آماده شد؛ در حال دریافت نتیجه...');
+      const finalResult = await apiFetch('/generate/status/' + encodeURIComponent(id));
+      const generation = finalResult.generations && finalResult.generations[0];
+      if (!generation || !generation.img) throw new Error('درخواست تمام شد اما تصویر در پاسخ وجود نداشت.');
+      displayImage(generation.img, generation.seed, generation.model);
+      return;
+    }
+    const position = Number(check.queue_position || 0);
+    const wait = Number(check.wait_time || 0);
+    let message = check.processing ? 'در حال ساخت تصویر روی رایانه داوطلب...' : 'در صف انتظار برای رایانه داوطلب...';
+    if (position > 0) message += '\nجایگاه صف: ' + position;
+    if (wait > 0) message += '\nزمان تخمینی صف: حدود ' + Math.ceil(wait / 60) + ' دقیقه';
+    setStatus(message);
+  }
+  throw new Error('درخواست بیش از ۱۵ دقیقه در صف ماند. بعداً دوباره امتحان کن.');
+}
+
+function displayImage(imageValue, seed, model) {
+  let url = imageValue;
+  if (typeof imageValue === 'string' && !/^https?:\/\//i.test(imageValue) && !/^data:/i.test(imageValue)) {
+    url = 'data:image/webp;base64,' + imageValue;
+  }
+  if (currentImageUrl && currentImageUrl.startsWith('blob:')) URL.revokeObjectURL(currentImageUrl);
+  currentImageUrl = url;
+  const img = $('result');
+  img.onload = () => {
+    $('download').href = url;
+    $('download').hidden = false;
+    setStatus('تصویر آماده شد.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
+  };
+  img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
+  img.src = url;
+  img.hidden = false;
+}
+
+async function cancelRequest() {
+  if (!activeRequestId) return;
+  const id = activeRequestId;
+  activeRequestId = null;
+  $('cancel').disabled = true;
+  setStatus('در حال لغو درخواست...');
+  try {
+    await apiFetch('/generate/status/' + encodeURIComponent(id), {method:'DELETE'});
+    setStatus('درخواست لغو شد.');
+  } catch (error) {
+    setStatus('درخواست لغو ارسال شد؛ وضعیت نهایی ممکن است با کمی تأخیر به‌روزرسانی شود: ' + error.message, 'var(--warn)');
+  }
+}
+$('generate').addEventListener('click', generateImage);
+$('cancel').addEventListener('click', cancelRequest);
+$('refreshModels').addEventListener('click', loadModels);
+loadModels();
 </script>
 </body>
 </html>
