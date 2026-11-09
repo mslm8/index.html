@@ -2589,12 +2589,15 @@ async function autoBuildEpisodeFromStory(){
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;
-  try{await refreshFreeEngineManager(status);}catch(engineError){button.disabled=false;setStatus('بررسی موتورهای رایگان ناموفق بود: '+engineError.message,'var(--warn)');return;}
+  freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
+  if(!freeEngineManagerState.canvas){button.disabled=false;setStatus('ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.','var(--warn)');return;}
+  smartTextModelChoices=[];smartModelChoices=[];
+  status.textContent='حالت سریع فعال شد؛ بدون صف انتظار موتورهای آنلاین، داستان و صحنه‌ها به‌صورت داخلی آماده می‌شوند.';
   const saved={prompt:$('prompt').value,style:$('style').value,framing:$('framing').value};
   const sceneStyle='Create a clean, high-quality 2D animated cartoon background plate for an original science-fiction comedy. Environment only, no people, no characters, no text, no lettering, no speech bubbles. ';
   try{
     let plans=null;
-    try{plans=await requestAutomaticScreenplay(raw,status);}catch(error){status.textContent='هوش متن فعلاً پاسخ نداد؛ تقسیم‌بندی داخلی داستان فعال شد. '+error.message;}
+    // Fast path: never wait in volunteer AI Horde queues during one-click episode creation.
     if(!plans){
       const paragraphs=raw.split(/\n+|(?<=[.!؟?])\s+(?=\S)/u).map(part=>part.trim()).filter(Boolean);
       const count=Math.min(6,Math.max(1,paragraphs.length));
@@ -2661,7 +2664,7 @@ async function autoBuildEpisodeFromStory(){
       if(!useLocalBackgrounds){
         $('prompt').value=sceneStyle+scene.storyText;
         const previousImageUrl=$('result')?.src||'';
-        status.textContent='ساخت خودکار قسمت: تولید پس‌زمینه صحنه '+(index+1)+' از '+nextScenes.length+'؛ ممکن است صف رایگان طول بکشد...';
+        status.textContent='ساخت صحنه '+(index+1)+' از '+nextScenes.length+'؛ حالت سریع با پس‌زمینه داخلی فعال است.';
         try{
           await Promise.race([generateImageUnlocked(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('تولید تصویر بیش از ۹۰ ثانیه طول کشید')),90000))]);
           const source=$('result');
