@@ -2836,7 +2836,7 @@ function getRigWorldTransform(layer,layers,progress,canvas){
   return resolve(layer,new Set(layer.rigId?[layer.rigId]:[]));
 }
 function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
-  const active=(dialogues||[]).some(item=>item.speaker===layer.name&&item.text&&progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100);
+  const active=(dialogues||[]).some(item=>item.text&&(layer.characterId?item.speakerId===layer.characterId:(item.speaker===layer.characterName||item.speaker===layer.name))&&progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100);
   const mode=active?'talk':(layer.mouthMode||'off');
   if(mode==='off')return;
   const x=(Number(layer.mouthX??50)/100-.5)*width;
@@ -2989,6 +2989,14 @@ function renderMotionLayerList() {
     const mouthPanel=document.createElement('details');mouthPanel.className='motion-keyframes';
     const mouthSummary=document.createElement('summary');mouthSummary.textContent='تنظیمات دهان و هماهنگی دیالوگ';mouthPanel.appendChild(mouthSummary);
     const mouthControls=document.createElement('div');mouthControls.className='motion-keyframe-grid';
+    const characterWrap=document.createElement('label');characterWrap.className='motion-keyframe-control';
+    const characterCaption=document.createElement('span');characterCaption.textContent='اتصال این لایه صورت به شخصیت گوینده';
+    const characterSelect=document.createElement('select');characterSelect.add(new Option('بدون اتصال به شخصیت',''));
+    motionCharacters.forEach(character=>characterSelect.add(new Option(character.name,character.id)));
+    characterSelect.value=layer.characterId||'';
+    characterSelect.addEventListener('click',event=>event.stopPropagation());
+    characterSelect.addEventListener('change',()=>{layer.characterId=characterSelect.value;const character=motionCharacters.find(item=>item.id===layer.characterId);layer.characterName=character?.name||'';renderMotionPreview();});
+    characterWrap.append(characterCaption,characterSelect);mouthControls.appendChild(characterWrap);
     const mouthModeWrap=document.createElement('label');mouthModeWrap.className='motion-keyframe-control';
     const mouthModeCaption=document.createElement('span');mouthModeCaption.textContent='حالت دهان';
     const mouthMode=document.createElement('select');mouthMode.add(new Option('خاموش','off'));mouthMode.add(new Option('لبخند','smile'));mouthMode.add(new Option('اخمو','frown'));mouthMode.add(new Option('باز','open'));mouthMode.add(new Option('گفتار خودکار','talk'));
@@ -3004,7 +3012,7 @@ function renderMotionLayerList() {
       input.addEventListener('click',event=>event.stopPropagation());input.addEventListener('input',event=>{layer[key]=Number(input.value);output.textContent=input.value+'%';renderMotionPreview();});
       line.append(input,output);wrap.append(caption,line);mouthControls.appendChild(wrap);
     });
-    const mouthHint=document.createElement('small');mouthHint.textContent='این افکت روی تصویر همین لایه رسم می‌شود؛ برای نتیجه بهتر، یک لایه مخصوص صورت انتخاب کن. با فعال بودن دیالوگِ گوینده هم‌نام لایه، دهان به‌صورت خودکار حرکت می‌کند.';
+    const mouthHint=document.createElement('small');mouthHint.textContent='این افکت روی تصویر همین لایه رسم می‌شود؛ برای نتیجه بهتر، لایه سر را انتخاب کن و شخصیت گوینده را به آن وصل کن. هنگام دیالوگ همان شخصیت، دهان به‌صورت خودکار حرکت می‌کند.';
     mouthControls.appendChild(mouthHint);mouthPanel.appendChild(mouthControls);controls.appendChild(mouthPanel);
 
     const details=document.createElement('details');details.className='motion-keyframes';
@@ -3154,7 +3162,7 @@ $('createProceduralCharacter').addEventListener('click',async()=>{
       const layer=loaded[i];
       if(layer===root)continue;
       const part=parts.find(p=>p.name===layer.name);
-      layer.rigId=id+'-'+part.role;layer.parentLayerId=root.rigId;layer.rigRole=part.role;
+      layer.rigId=id+'-'+part.role;layer.parentLayerId=root.rigId;layer.rigRole=part.role;if(part.role==='head'){layer.mouthMode='smile';layer.mouthX=50;layer.mouthY=73;}
       layer.jointX=part.jx;layer.jointY=part.jy;layer.jointOffsetX=part.ox;layer.jointOffsetY=part.oy;
       layer.startX=50;layer.startY=60;layer.endX=50;layer.endY=60;
     }
