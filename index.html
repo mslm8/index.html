@@ -180,6 +180,32 @@ body.authenticated main>footer{display:none}
  body.authenticated #studioNav button{font-size:clamp(9px,2.7vw,11px);padding:7px 1px;min-height:38px}
 }
 
+
+/* Refined image-editing workspace */
+#toolsPanel>.viewHeading{padding:8px 5px 15px}
+#toolsPanel>.viewHeading h1{font-size:25px;letter-spacing:-.45px}
+#toolsPanel>.viewHeading p{font-size:13px;max-width:520px}
+#toolsPanel .card{border-radius:20px;padding:18px;background:linear-gradient(145deg,rgba(29,39,66,.96),rgba(14,21,39,.96))}
+#toolsPanel .card h2{display:flex;align-items:center;gap:9px;font-size:17px;margin-bottom:10px}
+#toolsPanel #cropCard h2:before,#toolsPanel #editCard h2:before,#toolsPanel #motionCard h2:before{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:10px;font-size:16px}
+#toolsPanel #cropCard h2:before{content:"↗";color:#b8adff;background:rgba(137,117,255,.15)}
+#toolsPanel #editCard h2:before{content:"✧";color:#72e7d0;background:rgba(66,224,193,.12)}
+#toolsPanel #motionCard h2:before{content:"▶";color:#ffd27a;background:rgba(255,210,122,.12)}
+#toolsPanel .card>p{font-size:13px;line-height:1.85;margin:7px 0 13px}
+#toolsPanel .card .note{margin:15px 0 10px}
+#toolsPanel .card .grid{align-items:end}
+#toolsPanel .card .row{margin-top:10px}
+#toolsPanel .card button.primary{min-height:48px}
+#toolsPanel #editHint,#toolsPanel #cropHint{display:block;margin-top:12px;line-height:1.8}
+#toolsPanel #maskEditor{margin-top:14px;border-radius:16px}
+#toolsPanel #videoPreview{background:#080d19;border:1px solid var(--line)}
+#toolsPanel #downloadVideo{display:inline-block;padding:8px 0;font-weight:700}
+@media(max-width:520px){
+ #toolsPanel>.viewHeading h1{font-size:22px}
+ #toolsPanel .card{padding:15px}
+ #toolsPanel .card .row button{min-width:0}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
