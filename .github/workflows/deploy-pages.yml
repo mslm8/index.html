@@ -15,7 +15,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate HTML and inline JavaScript
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('index.html', 'utf8');
+          if (!/<html\\s+lang=["']fa["']\\s+dir=["']rtl["']/.test(html)) throw new Error('Persian RTL document declaration is missing.');
+          if (!/<\\/html>\\s*$/i.test(html)) throw new Error('HTML document closing tag is missing.');
+          const ids = [...html.matchAll(/\\bid=["']([^"']+)["']/g)].map(match => match[1]);
+          const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+          if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + [...new Set(duplicates)].join(', '));
+          const required = ['requestAutomaticScreenplay', 'extractScreenplayObject', 'generateCloudflareBackground', 'renderMotionPreview', 'pollRequest'];
+          for (const name of required) if (!html.includes(name)) throw new Error('Required animation pipeline component missing: ' + name);
+          const scripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          let checked = 0;
+          for (const [, attrs, source] of scripts) {
+            if (/\\bsrc\\s*=/.test(attrs) || !source.trim()) continue;
+            new vm.Script(source, { filename: 'index.html:inline-script-' + (++checked) });
+          }
+          if (!checked) throw new Error('No inline JavaScript was validated.');
+          console.log('Validated ' + checked + ' inline scripts and ' + ids.length + ' unique HTML IDs.');
+          NODE
+      - name: Check Cloudflare Worker JavaScript
+        run: node --input-type=module --check < worker.js
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Function
+        run: deno check supabase/functions/fal-gateway/index.ts
+      - name: Ensure a single GitHub Pages deployer
+        run: |
+          count=$(grep -R "uses: actions/deploy-pages@" .github/workflows --include='*.yml' | wc -l)
+          test "$count" -eq 1
+
   deploy:
+    needs: validate
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
