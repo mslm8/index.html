@@ -2470,6 +2470,14 @@ $('cancel').addEventListener('click', cancelRequest);
     try {
       const { error } = await client.auth.signOut({ scope: 'global' });
       if (error) throw error;
+      clearPendingRequest('');
+      activeRequestId = null;
+      polling = false;
+      generationInProgress = false;
+      pendingRecoveryStarted = false;
+      $('generate').disabled = smartModelChoices.length === 0;
+      $('editImage').disabled = false;
+      $('cancel').disabled = true;
       document.body.classList.remove('authenticated');
       gate.hidden = false;
       if (login) login.disabled = false;
@@ -2500,6 +2508,14 @@ $('cancel').addEventListener('click', cancelRequest);
   client.auth.onAuthStateChange((event, session) => {
     if (session) showSignedIn(session);
     else if (event === 'SIGNED_OUT') {
+      clearPendingRequest('');
+      activeRequestId = null;
+      polling = false;
+      generationInProgress = false;
+      pendingRecoveryStarted = false;
+      $('generate').disabled = smartModelChoices.length === 0;
+      $('editImage').disabled = false;
+      $('cancel').disabled = true;
       document.body.classList.remove('authenticated');
       gate.hidden = false;
       login.disabled = false;
