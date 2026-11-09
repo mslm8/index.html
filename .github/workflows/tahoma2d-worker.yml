@@ -104,7 +104,7 @@ jobs:
           # The documented default project is Tahoma stuff/sandbox.
           PROJECT="$TAHOMA_ROOT/sandbox"
           SCENES="$PROJECT/+scenes"
-          SCRIPT="$SCENES/tahoma2d-smoke.js"
+          SCRIPT="$SCENES/tahoma2d-smoke.toonzscript"
           OUTPUT="$SCENES/tahoma2d-smoke.tnz"
           LOG="$RUNNER_TEMP/tahoma2d-script.log"
           mkdir -p "$SCENES"
