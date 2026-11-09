@@ -94,6 +94,24 @@ body:not(.authenticated)>main{display:none!important}
         <option value="26">جزئیات بیشتر · ۲۶ مرحله</option>
       </select>
     </div>
+    <div>
+      <label for="style">سبک هنری</label>
+      <select id="style">
+        <option value="none">بدون تغییر سبک</option>
+        <option value="photorealistic">واقع‌گرایانه و عکاسی</option>
+        <option value="cinematic">سینمایی</option>
+        <option value="anime">انیمه</option>
+        <option value="3d">سه‌بعدی و کارتونی</option>
+        <option value="watercolor">آبرنگ</option>
+        <option value="oil">نقاشی رنگ‌روغن</option>
+        <option value="pixel">پیکسل‌آرت</option>
+        <option value="fantasy">فانتزی</option>
+      </select>
+    </div>
+    <div>
+      <label for="seed">Seed اختیاری (برای تکرارپذیری)</label>
+      <input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="خالی = تصادفی">
+    </div>
   </div>
   <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
   <div class="row">
@@ -326,9 +344,30 @@ async function generateImage() {
     setStatus('هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.', 'var(--warn)');
     return;
   }
+  const stylePrompts = {
+    none: '',
+    photorealistic: 'Photorealistic photography, natural textures, realistic lighting and physically plausible details.',
+    cinematic: 'Cinematic visual style, intentional composition, dramatic but natural lighting, rich filmic color grading.',
+    anime: 'High-quality anime illustration, clean expressive linework, carefully rendered colors and backgrounds.',
+    '3d': 'Polished 3D cartoon render, appealing materials, dimensional lighting and clean detailed rendering.',
+    watercolor: 'Traditional watercolor painting, translucent layered pigments, soft edges and visible paper texture.',
+    oil: 'Classical oil painting, rich brushwork, layered pigments and painterly texture.',
+    pixel: 'Detailed pixel art, crisp pixel clusters, controlled limited palette and clean pixel edges.',
+    fantasy: 'Whimsical fantasy illustration, imaginative atmosphere, intricate environmental details and luminous lighting.'
+  };
+  const selectedStyle = stylePrompts[$('style').value] || '';
+  const styledPrompt = selectedStyle ? translatedPrompt + '. ' + selectedStyle : translatedPrompt;
   const fullPrompt = translatedNegative
-    ? translatedPrompt + ' ### ' + translatedNegative
-    : translatedPrompt;
+    ? styledPrompt + ' ### ' + translatedNegative
+    : styledPrompt;
+  const seedText = $('seed').value.trim();
+  const seedValue = seedText === '' ? undefined : Number(seedText);
+  if (seedValue !== undefined && (!Number.isSafeInteger(seedValue) || seedValue < 0 || seedValue > 4294967295)) {
+    setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.', 'var(--warn)');
+    generationInProgress = false;
+    $('generate').disabled = smartModelChoices.length === 0;
+    return;
+  }
   const dimension = Number($('size').value);
   const aspectDimensions = {
     square: [1, 1],
@@ -360,7 +399,8 @@ async function generateImage() {
           n: 1,
           cfg_scale: 7.5,
           sampler_name: 'k_euler_a',
-          karras: true
+          karras: true,
+          ...(seedValue === undefined ? {} : {seed: String(seedValue)})
         },
         models: candidates,
         nsfw: false,
