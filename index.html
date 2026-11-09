@@ -144,6 +144,16 @@ body:not(.authenticated)>main{display:none!important}
       </select>
     </div>
     <div>
+      <label for="depth">عمق میدان و وضوح پس‌زمینه</label>
+      <select id="depth">
+        <option value="auto">خودکار</option>
+        <option value="deep">پس‌زمینه واضح · عمق میدان زیاد</option>
+        <option value="shallow">پس‌زمینه محو · عمق میدان کم</option>
+        <option value="bokeh">بوکه نرم و هنری</option>
+        <option value="macro">نمای ماکرو با پس‌زمینه محو</option>
+      </select>
+    </div>
+    <div>
       <label for="style">سبک هنری</label>
       <select id="style">
         <option value="none">بدون تغییر سبک</option>
@@ -572,7 +582,14 @@ async function generateImage() {
   };
   const selectedLighting = lightingPrompts[$('lighting').value] || '';
   const selectedPalette = palettePrompts[$('palette').value] || '';
-  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette].filter(Boolean);
+  const depthPrompts = {
+    deep: 'Depth of field: deep focus, keep the main subject and background clearly detailed.',
+    shallow: 'Depth of field: shallow focus, keep the main subject sharp with a softly blurred background.',
+    bokeh: 'Depth of field: artistic shallow focus with smooth, soft background bokeh.',
+    macro: 'Photography: macro close-up with precise subject detail and a gently blurred background.'
+  };
+  const selectedDepth = depthPrompts[$('depth').value] || '';
+  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth].filter(Boolean);
   const styledPrompt = promptParts.join('. ');
   const fullPrompt = translatedNegative
     ? styledPrompt + ' ### ' + translatedNegative
@@ -773,7 +790,7 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
   for (const id of allowed) {
     if (typeof data.fields[id] !== 'string') continue;
     const el = $(id);
@@ -839,7 +856,7 @@ function projectFields() {
     format: 'ai-animator-project',
     version: 1,
     savedAt: new Date().toISOString(),
-    fields: ['prompt','negative','size','ratio','style','framing','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
+    fields: ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','seed','editPrompt','editStrength','cropRatio','motion','motionDuration']
       .reduce((out,id) => {
         const el = $(id);
         if (el) out[id] = el.value;
