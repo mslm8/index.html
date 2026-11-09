@@ -85,6 +85,24 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Generate PostHog browser configuration
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_API_HOST: ${{ vars.POSTHOG_API_HOST }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.POSTHOG_PROJECT_TOKEN || '';
+          const host = process.env.POSTHOG_API_HOST || '';
+          if (token && !/^https:\/\/(eu|us)\.i\.posthog\.com$/.test(host)) {
+            throw new Error('POSTHOG_API_HOST must be the EU or US PostHog ingestion host.');
+          }
+          const config = token && host ? { token, host } : null;
+          fs.writeFileSync('posthog-config.js',
+            'window.__POSTHOG_CONFIG__ = ' + JSON.stringify(config) + ';\\n');
+          console.log(config ? 'PostHog browser configuration generated.' :
+            'PostHog is not configured; analytics will remain disabled until repository settings are added.');
+          NODE
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
