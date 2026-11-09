@@ -1,83 +1,149 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101323"><script src="https://js.puter.com/v2/"></script><title>AI Animator Studio</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101323">
+<script src="https://js.puter.com/v2/"></script>
+<title>AI Animator Studio</title>
 <style>
-:root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
-main{max-width:760px;margin:auto;padding:22px 14px}header{padding:20px 4px}h1{font-size:25px;margin:0 0 6px}p{color:var(--muted);line-height:1.8}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
-label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}textarea{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;min-height:130px;resize:vertical}
-button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;margin-top:12px;width:100%}button:disabled{opacity:.5}
-#status{font-size:13px;color:var(--b);margin-top:12px;white-space:pre-wrap}img{display:block;max-width:100%;border-radius:12px;margin-top:14px}a{color:var(--b)}small{color:var(--muted)}
-</style></head>
-<body><main>
-<header><h1>AI Animator Studio</h1><p>تبدیل توضیح متنی به تصویر با هوش مصنوعی</p></header>
-<section class="card">
-<label for="prompt">توضیح صحنه</label><textarea id="prompt" maxlength="1000" placeholder="مثلاً: یک شهر خیالی در غروب، نورپردازی سینمایی، جزئیات بالا..."></textarea>
-<button id="generate" type="button" onclick="generateImage()">تولید تصویر</button>
-<div id="status">متن صحنه را بنویس و دکمه تولید را بزن.</div>
-<img id="result" hidden alt="تصویر تولیدشده"><p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر برای ذخیره</a></p>
-</section>
-<section class="card"><h2>درباره موتور</h2><p>موتور تصویرسازی جدید با مدل GPT Image از طریق Puter فعال شده است.</p><small>سایت ابتدا تلاش می‌کند نشست موقت Puter را بدون ثبت‌نام بسازد. اگر سرویس این گزینه را نپذیرد، متوقف می‌شود؛ شماره تلفن یا پرداخت وارد نکن.</small></section>
-<footer><small>AI Animator Studio • نسخه موبایل</small></footer>
-</main>
-<script>
-const $=id=>document.getElementById(id);
-async function generateImage(){
- const button=$('generate');
- const prompt=$('prompt').value.trim();
- if(!prompt){$('status').textContent='اول توضیح صحنه را بنویس.';return;}
- if(prompt.length>1000){$('status').textContent='متن باید حداکثر ۱۰۰۰ نویسه باشد.';return;}
- button.disabled=true;
- $('result').hidden=true;
- $('openImage').hidden=true;
- $('status').textContent='در حال آماده‌سازی تصویر...';
- let imagePrompt=prompt;
- if(/[\u0600-\u06FF]/.test(prompt)){
-   try{
-     const params=new URLSearchParams({q:prompt,langpair:'fa|en'});
-     const tr=await fetch('https://api.mymemory.translated.net/get?'+params.toString());
-     const data=await tr.json();
-     imagePrompt=data && data.responseData && data.responseData.translatedText ? data.responseData.translatedText.trim() : '';
-     if(Number(data.responseStatus)!==200 || !imagePrompt || /[\u0600-\u06FF]/.test(imagePrompt)) throw new Error('translation failed');
-   }catch(e){$('status').textContent='ترجمه متن فارسی انجام نشد؛ اتصال اینترنت یا سرویس ترجمه در دسترس نیست.';button.disabled=false;return;}
- }
- const detailedPrompt='Create a literal, faithful image of this exact scene: '+imagePrompt+'. The main subjects and their actions must match the description exactly. Do not replace or omit any named animal, person, or object.';
- try{
-   if(!window.puter || !puter.ai || !puter.ai.txt2img) throw new Error('Puter SDK unavailable');
-   if(puter.auth && !puter.auth.isSignedIn()){
-     $('status').textContent='در حال ایجاد نشست موقت؛ نیازی به ثبت‌نام با شماره نیست...';
-     await puter.auth.signIn({attempt_temp_user_creation:true});
-   }
-   const generated=await puter.ai.txt2img(detailedPrompt,{model:'gpt-image-2.6-flare',quality:'low'});
-   const image=$('result');
-   image.src=generated.src;
-   image.onload=()=>{};
-   $('status').textContent='تصویر آماده شد.';
-   $('openImage').href=generated.src;
-   $('openImage').hidden=false;
-   image.hidden=false;
-   button.disabled=false;
- }catch(error){
-   const msg=String(error && (error.message||error.code) || error);
-   $('status').textContent=/insufficient_funds|402|credit|allowance/i.test(msg)?'سهمیه رایگان این ماه تمام شده است. برای جلوگیری از هزینه، ارتقا یا خرید اعتبار را انتخاب نکن.':'اتصال به موتور جدید ناموفق بود. اگر درخواست ورود آمد، با حساب رایگان Puter وارد شو.';
-   button.disabled=false;
- }
+:root{color-scheme:dark;--bg:#101323;--panel:#1a2035;--line:#35405f;--txt:#f3f5ff;--muted:#aab4d0;--a:#8c7bff;--b:#35d4bd;--warn:#ffd27a}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 15% 0,#29224e,transparent 36%),var(--bg);color:var(--txt);font:15px system-ui,sans-serif}
+main{max-width:760px;margin:auto;padding:18px 14px 40px}
+header{padding:18px 4px}
+h1{font-size:25px;margin:0 0 6px}
+h2{font-size:17px;margin:0 0 8px}
+p{color:var(--muted);line-height:1.8}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}
+textarea{width:100%;background:#11182b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;min-height:130px;resize:vertical}
+button{background:var(--a);border:0;border-radius:10px;color:white;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+#generate{width:100%;margin-top:12px}
+#status{font-size:13px;color:var(--b);margin-top:12px;white-space:pre-wrap;line-height:1.8}
+img{display:block;max-width:100%;border-radius:12px;margin-top:14px}
+a{color:var(--b)}
+small{color:var(--muted);line-height:1.8}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:5px 10px;color:var(--b);font-size:12px}
+.note{border-right:3px solid var(--warn);padding:8px 12px;background:#26243a;border-radius:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="row"><span class="pill">نسخه آزمایشی</span><span class="pill">مناسب موبایل</span></div>
+  <h1>AI Animator Studio</h1>
+  <p>ساخت تصویر از توضیح متنی؛ با نمایش خطاهای واقعی و بدون خرید خودکار اعتبار.</p>
+</header>
 
- const image=$('result');
- image.onload=()=>{
-   $('status').textContent='تصویر آماده شد.';
-   $('openImage').href=url;
-   $('openImage').hidden=false;
-   button.disabled=false;
- };
- image.onerror=()=>{
-   $('status').textContent='ساخت تصویر ناموفق بود. ممکن است سرویس موقتاً در دسترس نباشد یا محدودیت درخواست فعال شده باشد. کمی بعد دوباره امتحان کن.';
-   button.disabled=false;
- };
- image.src=url;
- image.hidden=false;
+<section class="card">
+  <h2>تولید تصویر</h2>
+  <label for="prompt">توضیح دقیق صحنه</label>
+  <textarea id="prompt" maxlength="1500" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است؛ هر دو در یک مزرعه سرسبز هستند. تصویر باید دقیقاً همین دو حیوان و همین عمل را نشان دهد."></textarea>
+  <small id="counter">۰ از ۱۵۰۰ نویسه</small>
+  <button id="generate" type="button">تولید تصویر</button>
+  <div id="status" role="status" aria-live="polite">توضیح صحنه را وارد کن و دکمه تولید را بزن.</div>
+  <img id="result" hidden alt="تصویر تولیدشده">
+  <p><a id="openImage" hidden target="_blank" rel="noopener">باز کردن تصویر در صفحه جداگانه</a></p>
+</section>
+
+<section class="card">
+  <h2>وضعیت موتور ویدئو</h2>
+  <p>موتور ویدئو هنوز به این وب‌سایت متصل نشده است. ابزارهای متصل به ChatGPT مستقیماً در اختیار صفحه عمومی سایت قرار نمی‌گیرند؛ برای اتصال امن آن‌ها به یک بک‌اند نیاز داریم.</p>
+  <div class="note"><small>هیچ کلید API یا رمز محرمانه‌ای نباید داخل کد عمومی سایت قرار بگیرد. فعلاً هیچ سرویس پولی یا خرید اعتباری به‌صورت خودکار فعال نمی‌شود.</small></div>
+</section>
+
+<section class="card">
+  <h2>محدودیت فعلی</h2>
+  <p>تولید تصویر از طریق سرویس مرورگری Puter امتحان می‌شود. اگر سرویس ورود، اعتبار یا پرداخت بخواهد، سایت متوقف می‌شود و چیزی خریداری نمی‌کند. کیفیت و تطابق کامل با متن تضمین‌شدنی نیست.</p>
+</section>
+<footer><small>AI Animator Studio</small></footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const promptBox = $('prompt');
+const button = $('generate');
+const statusBox = $('status');
+const result = $('result');
+const openImage = $('openImage');
+
+promptBox.addEventListener('input', () => {
+  $('counter').textContent = promptBox.value.length.toLocaleString('fa-IR') + ' از ۱۵۰۰ نویسه';
+});
+
+function showError(message) {
+  statusBox.textContent = message;
+  button.disabled = false;
 }
-window.addEventListener('error',()=>{const s=document.getElementById('status');if(s)s.textContent='خطای اجرای صفحه رخ داد. صفحه را در Chrome باز کن و دوباره امتحان کن.';});
-</script></body></html>
+
+button.addEventListener('click', generateImage);
+
+async function generateImage() {
+  const prompt = promptBox.value.trim();
+  if (!prompt) {
+    statusBox.textContent = 'اول توضیح صحنه را بنویس.';
+    return;
+  }
+  if (prompt.length > 1500) {
+    statusBox.textContent = 'متن باید حداکثر ۱۵۰۰ نویسه باشد.';
+    return;
+  }
+  if (!window.puter || !puter.ai || typeof puter.ai.txt2img !== 'function') {
+    showError('موتور تصویر در این مرورگر بارگذاری نشد. اتصال اینترنت و بارگذاری صفحه را بررسی کن.');
+    return;
+  }
+
+  button.disabled = true;
+  result.hidden = true;
+  openImage.hidden = true;
+  statusBox.textContent = 'در حال ارسال درخواست تصویرسازی...';
+
+  const detailedPrompt =
+    'Create a literal, faithful image of this exact scene. Preserve every named subject, its identity, count, color, and action. Do not replace one animal or object with another. Do not add people or change the described action. Scene: ' +
+    prompt;
+
+  try {
+    const generated = await puter.ai.txt2img(detailedPrompt, {
+      model: 'gpt-image-2.6-flare',
+      quality: 'low'
+    });
+
+    const imageUrl = generated && (generated.src || generated.url);
+    if (!imageUrl) {
+      throw new Error('سرویس تصویری بدون نشانی تصویر پاسخ داد.');
+    }
+
+    result.onload = () => {
+      statusBox.textContent = 'تصویر آماده شد. برای ذخیره، روی تصویر نگه‌دار یا آن را در صفحه جداگانه باز کن.';
+      openImage.href = imageUrl;
+      openImage.hidden = false;
+      button.disabled = false;
+    };
+    result.onerror = () => {
+      result.hidden = true;
+      showError('تصویر ساخته شد، اما بارگذاری آن ناموفق بود. دوباره تلاش کن.');
+    };
+    result.src = imageUrl;
+    result.hidden = false;
+    statusBox.textContent = 'پاسخ دریافت شد؛ در حال نمایش تصویر...';
+  } catch (error) {
+    const message = String(error && (error.message || error.code) || error);
+    if (/402|insufficient_funds|credit|allowance|payment/i.test(message)) {
+      showError('سرویس برای این درخواست اعتبار یا پرداخت می‌خواهد. برای جلوگیری از هزینه، هیچ ارتقا یا خریدی انجام نده.');
+    } else if (/auth|sign.?in|login|unauthor/i.test(message)) {
+      showError('این سرویس ورود به حساب می‌خواهد. برای این پروژه شماره تلفن یا اطلاعات پرداخت وارد نکن؛ فعلاً تولید تصویر در این سرویس در دسترس نیست.');
+    } else {
+      showError('تولید تصویر ناموفق بود: ' + message);
+    }
+  }
+}
+
+window.addEventListener('error', () => {
+  showError('خطای اجرای صفحه رخ داد. صفحه را دوباره بارگذاری کن.');
+});
+</script>
+</body>
+</html>
