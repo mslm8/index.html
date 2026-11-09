@@ -1172,6 +1172,7 @@ async function generateImageUnlocked() {
   const settingIds = ['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
   lastGenerationSettings = Object.fromEntries(settingIds.map(id => [id, $(id).value]));
   $('generateVariation').hidden = true;
+  preservePendingRequestOnError = false;
   generationInProgress = true;
   $('generate').disabled = true;
   $('cancel').disabled = true;
@@ -2100,6 +2101,7 @@ async function editCurrentImageUnlocked() {
     return;
   }
   if (generationInProgress || activeRequestId || polling) return;
+  preservePendingRequestOnError = false;
   generationInProgress = true;
   $('generate').disabled = true;
   $('editImage').disabled = true;
