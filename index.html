@@ -865,9 +865,17 @@ const originalAttributes = new WeakMap();
 function applyAppLanguage(language){
  currentLanguage=language==='en'?'en':'fa';
  try{localStorage.setItem(currentLanguageKey,currentLanguage);}catch(_){}
+ const layoutDirection=currentLanguage==='fa'?'rtl':'ltr';
  document.documentElement.lang=currentLanguage;
- document.documentElement.dir=currentLanguage==='fa'?'rtl':'ltr';
- document.documentElement.style.direction=currentLanguage==='fa'?'rtl':'ltr';
+ document.documentElement.dir=layoutDirection;
+ document.documentElement.style.direction=layoutDirection;
+ document.body.dir=layoutDirection;
+ document.body.style.direction=layoutDirection;
+ const studioNavigation=document.getElementById('studioNav');
+ if(studioNavigation){
+   studioNavigation.dir=layoutDirection;
+   studioNavigation.style.direction=layoutDirection;
+ }
  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
  const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
  nodes.forEach(node=>{
