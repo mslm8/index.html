@@ -760,6 +760,7 @@ function displayImage(imageValue, seed, model) {
     $('download').href = url;
     $('download').hidden = false;
     resetMaskCanvas();
+    openCropTool();
     setStatus('تصویر آماده شد.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
   };
   img.onerror = () => setStatus('تصویر ساخته شد اما بارگذاری آن ناموفق بود. از لینک ذخیره یا صفحه رسمی استفاده کن.', 'var(--warn)');
