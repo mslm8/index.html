@@ -3578,7 +3578,7 @@ $('cancel').addEventListener('click', cancelRequest);
  });
  nav.querySelectorAll("button[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item.dataset.view==="animation")));
  let lastView="animation";
- try{const saved=localStorage.getItem("aiAnimatorLastViewV1");if(saved&&Object.prototype.hasOwnProperty.call(views,saved)&&views[saved])lastView=saved;}catch(_){}
+ try{const saved=localStorage.getItem("aiAnimatorLastViewV1");if(saved&&Object.prototype.hasOwnProperty.call(views,saved)&&views[saved])lastView=saved==="generation"?"animation":saved;}catch(_){}
  if(lastView!=="generation"){const savedButton=nav.querySelector('button[data-view="'+lastView+'"]');if(savedButton)savedButton.click();}
 })();
 </script>
