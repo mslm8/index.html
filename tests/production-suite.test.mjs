@@ -94,3 +94,12 @@ test('story-only episode build creates automatic six-part character rigs', () =>
   assert.ok(build.includes('autoCharacterRigs.flatMap'), 'Each scene must reuse the generated character rigs');
   assert.ok(build.includes('scene.autoDirection.gesture'), 'Story gesture analysis must drive automatic arm animation');
 });
+
+test('automatic episode render keeps generated character layers attached to scene one', () => {
+  const start = html.indexOf('async function autoBuildEpisodeFromStory');
+  const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
+  const build = html.slice(start, end);
+  assert.ok(build.includes("motionLayers.splice(0,motionLayers.length,...(motionScenes[0]?.layers||[]))"));
+  assert.ok(build.includes('selectedMotionLayer=motionLayers[motionScenes[0]?.selectedIndex]||motionLayers[0]||null'));
+  assert.ok(!build.includes("motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;"), 'Generated character rig must not be cleared before createMotionClip');
+});
