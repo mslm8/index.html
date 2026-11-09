@@ -2399,7 +2399,9 @@ $('cancel').addEventListener('click', cancelRequest);
     setStatus('درخواست قبلی پیدا شد؛ در حال بررسی وضعیت و تلاش برای بازیابی نتیجه...');
     try {
       await pollRequest(id);
-      setStatus('درخواست قبلی بازیابی شد و نتیجه دریافت شد.');
+      if (activeRequestId === id) {
+        setStatus('درخواست قبلی بازیابی شد و نتیجه دریافت شد.');
+      }
     } catch (error) {
       setStatus('بازیابی درخواست قبلی ناموفق بود: ' + error.message, 'var(--warn)');
     } finally {
