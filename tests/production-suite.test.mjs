@@ -35,3 +35,14 @@ test('scene transfer uses the existing animator scene conversion entry point', (
   assert.match(suite, /storyToScenesButton/);
   assert.match(suite, /data-view="animation"/);
 });
+
+test('visual asset library is integrated, bounded and project-persistent', () => {
+  for (const id of ['productionAssetLibrary','productionAssetName','productionAssetKind','productionAssetScene','productionAssetNotes','productionAssetFile','productionAddAsset','productionAssetList']) {
+    assert.ok(html.includes('id="' + id + '"'), 'Missing asset library UI: ' + id);
+  }
+  assert.match(suite, /assets: \[\]/);
+  assert.match(suite, /file\.size > 500 \* 1024/);
+  assert.match(suite, /state\.assets\.length >= 8/);
+  assert.match(suite, /dataUrl/);
+  assert.match(suite, /renderAssets\(\)/);
+});
