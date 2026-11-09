@@ -3504,7 +3504,10 @@ async function autoBuildEpisodeFromStory(){
     }
     liveBuildUpdate(3,'دیالوگ‌ها زمان‌بندی شدند؛ حرکت دوربین و گذار بین نماها تنظیم شد.',73);
     $('motionDuration').value='60';activeMotionScene=0;
-    motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;
+    // Keep the first scene's generated character rig active for the renderer.
+    // Clearing motionLayers here caused saveActiveMotionScene() to overwrite scene 1 with an empty layer list.
+    motionLayers.splice(0,motionLayers.length,...(motionScenes[0]?.layers||[]));
+    selectedMotionLayer=motionLayers[motionScenes[0]?.selectedIndex]||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
     liveBuildUpdate(4,'تمام تصاویر صحنه‌ها آماده‌اند؛ رندر و ضبط ویدیوی ۶۰ ثانیه‌ای آغاز می‌شود.',78);
     status.textContent='تصویرسازی صحنه‌ها کامل شد؛ رندر ویدیوی ۶۰ ثانیه‌ای آغاز شد.';
