@@ -3221,6 +3221,7 @@ function renderMotionLayerList() {
   motionLayers.forEach((layer, index) => {
     const row=document.createElement('section');row.className='motion-layer-card'+(layer===selectedMotionLayer?' selected':'');
     row.addEventListener('click',()=>{selectedMotionLayer=layer;renderMotionLayerList();});
+    const controls=document.createElement('div');controls.className='motion-keyframe-grid';
     const head=document.createElement('div');head.className='motion-layer-row';
     const name=document.createElement('span');name.textContent=layer.name;name.title=layer.name;
     const select=document.createElement('select');select.setAttribute('aria-label','حرکت '+layer.name);
@@ -3337,7 +3338,6 @@ function renderMotionLayerList() {
 
     const details=document.createElement('details');details.className='motion-keyframes';
     const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
-    const controls=document.createElement('div');controls.className='motion-keyframe-grid';
     [['startAt','شروع در تایم‌لاین'],['endAt','پایان در تایم‌لاین'],['startX','موقعیت افقی شروع'],['startY','موقعیت عمودی شروع'],['endX','موقعیت افقی پایان'],['endY','موقعیت عمودی پایان']].forEach(([key,label])=>{
       if(typeof layer[key]!=='number')layer[key]=key==='endAt'?100:50;
       const wrap=document.createElement('label');wrap.className='motion-keyframe-control';
