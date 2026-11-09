@@ -470,22 +470,47 @@ loadModels();
   }
   const client = window.supabase.createClient(
     'https://zgqqbwwjcyndlfcccpih.supabase.co',
-    'sb_publishable_K3RzdaV_uKJGZDiYDXfAbg_9jzODuvl'
+    'sb_publishable_K3RzdaV_uKJGZDiYDXfAbg_9jzODuvl',
+    { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
   );
+
+  function showSignedIn() {
+    document.body.classList.add('authenticated');
+    gate.hidden = true;
+    errorBox.textContent = '';
+  }
+
   async function refreshSession() {
-    const { data, error } = await client.auth.getSession();
-    if (error) {
-      errorBox.textContent = 'خطا در بررسی ورود: ' + error.message;
-      return;
-    }
-    if (data.session) {
-      document.body.classList.add('authenticated');
-      gate.hidden = true;
-    } else {
+    try {
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      if (data.session) {
+        showSignedIn();
+        return;
+      }
       document.body.classList.remove('authenticated');
       gate.hidden = false;
+
+      const url = new URL(window.location.href);
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+      const callbackError = url.searchParams.get('error_description') ||
+        url.searchParams.get('error') || hash.get('error_description') || hash.get('error');
+      if (callbackError) {
+        errorBox.textContent = 'گوگل خطا برگرداند: ' + callbackError;
+      } else if (url.searchParams.has('code')) {
+        errorBox.textContent = 'کد بازگشت از گوگل دریافت شد، اما نشست ورود ساخته نشد. احتمالاً مرورگر، اطلاعات شروع ورود را نگه نداشته است؛ ورود را در Chrome و همان تب انجام بده.';
+      } else if (hash.has('access_token')) {
+        errorBox.textContent = 'توکن بازگشت دریافت شد اما نشست ذخیره نشد. مرورگر را در حالت عادی باز کن و دوباره تلاش کن.';
+      } else {
+        errorBox.textContent = 'هنوز وارد نشده‌ای. اگر پس از انتخاب حساب گوگل دوباره به این صفحه برگشتی، ورود را در Chrome و در همان تب انجام بده.';
+      }
+    } catch (error) {
+      document.body.classList.remove('authenticated');
+      gate.hidden = false;
+      errorBox.textContent = 'بررسی ورود ناموفق بود: ' + (error.message || String(error));
     }
   }
+
   login.addEventListener('click', async () => {
     login.disabled = true;
     errorBox.textContent = '';
@@ -498,13 +523,14 @@ loadModels();
       login.disabled = false;
     }
   });
-  client.auth.onAuthStateChange((_event, session) => {
-    if (session) {
-      document.body.classList.add('authenticated');
-      gate.hidden = true;
-    }
+
+  client.auth.onAuthStateChange((event, session) => {
+    if (session) showSignedIn();
+    else if (event === 'INITIAL_SESSION') refreshSession();
   });
+
   refreshSession();
+  window.addEventListener('pageshow', refreshSession);
 })();
 </script>
 </body>
