@@ -337,6 +337,21 @@ body.authenticated #projectsPanel,
 body.authenticated #historyPanel,
 body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
 
+
+/* Keep flex/grid order and control labels aligned with the active language */
+body.authenticated .row,
+body.authenticated .grid,
+body.authenticated .viewPanel{direction:inherit}
+body.authenticated #studioNav{direction:inherit}
+body.authenticated #studioNav button{
+ direction:inherit;
+ unicode-bidi:plaintext;
+ text-align:center;
+}
+body.authenticated .viewPanel button,
+body.authenticated .viewPanel select,
+body.authenticated .viewPanel input,
+body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 </style>
 </head>
 <body>
