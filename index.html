@@ -1138,7 +1138,32 @@ async function translateToEnglish(text) {
   return translated.trim();
 }
 
+async function runWithGenerationLock(task) {
+  if (!navigator.locks || typeof navigator.locks.request !== 'function') {
+    setStatus('این مرورگر قفل بین‌تب را پشتیبانی نمی‌کند؛ کنترل هم‌زمانی فقط در همین تب فعال است.', 'var(--warn)');
+    await task();
+    return;
+  }
+  try {
+    await navigator.locks.request('ai-animator-studio-generation-v1', {mode:'exclusive', ifAvailable:true}, async lock => {
+      if (!lock) {
+        setStatus('در تب دیگری تولید یا ویرایش تصویر در حال انجام است؛ پس از پایان آن دوباره تلاش کن.', 'var(--warn)');
+        return;
+      }
+      await task();
+    });
+  } catch (error) {
+    setStatus('دریافت قفل بین‌تب ناموفق بود؛ برای جلوگیری از درخواست تکراری، این عملیات اجرا نشد: ' + (error.message || String(error)), 'var(--warn)');
+  }
+}
 async function generateImage() {
+  return runWithGenerationLock(generateImageUnlocked);
+}
+async function editCurrentImage() {
+  return runWithGenerationLock(editCurrentImageUnlocked);
+}
+
+async function generateImageUnlocked() {
   const prompt = $('prompt').value.trim();
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
   if (generationInProgress || activeRequestId || polling) return;
@@ -2049,7 +2074,7 @@ function maskToWebpBase64() {
   return dataUrl.split(',')[1];
 }
 
-async function editCurrentImage() {
+async function editCurrentImageUnlocked() {
   const instruction = $('editPrompt').value.trim();
   if (!instruction) {
     $('editHint').textContent = 'اول توضیح بده چه چیزی باید تغییر کند.';
