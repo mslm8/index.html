@@ -3442,6 +3442,8 @@ async function autoBuildEpisodeFromStory(){
         return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};
       }),
       backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),
+      directorNotes:String(plan.directorNotes||''),characterFocus:Array.isArray(plan.characterFocus)?plan.characterFocus.slice(0,4):[],shotType:String(plan.shotType||''),
+      durationSeconds:Math.max(4,Math.min(18,Number(plan.durationSeconds)||8)),
       autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
