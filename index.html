@@ -117,8 +117,8 @@ small{font-size:12px}
 #studioNav button{min-width:0;padding:10px 5px;background:rgba(120,135,175,.09);border:1px solid transparent;box-shadow:none;color:#b9c4df;font-size:13px;white-space:nowrap}
 #studioNav button.active{background:linear-gradient(135deg,rgba(136,117,255,.32),rgba(66,224,193,.13));border-color:rgba(157,143,255,.42);color:#fff;box-shadow:inset 0 0 0 1px rgba(157,143,255,.08)}
 .viewPanel[hidden]{display:none!important}
-.viewPanel{animation:panelIn .18s ease-out}
-@keyframes panelIn{from{opacity:.65;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.viewPanel{animation:panelIn .24s cubic-bezier(.2,.75,.25,1);will-change:transform,opacity}
+@keyframes panelIn{from{opacity:.55;transform:translate3d(var(--panel-enter-x,10px),0,0) scale(.992)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 #generationCard,#projectCard,#historyCard{scroll-margin-top:12px}
 @media(max-width:520px){#studioNav{top:4px;gap:5px;padding:6px}#studioNav button{font-size:11px;padding:10px 2px;min-height:42px}}
 @media(prefers-reduced-motion:reduce){.viewPanel{animation:none}}
@@ -2360,6 +2360,15 @@ $('cancel').addEventListener('click', cancelRequest);
   const nav = document.getElementById("studioNav");
   if (!main || !nav || main.dataset.swipeNavigation) return;
   main.dataset.swipeNavigation = "1";
+  nav.addEventListener("click", event => {
+    const button = event.target.closest("button[data-view]");
+    if (!button) return;
+    const buttons = Array.from(nav.querySelectorAll("button[data-view]"));
+    const from = buttons.findIndex(item => item.classList.contains("active"));
+    const to = buttons.indexOf(button);
+    const direction = to > from ? 1 : to < from ? -1 : 0;
+    main.style.setProperty("--panel-enter-x", direction === 0 ? "0px" : (direction > 0 ? "16px" : "-16px"));
+  }, true);
   let startX = 0;
   let startY = 0;
   let startTarget = null;
