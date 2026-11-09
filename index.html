@@ -3119,7 +3119,18 @@ async function refreshFreeEngineManager(status){
   return {...freeEngineManagerState};
 }
 async function loadTextModels(){
-  const models=await apiFetch('/status/models?type=text');
+  // The model directory must never block the episode pipeline indefinitely.
+  let models=[];
+  try{
+    models=await Promise.race([
+      apiFetch('/status/models?type=text'),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('مهلت بررسی موتور متن تمام شد')),7000))
+    ]);
+  }catch(error){
+    smartTextModelChoices=[];
+    liveBuildLog('فهرست مدل‌های متن در ۷ ثانیه پاسخ نداد؛ تقسیم‌بندی داخلی فوراً جایگزین می‌شود.');
+    return [];
+  }
   const available=Array.isArray(models)?models.filter(m=>m&&m.name&&Number(m.count||m.worker_count||0)>0):[];
   available.sort((a,b)=>modelScore(a)-modelScore(b));
   // Keep a large live text-model pool for sequential fallback when a model fails.
