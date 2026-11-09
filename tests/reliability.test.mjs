@@ -9,7 +9,9 @@ function extractFunction(name) {
   const marker = 'async function ' + name + '(';
   const start = html.indexOf(marker);
   assert.notEqual(start, -1, 'Missing function in index.html: ' + name);
-  const open = html.indexOf('{', start);
+  const signatureEnd = html.indexOf(') {', start);
+  assert.notEqual(signatureEnd, -1, 'Could not locate function body: ' + name);
+  const open = signatureEnd + 2;
   let depth = 0;
   let quote = '';
   let escaped = false;
