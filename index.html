@@ -696,7 +696,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="مثلاً:\nشخصیت وارد آزمایشگاه می‌شود.\nناگهان دستگاه روشن می‌شود و همه‌چیز تغییر می‌کند.\nشخصیت با دستگاه صحبت می‌کند."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary">تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary">ساخت فیلمنامه با موتور متن رایگان</button>
-    <small id="aiStoryEngineStatus" aria-live="polite">موتور متن AI Horde برای نوشتن فیلمنامه؛ موتور تصویر AI Horde برای ساخت تصویر؛ رندر نهایی با موتور داخلی Canvas.</small>
+    <small id="aiStoryEngineStatus" aria-live="polite">موتور متن و تصویر AI Horde با پردازشگرهای معمولی، کند و بسیار کند؛ رندر نهایی با موتور داخلی Canvas. صف انتظار ممکن است طولانی باشد.</small>
     <button id="autoEpisodeButton" type="button" class="primary">ساخت خودکار قسمت از متن</button>
     <small>فقط داستان را وارد کن. برنامه صحنه‌ها را می‌سازد، برای هر صحنه تصویر تولید می‌کند، حرکت دوربین می‌گذارد و پروژه را برای خروجی ویدئو آماده می‌کند. تولید تصویر به صف رایگان داوطلبان وابسته است.</small>
     <button id="autoTimeDialoguesButton" type="button" class="secondary">زمان‌بندی خودکار دیالوگ‌ها</button>
@@ -826,7 +826,7 @@ const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای 
 "هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.":"No active models found. Please try again in a moment.",
 "Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.":"Seed must be an integer between 0 and 4294967295.",
 "متن ترجمه شد. مدل: ":"Prompt translated. Model: ",
-"درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.":"Request submitted. Only normal and fast workers are allowed; slow workers are excluded. Fewer models may be available when capacity is limited.",
+"درخواست ثبت شد. پردازشگرهای معمولی، کند و بسیار کند مجازند؛ ممکن است صف طولانی باشد.":"Request submitted. Only normal and fast workers are allowed; slow workers are excluded. Fewer models may be available when capacity is limited.",
 "ارسال درخواست ناموفق بود: ":"Failed to submit request: ",
 "ارتباط موقتاً ناپایدار است؛ تلاش دوباره ":"Connection is temporarily unstable; retry ",
 " از ۳...":" of 3...",
@@ -1469,8 +1469,8 @@ async function generateImageUnlocked() {
         nsfw: false,
         censor_nsfw: true,
         trusted_workers: false,
-        slow_workers: false,
-        extra_slow_workers: false,
+        slow_workers: true,
+        extra_slow_workers: true,
         allow_downgrade: true,
         replacement_filter: true,
         r2: true,
@@ -2551,8 +2551,8 @@ async function generateStoryWithFreeTextEngine(){
       params:{max_length:700,temperature:0.75,top_p:0.9,top_k:40,rep_pen:1.08},
       models,
       trusted_workers:false,
-      slow_workers:false,
-      extra_slow_workers:false,
+      slow_workers:true,
+      extra_slow_workers:true,
       allow_downgrade:true
     })});
     if(!submitted.id)throw new Error('شناسه درخواست متن از سرویس دریافت نشد.');
