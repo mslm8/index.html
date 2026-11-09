@@ -1348,8 +1348,16 @@ function openHistoryDb() {
 }
 function imageSource(value) {
   if (typeof value !== 'string') return '';
-  if (/^https?:\/\//i.test(value) || /^data:/i.test(value)) return value;
-  return 'data:image/webp;base64,' + value;
+  const source = value.trim();
+  if (/^https:\/\//i.test(source)) {
+    try {
+      const parsed = new URL(source);
+      return parsed.protocol === 'https:' ? parsed.href : '';
+    } catch (_) { return ''; }
+  }
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+=*$/i.test(source)) return source;
+  if (/^[a-z0-9+/]+={0,2}$/i.test(source) && source.length % 4 === 0) return 'data:image/webp;base64,' + source;
+  return '';
 }
 async function saveHistory(src, seed, model) {
   try {
@@ -1536,8 +1544,10 @@ async function renderHistory() {
     for (const entry of entries) {
       const item = document.createElement('article');
       item.className = 'historyItem';
+      const safeImageUrl = imageSource(entry.src);
+      if (!safeImageUrl) continue;
       const image = document.createElement('img');
-      image.src = entry.src;
+      image.src = safeImageUrl;
       image.alt = 'تصویر ذخیره‌شده';
       image.loading = 'lazy';
       const details = document.createElement('small');
@@ -1545,7 +1555,7 @@ async function renderHistory() {
       const actions = document.createElement('div');
       actions.className = 'row';
       const download = document.createElement('a');
-      download.href = entry.src;
+      download.href = safeImageUrl;
       download.download = 'ai-animator-' + String(entry.id).replace(/[^a-zA-Z0-9-]/g, '') + '.webp';
       download.textContent = 'ذخیره';
       const editAgain = document.createElement('button');
