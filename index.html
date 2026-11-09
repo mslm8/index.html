@@ -2700,9 +2700,9 @@ function buildLocalFallbackScreenplay(seed){
   };
 }
 function extractScreenplayObject(rawText){
-  const text=String(rawText||'').replace(/^\\s*`{3}(?:json)?\\s*/i,'').replace(/\\s*`{3}\\s*$/,'').trim();
+  const text=String(rawText||'').replace(/^\s*`{3}(?:json)?\s*/i,'').replace(/\s*`{3}\s*$/,'').trim();
   const candidates=[];
-  const fenced=text.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);
+  const fenced=text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if(fenced)candidates.push(fenced[1].trim());
   candidates.push(text);
   for(const candidate of candidates){
@@ -2715,7 +2715,7 @@ function extractScreenplayObject(rawText){
         const ch=candidate[j];
         if(inString){
           if(escaped)escaped=false;
-          else if(ch==='\\\\')escaped=true;
+          else if(ch==='\\')escaped=true;
           else if(ch==='"')inString=false;
           continue;
         }
@@ -2738,13 +2738,13 @@ async function requestAutomaticScreenplay(seed,status,knownModels){
     return buildLocalFallbackScreenplay(seed);
   }
   const candidates=models.slice(0,2);
-  const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY compact valid JSON. No markdown, no preface, no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\\n\\nSTORY:\\n'+String(seed||'').trim();
+  const basePrompt='You are a professional animation showrunner and screenwriter. Adapt the supplied story into an original family-friendly 2D science-fiction comedy episode lasting about 60 seconds. Return ONLY compact valid JSON. No markdown, no preface, no explanation. Exact schema: {"characters":[{"name":"Persian name","description":"Concise stable visual design in Persian"}],"scenes":[{"visual":"Concrete Persian description of visible action, location and character positions","dialogues":[{"speaker":"exact character name","text":"short Persian spoken line"}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}. Create exactly 4 scenes in chronological order and 1 to 3 recurring characters. Every scene needs a specific visible action and setting. Preserve the story events and ending. Keep descriptions and dialogue concise. Use Persian for all story text. Do not imitate copyrighted characters or shows. No text inside illustrations.\n\nSTORY:\n'+String(seed||'').trim();
   let lastFailure='پاسخ خالی بود';
   for(let attempt=0;attempt<candidates.length;attempt++){
     const modelName=candidates[attempt];
     status.textContent='تحلیل سریع داستان با مدل '+(attempt+1)+' از '+candidates.length+'؛ در صورت خطا تقسیم‌بندی داخلی فعال می‌شود.';
     liveBuildLog('ارسال فیلمنامه به مدل مستقل: '+modelName);
-    const prompt=basePrompt+(attempt>0?'\\n\\nSTRICT: Output JSON only. Exactly four scenes. No markdown or comments.':'');
+    const prompt=basePrompt+(attempt>0?'\n\nSTRICT: Output JSON only. Exactly four scenes. No markdown or comments.':'');
     let requestId='';
     try{
       const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
