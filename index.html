@@ -2811,6 +2811,51 @@ async function makeLocalEpisodeBackground(scene,index){
   return image;
 }
 let liveBuildStartedAt=0,liveBuildTimer=null,liveBuildProgress=0;const liveStepNames=['تحلیل داستان و تقسیم صحنه‌ها','ساخت شخصیت‌ها و ریگ','آماده‌سازی پس‌زمینه‌ها','متحرک‌سازی و زمان‌بندی','رندر و ضبط ویدیو','آماده‌سازی فایل نهایی'];function liveBuildLog(message){const log=$('liveLog');if(!log)return;const p=document.createElement('p');p.textContent='• '+new Date().toLocaleTimeString('fa-IR')+' — '+message;log.prepend(p);while(log.children.length>12)log.lastChild.remove();}function liveBuildUpdate(step,detail,progress){const panel=$('liveProduction');if(!panel)return;panel.hidden=false;const n=Math.max(0,Math.min(5,step));$('liveStageTitle').textContent=liveStepNames[n];$('liveStageDetail').textContent=detail||'در حال انجام...';if(Number.isFinite(progress))liveBuildProgress=Math.max(liveBuildProgress,Math.min(99,progress));$('livePercent').textContent=Math.round(liveBuildProgress).toLocaleString('fa-IR')+'٪';$('liveProgressBar').style.width=liveBuildProgress+'%';Array.from($('liveSteps').children).forEach((item,index)=>{item.classList.toggle('done',index<n);item.classList.toggle('active',index===n);});liveBuildLog(detail||liveStepNames[n]);}function liveBuildStart(){liveBuildStartedAt=Date.now();liveBuildProgress=2;$('liveLog').replaceChildren();$('liveProduction').hidden=false;liveBuildUpdate(0,'داستان دریافت شد؛ آماده‌سازی شروع شد.',2);if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=setInterval(()=>{const sec=Math.floor((Date.now()-liveBuildStartedAt)/1000);$('liveElapsed').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');},1000);$('liveProduction').scrollIntoView({behavior:'smooth',block:'nearest'});}function liveBuildFinish(ok,message){if(liveBuildTimer)clearInterval(liveBuildTimer);liveBuildTimer=null;if(ok){liveBuildProgress=100;$('livePercent').textContent='۱۰۰٪';$('liveProgressBar').style.width='100%';Array.from($('liveSteps').children).forEach(item=>{item.classList.remove('active');item.classList.add('done');});$('liveStageTitle').textContent='ویدیو آماده شد';$('liveStageDetail').textContent=message||'فایل آمادهٔ پیش‌نمایش و ذخیره است.';liveBuildLog('ساخت با موفقیت پایان یافت.');}else{$('liveStageTitle').textContent='ساخت متوقف شد';$('liveStageDetail').textContent=message||'خطا در ساخت ویدیو';liveBuildLog(message||'خطا در ساخت ویدیو');}}
+
+async function isFalGatewayReady(){
+  if(window.__falGatewayReadyPromise)return window.__falGatewayReadyPromise;
+  window.__falGatewayReadyPromise=(async()=>{
+    const client=window.__aiAnimatorSupabaseClient;
+    if(!client)return false;
+    try{
+      const {data,error}=await client.functions.invoke('fal-gateway',{body:{action:'health'}});
+      if(error)throw error;
+      return !!data?.configured;
+    }catch(error){
+      liveBuildLog('درگاه fal.ai هنوز آماده نیست؛ موتور رایگان قبلی حفظ می‌شود. '+String(error?.message||error).slice(0,140));
+      return false;
+    }
+  })();
+  return window.__falGatewayReadyPromise;
+}
+async function generateFalBackground(prompt,status){
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw new Error('نشست Supabase برای اتصال fal.ai در دسترس نیست.');
+  status.textContent='ارسال تصویر به موتور fal.ai (FLUX.1 dev)...';
+  const submitted=await client.functions.invoke('fal-gateway',{body:{action:'submit',task:'image',prompt}});
+  if(submitted.error)throw submitted.error;
+  const requestId=submitted.data?.request_id;
+  if(!requestId)throw new Error('شناسه درخواست fal.ai دریافت نشد.');
+  liveBuildLog('درخواست تصویر fal.ai ثبت شد؛ شناسه '+requestId);
+  const started=Date.now();
+  while(Date.now()-started<300000){
+    await new Promise(resolve=>setTimeout(resolve,3000));
+    const checked=await client.functions.invoke('fal-gateway',{body:{action:'status',task:'image',request_id:requestId}});
+    if(checked.error)throw checked.error;
+    const state=String(checked.data?.status||'').toUpperCase();
+    if(state==='FAILED'||state==='CANCELLED')throw new Error('تولید تصویر fal.ai ناموفق بود: '+String(checked.data?.error||state));
+    if(state==='COMPLETED'){
+      const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'image',request_id:requestId}});
+      if(result.error)throw result.error;
+      const url=result.data?.images?.[0]?.url;
+      if(!url)throw new Error('fal.ai نتیجه‌ای بدون آدرس تصویر برگرداند.');
+      return url;
+    }
+    status.textContent='fal.ai در حال پردازش تصویر صحنه است؛ وضعیت: '+(state||'در صف');
+  }
+  throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
+}
+
 async function autoBuildEpisodeFromStory(){
   const raw=$('storyToScenesInput').value.trim();
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
@@ -2825,8 +2870,10 @@ async function autoBuildEpisodeFromStory(){
     liveBuildUpdate(0,'در حال اتصال به موتور رایگان فیلمنامه و تحلیل روایت.',5);
     status.textContent='در حال بررسی پردازشگرهای رایگان متن و تصویر...';
     const [textModels,imageModels]=await Promise.all([loadTextModels(),loadModels(true)]);
-    if(!imageModels.length)throw new Error('موتور تصویر رایگان فعالی در دسترس نیست؛ بعداً دوباره تلاش کن.');
-    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=true;
+    const falAvailable=await isFalGatewayReady();
+    if(!imageModels.length&&!falAvailable)throw new Error('موتور تصویر رایگان فعالی در دسترس نیست و درگاه fal.ai نیز هنوز کلید API ندارد.');
+    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=imageModels.length>0||falAvailable;
+    if(falAvailable&&!window.confirm('موتور fal.ai فعال است و تولید تصویر ممکن است از اعتبار حساب شما هزینه کم کند. فقط در صورت داشتن اجازه و اعتبار کافی ادامه بده. آیا استفاده از fal.ai را تأیید می‌کنی؟'))throw new Error('استفاده از موتور پولی fal.ai توسط کاربر لغو شد.');
     liveBuildUpdate(0,'موتورهای متن و تصویر فعال شدند؛ فیلمنامه در حال تولید است.',8);
     let screenplay;
     try{screenplay=await requestAutomaticScreenplay(raw,status);}
@@ -2922,19 +2969,33 @@ async function autoBuildEpisodeFromStory(){
         'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
       ].join('\n\n');
       $('prompt').value=scenePrompt;
-      const previousImageUrl=currentImageUrl||$('result')?.src||'';
-      status.textContent='در حال تولید تصویر هوش مصنوعی برای صحنه '+(index+1)+' از '+nextScenes.length+'؛ درخواست در صف پردازشگرهای داوطلب قرار می‌گیرد.';
-      liveBuildLog('ارسال تصویر صحنه '+(index+1)+' به مدل تصویر رایگان.');
-      await generateImageUnlocked();
-      const source=$('result');
-      const nextImageUrl=currentImageUrl||source?.src||'';
-      if(!source||!nextImageUrl||nextImageUrl===previousImageUrl||!source.complete||!source.naturalWidth){
-        throw new Error('تصویر هوش مصنوعی صحنه '+(index+1)+' تولید نشد. وضعیت موتور: '+String($('status').textContent||'نامشخص').slice(0,180));
+      let generatedUrl='';
+      if(falAvailable){
+        try{
+          liveBuildLog('ارسال پس‌زمینه صحنه '+(index+1)+' به fal.ai FLUX.1 dev.');
+          generatedUrl=await generateFalBackground(scenePrompt,status);
+        }catch(falError){
+          liveBuildLog('fal.ai برای این صحنه پاسخ نداد: '+String(falError?.message||falError).slice(0,180));
+          if(!imageModels.length)throw falError;
+          status.textContent='fal.ai در دسترس نیست؛ موتور رایگان پشتیبان فعال می‌شود.';
+        }
       }
-      const frame=new Image();frame.src=source.src;
+      if(!generatedUrl){
+        const previousImageUrl=currentImageUrl||$('result')?.src||'';
+        status.textContent='در حال تولید تصویر صحنه '+(index+1)+' با موتور رایگان پشتیبان...';
+        liveBuildLog('ارسال تصویر صحنه '+(index+1)+' به مدل رایگان پشتیبان.');
+        await generateImageUnlocked();
+        const source=$('result');
+        const nextImageUrl=currentImageUrl||source?.src||'';
+        if(!source||!nextImageUrl||nextImageUrl===previousImageUrl||!source.complete||!source.naturalWidth){
+          throw new Error('تصویر هوش مصنوعی صحنه '+(index+1)+' تولید نشد. وضعیت موتور: '+String($('status').textContent||'نامشخص').slice(0,180));
+        }
+        generatedUrl=source.src;
+      }
+      const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
       if(typeof frame.decode==='function')await frame.decode();
       else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
-      scene.backgroundImage=frame;scene.backgroundUrl=source.src;scene.backgroundName='تصویر هوش مصنوعی '+scene.name;
+      scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویر هوش مصنوعی '+scene.name;
       renderMotionSceneList();renderMotionPreview();
       liveBuildUpdate(2,'تصویر واقعی صحنه '+(index+1)+' آماده شد؛ طراحی شخصیت‌ها برای نماهای بعدی حفظ می‌شود.',22+((index+1)/nextScenes.length)*48);
     }
@@ -4193,6 +4254,8 @@ $('cancel').addEventListener('click', cancelRequest);
     'sb_publishable_K3RzdaV_uKJGZDiYDXfAbg_9jzODuvl',
     { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
   );
+
+  window.__aiAnimatorSupabaseClient = client;
 
   let modelsLoaded = false;
   let sessionCheckVersion = 0;
