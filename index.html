@@ -400,6 +400,12 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 #rigEditorMount #animate{display:block!important}
 #rigEditorMount label[for="motionLayerFiles"]{display:block!important}
 #rigEditorMount .motion-preview-panel{margin-top:12px}
+.rig-profile-box{margin:12px 0;padding:12px;border:1px solid rgba(114,231,208,.2);border-radius:12px;background:rgba(15,24,42,.55)}
+.rig-profile-box h4{margin:0 0 8px;font-size:14px}
+.rig-profile-box p{font-size:12px;line-height:1.8}
+.rig-profile-box input,.rig-profile-box select{width:100%;margin:6px 0 10px}
+.rig-profile-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.rig-profile-actions button{flex:1 1 120px}
 /* Story-only animation workflow */
 #motionCard>.grid,
 #motionCard>.motion-scene-panel:not(#storyToScenesPanel),
@@ -818,6 +824,20 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <button id="toggleRigEditor" type="button" class="secondary" aria-expanded="false">باز کردن ابزار ریگ شخصیت</button>
       <div id="rigEditorWorkspace" hidden>
         <p class="rig-editor-tip">ترتیب پیشنهادی: تنه را اضافه کن، سپس سر، دست چپ و راست و پاها را جداگانه اضافه کن. هر عضو را به تنه یا مفصل والد متصل کن و نقطه اتصال را تنظیم کن.</p>
+        <section class="rig-profile-box" aria-labelledby="rigProfileHeading">
+          <h4 id="rigProfileHeading">کتابخانه ریگ‌های ذخیره‌شده</h4>
+          <p>چیدمان اعضا، مفصل‌ها و تصاویر هر شخصیت را ذخیره کن و در صحنه‌های بعد دوباره بارگذاری کن. ذخیره‌سازی روی همین مرورگر و دستگاه انجام می‌شود.</p>
+          <label for="rigProfileName">نام ریگ شخصیت</label>
+          <input id="rigProfileName" type="text" maxlength="48" placeholder="مثلاً دانشمند فضایی">
+          <div class="rig-profile-actions">
+            <button id="saveRigProfile" type="button" class="secondary">ذخیره ریگ فعلی</button>
+            <button id="loadRigProfile" type="button" class="secondary">بارگذاری ریگ</button>
+            <button id="deleteRigProfile" type="button" class="secondary">حذف ریگ</button>
+          </div>
+          <label for="rigProfileSelect">ریگ‌های ذخیره‌شده</label>
+          <select id="rigProfileSelect"><option value="">هنوز ریگی ذخیره نشده</option></select>
+          <small id="rigProfileStatus" role="status" aria-live="polite">حداکثر ۱۰ ریگ و ۲٫۵ مگابایت دادهٔ تصویری ذخیره می‌شود.</small>
+        </section>
         <div id="rigEditorMount"></div>
       </div>
     </section>
