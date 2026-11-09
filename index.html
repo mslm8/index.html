@@ -1170,8 +1170,8 @@ async function loadModels(silent = false) {
       ? models.filter(m => m && m.name && Number(m.count || m.worker_count || 0) > 0)
       : [];
     available.sort((a,b) => modelScore(a) - modelScore(b));
-    // Keep up to 250 currently worker-backed models so Horde can route around unavailable or unsuitable workers.
-    smartModelChoices = [...new Set(available.map(m => String(m.name).trim()).filter(Boolean))].slice(0, 250);
+    // Keep up to 500 currently worker-backed models so Horde can route around unavailable or unsuitable workers.
+    smartModelChoices = [...new Set(available.map(m => String(m.name).trim()).filter(Boolean))].slice(0, 500);
     if (!smartModelChoices.length) {
       if (!generationInProgress) $('generate').disabled = true;
       $('autoModelInfo').textContent = 'فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.';
@@ -1537,7 +1537,7 @@ async function generateImageUnlocked() {
     activeRequestId = submitted.id;
     savePendingRequest(submitted.id);
     $('cancel').disabled = false;
-    setStatus('درخواست ثبت شد. فقط پردازشگرهای معمولی و سریع مجازند؛ پردازشگرهای کند کنار گذاشته شده‌اند. اگر ظرفیت آزاد نباشد، ممکن است مدل‌های کمتری در دسترس باشند.');
+    setStatus('درخواست ثبت شد؛ از بین حداکثر ۵۰۰ مدل تصویری فعال و دارای پردازشگر، هر پردازشگر سازگار می‌تواند درخواست را انجام دهد. این یک درخواست واحد است، نه ۵۰۰ تصویر جداگانه.');
     await pollRequest(submitted.id, lastGenerationSettings ? {...lastGenerationSettings} : null);
   } catch (error) {
     preservePendingRequestOnError = !!error.recoverableRequest;
