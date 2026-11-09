@@ -3262,6 +3262,9 @@ function buildSceneImagePrompt(scene,index,total){
     'Create a polished original 2D animated television cartoon BACKGROUND PLATE with professional clean line art, rich painted environment, cinematic composition, coherent perspective and beautiful lighting.',
     'ENVIRONMENT CONTINUITY: maintain a consistent visual direction, architecture, color palette, perspective and lighting language across all locations in this episode.',
     'SCENE '+(index+1)+' OF '+total+': '+String(scene.storyText||'').slice(0,650),
+    'DIRECTOR CONTINUITY NOTES: '+String(scene.directorNotes||'Keep environment continuity and preserve the story faithfully.').slice(0,420),
+    'CHARACTER FOCUS (do not draw characters in this background plate): '+(Array.isArray(scene.characterFocus)?scene.characterFocus.join(', ').slice(0,180):''),
+    'SHOT TYPE: '+String(scene.shotType||'cinematic wide shot')+'. CAMERA: '+String(scene.autoDirection?.camera||'zoom-in')+'.',
     'ENVIRONMENT ONLY. Do not draw any people, characters, creatures, animals, faces, silhouettes or figures. Create the location, architecture, landscape, props and lighting only, leaving clear foreground space for separately animated characters. Wide 16:9 cinematic composition. Match the described place and action through environmental details. No text, no lettering, no subtitles, no speech bubbles, no collage, no storyboard panels.'
   ].join('\n\n').slice(0,2048);
 }
