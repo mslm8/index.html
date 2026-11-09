@@ -103,3 +103,15 @@ test('automatic episode render keeps generated character layers attached to scen
   assert.ok(build.includes('selectedMotionLayer=motionLayers[motionScenes[0]?.selectedIndex]||motionLayers[0]||null'));
   assert.ok(!build.includes("motionLayers.splice(0,motionLayers.length);selectedMotionLayer=null;"), 'Generated character rig must not be cleared before createMotionClip');
 });
+
+test('automatic director is loaded and connected to story, camera, emotion and continuity planning', () => {
+  assert.match(html, /src="\.\/auto-director\.js" defer/);
+  assert.match(html, /AIAnimatorDirector\.enrichScreenplay\(screenplay,raw\)/);
+  assert.match(html, /DIRECTOR CONTINUITY NOTES/);
+  assert.match(html, /CHARACTER FOCUS/);
+  const director = readFileSync(new URL('../auto-director.js', import.meta.url), 'utf8');
+  for (const token of ['actionRules', 'emotionRules', 'gestureRules', 'cameraRules', 'durationSeconds', 'directorNotes', 'characterFocus', 'continuityChecked']) {
+    assert.ok(director.includes(token), 'Director intelligence missing: ' + token);
+  }
+  assert.match(html, /directorNotes:String\(plan\.directorNotes\|\|''\)/);
+});
