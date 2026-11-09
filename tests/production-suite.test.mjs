@@ -48,3 +48,11 @@ test('visual asset library is integrated, bounded and project-persistent', () =>
   assert.match(suite, /dataUrl/);
   assert.match(suite, /renderAssets\(\)/);
 });
+
+test('continuity audit checks missing scene fields and character/location references', () => {
+  assert.ok(html.includes('id="productionRunContinuity"'));
+  assert.ok(html.includes('id="productionContinuityReport"'));
+  assert.match(suite, /function runContinuityAudit\(\)/);
+  assert.match(suite, /شناسنامه‌ای برای شخصیت/);
+  assert.match(suite, /مکان در کتابخانه مکان‌ها ثبت نشده/);
+});
