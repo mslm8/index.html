@@ -2728,6 +2728,16 @@ function renderMotionLayerList() {
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف';
     remove.addEventListener('click',event=>{event.stopPropagation();if(layer.url)URL.revokeObjectURL(layer.url);motionLayers.splice(index,1);if(selectedMotionLayer===layer)selectedMotionLayer=motionLayers[0]||null;renderMotionLayerList();});
     actions.append(moveUp,moveDown,duplicate,remove);head.append(name,select,actions);
+    if(!layer.rigId)layer.rigId='rig-'+Math.random().toString(36).slice(2,10);
+    const rigWrap=document.createElement('label');rigWrap.className='motion-keyframe-control';
+    const rigCaption=document.createElement('span');rigCaption.textContent='اتصال به والد (ریگ‌بندی اولیه)';
+    const rigSelect=document.createElement('select');rigSelect.setAttribute('aria-label','والد لایه '+layer.name);
+    const rootOption=document.createElement('option');rootOption.value='';rootOption.textContent='بدون والد؛ لایه اصلی';rigSelect.appendChild(rootOption);
+    motionLayers.forEach(candidate=>{if(candidate===layer)return;if(!candidate.rigId)candidate.rigId='rig-'+Math.random().toString(36).slice(2,10);const option=document.createElement('option');option.value=candidate.rigId;option.textContent=candidate.name;rigSelect.appendChild(option);});
+    rigSelect.value=layer.parentLayerId||'';
+    rigSelect.addEventListener('click',event=>event.stopPropagation());
+    rigSelect.addEventListener('change',event=>{event.stopPropagation();const next=rigSelect.value;let cursor=motionLayers.find(item=>item.rigId===next),seen=new Set([layer.rigId]);while(cursor){if(seen.has(cursor.rigId)){setStatus('این اتصال باعث حلقه در زنجیره والدها می‌شود.','var(--warn)');rigSelect.value=layer.parentLayerId||'';return;}seen.add(cursor.rigId);cursor=motionLayers.find(item=>item.rigId===cursor.parentLayerId);}layer.parentLayerId=next;setStatus('رابطه والد/فرزند ذخیره شد؛ اعمال تبدیل سلسله‌مراتبی در مرحله بعد تکمیل می‌شود.');});
+    rigWrap.append(rigCaption,rigSelect);controls.appendChild(rigWrap);
     const details=document.createElement('details');details.className='motion-keyframes';
     const summary=document.createElement('summary');summary.textContent='تنظیم تایم‌لاین و فریم‌های کلیدی';details.appendChild(summary);
     const controls=document.createElement('div');controls.className='motion-keyframe-grid';
