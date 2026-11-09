@@ -2662,7 +2662,9 @@ async function autoBuildEpisodeFromStory(){
       for(const original of characterBase){
         const layer={...original,motionKeys:Array.isArray(original.motionKeys)?original.motionKeys.map(key=>({...key})):undefined};
         const oldRigId=original.rigId;
-        if(oldRigId)layer.rigId=rigId+'-'+String(original.rigRole||original.name||'part').replace(/[^a-z0-9-]/gi,'-');
+        const role=original.rigRole||(String(oldRigId||'').endsWith('-body')?'body':'part');
+        if(oldRigId)layer.rigId=role==='body'?rigId+'-body':rigId+'-'+role;
+        if(role==='body')layer.rigRole='body';
         if(original.parentLayerId)layer.parentLayerId=rigId+'-body';
         layer.startX=position;layer.endX=position;
         layer.name=speakerName+' · '+(original.name||'بخش شخصیت');
