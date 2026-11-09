@@ -37,7 +37,7 @@ small{color:var(--muted);line-height:1.8}
 #authGate{max-width:480px;margin:12vh auto;padding:22px 18px;background:var(--panel);border:1px solid var(--line);border-radius:18px;text-align:center}
 #authGate button{width:100%;margin-top:14px}
 #authError{color:var(--bad);white-space:pre-wrap;font-size:13px;line-height:1.8}
-#accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px}
+#accountBar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;background:#171d30;border:1px solid var(--line);border-radius:12px}#accountEmail{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 body:not(.authenticated)>main{display:none!important}
 </style>
 </head>
@@ -54,6 +54,7 @@ body:not(.authenticated)>main{display:none!important}
   <h1>AI Animator Studio</h1>
   <p>ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.</p>
 </header>
+<div id="accountBar"><span id="accountEmail">وارد شده‌ای</span><button id="logoutButton" class="secondary" type="button">خروج از حساب</button></div>
 
 <section class="card">
   <h2>تولید تصویر</h2>
@@ -456,13 +457,14 @@ function createMotionClip() {
 $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
 $('cancel').addEventListener('click', cancelRequest);
-loadModels();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (() => {
   const gate = document.getElementById('authGate');
   const login = document.getElementById('googleLogin');
+  const logout = document.getElementById('logoutButton');
+  const accountEmail = document.getElementById('accountEmail');
   const errorBox = document.getElementById('authError');
   if (!window.supabase || !gate || !login) {
     if (errorBox) errorBox.textContent = 'بارگذاری سرویس ورود ناموفق بود. صفحه را دوباره بارگذاری کن.';
@@ -474,10 +476,16 @@ loadModels();
     { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }
   );
 
-  function showSignedIn() {
+  let modelsLoaded = false;
+  function showSignedIn(session) {
     document.body.classList.add('authenticated');
     gate.hidden = true;
     errorBox.textContent = '';
+    if (accountEmail) accountEmail.textContent = session && session.user && session.user.email ? 'وارد شده‌ای: ' + session.user.email : 'وارد شده‌ای';
+    if (!modelsLoaded) {
+      modelsLoaded = true;
+      loadModels();
+    }
   }
 
   async function refreshSession() {
@@ -485,7 +493,7 @@ loadModels();
       const { data, error } = await client.auth.getSession();
       if (error) throw error;
       if (data.session) {
-        showSignedIn();
+        showSignedIn(data.session);
         return;
       }
       document.body.classList.remove('authenticated');
@@ -511,6 +519,21 @@ loadModels();
     }
   }
 
+  logout.addEventListener('click', async () => {
+    logout.disabled = true;
+    errorBox.textContent = '';
+    const { error } = await client.auth.signOut();
+    logout.disabled = false;
+    if (error) {
+      errorBox.textContent = 'خروج ناموفق بود: ' + error.message;
+      return;
+    }
+    document.body.classList.remove('authenticated');
+    gate.hidden = false;
+    login.disabled = false;
+    errorBox.textContent = 'از حساب خارج شدی.';
+  });
+
   login.addEventListener('click', async () => {
     login.disabled = true;
     errorBox.textContent = '';
@@ -525,8 +548,12 @@ loadModels();
   });
 
   client.auth.onAuthStateChange((event, session) => {
-    if (session) showSignedIn();
-    else if (event === 'INITIAL_SESSION') refreshSession();
+    if (session) showSignedIn(session);
+    else if (event === 'SIGNED_OUT') {
+      document.body.classList.remove('authenticated');
+      gate.hidden = false;
+      login.disabled = false;
+    } else if (event === 'INITIAL_SESSION') refreshSession();
   });
 
   refreshSession();
