@@ -4002,6 +4002,19 @@ function createMotionClip() {
       let y=motionState.y*canvas.height/100;
       let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=1,dynamicScale=1;
       x=rigTransform.x;y=rigTransform.y;angle+=rigTransform.delta;
+      // Character animation pass: secondary motion keeps the cast alive between key poses.
+      if(layer.characterId){
+        const actorAction=scene.autoDirection?.action||layer.motion||'idle';
+        const actorPhase=elapsed/1000*(actorAction==='run'?11:actorAction==='walk'?6.5:2.1)+(String(layer.characterId).length*.41);
+        const breath=Math.sin(actorPhase);
+        const speaking=(scene.dialogues||[]).some(item=>item&&item.text&&item.speakerId===layer.characterId&&sceneProgress>=(item.startAt??0)/100&&sceneProgress<=(item.endAt??100)/100);
+        if(actorAction==='run'){y+=Math.abs(Math.sin(actorPhase*1.65))*height*.018;angle+=Math.sin(actorPhase)*.035;}
+        else if(actorAction==='walk'){y+=Math.abs(Math.sin(actorPhase*1.4))*height*.011;angle+=Math.sin(actorPhase)*.018;}
+        else if(actorAction==='jump'){y-=Math.max(0,Math.sin(sceneProgress*Math.PI))*height*.045;}
+        else if(actorAction==='sway'){angle+=Math.sin(actorPhase*.8)*.045;}
+        else {y+=breath*height*.0035;dynamicScale*=1+breath*.006;}
+        if(speaking){y-=Math.abs(Math.sin(actorPhase*2.4))*height*.004;dynamicScale*=1+Math.abs(Math.sin(actorPhase*2.4))*.002;}
+      }
       if(layer.motion==='pulse')dynamicScale=1+Math.sin(localProgress*Math.PI*4)*.055;
       if(layer.motion==='fade')alpha=Math.sin(localProgress*Math.PI);
       const pivotX=(Math.max(0,Math.min(100,Number(layer.pivotX??50))/100)-.5)*width*dynamicScale;
