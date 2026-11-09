@@ -2243,11 +2243,27 @@ $('cancel').addEventListener('click', cancelRequest);
   );
 
   let modelsLoaded = false;
+  function cleanAuthCallbackUrl() {
+    try {
+      const url = new URL(window.location.href);
+      const authQueryKeys = ['code', 'state', 'error', 'error_description', 'error_code', 'error_uri'];
+      authQueryKeys.forEach(key => url.searchParams.delete(key));
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+      const authHashKeys = ['access_token', 'refresh_token', 'token_type', 'expires_in', 'error', 'error_description', 'error_code'];
+      if (authHashKeys.some(key => hash.has(key))) url.hash = '';
+      const nextUrl = url.pathname + url.search + url.hash;
+      if (nextUrl !== window.location.pathname + window.location.search + window.location.hash) {
+        window.history.replaceState(window.history.state, document.title, nextUrl);
+      }
+    } catch (_) {}
+  }
+
   function showSignedIn(session) {
     document.body.classList.add('authenticated');
     gate.hidden = true;
     errorBox.textContent = '';
     if (accountMessage) accountMessage.textContent = '';
+    cleanAuthCallbackUrl();
     const user = session && session.user;
     const metadata = user && user.user_metadata ? user.user_metadata : {};
     if (accountName) accountName.textContent = metadata.full_name || metadata.name || metadata.display_name || 'نامی برای حساب ثبت نشده';
@@ -2273,6 +2289,7 @@ $('cancel').addEventListener('click', cancelRequest);
       const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
       const callbackError = url.searchParams.get('error_description') ||
         url.searchParams.get('error') || hash.get('error_description') || hash.get('error');
+      cleanAuthCallbackUrl();
       if (callbackError) {
         errorBox.textContent = 'گوگل خطا برگرداند: ' + callbackError;
       } else if (url.searchParams.has('code')) {
