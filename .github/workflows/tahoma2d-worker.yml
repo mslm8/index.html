@@ -70,6 +70,12 @@ jobs:
           find "$TAHOMA_APPDIR/usr" -maxdepth 6 -type d \( -iname 'stuff' -o -iname 'scripts' -o -iname 'tahoma2d' \) -print >> "$LOG" 2>&1
           echo "--- script-related files ---" >> "$LOG"
           find "$TAHOMA_APPDIR/usr" -maxdepth 7 -type f \( -iname '*.js' -o -iname '*script*' \) -print | head -100 >> "$LOG" 2>&1
+          echo "--- all stuff/resource directories ---" >> "$LOG"
+          find "$TAHOMA_APPDIR" -type d \( -iname stuff -o -iname resources -o -iname library \) -print >> "$LOG" 2>&1
+          echo "--- AppRun launcher ---" >> "$LOG"
+          sed -n "1,240p" "$TAHOMA_APPDIR/AppRun" >> "$LOG" 2>&1
+          echo "--- top-level package layout ---" >> "$LOG"
+          find "$TAHOMA_APPDIR" -maxdepth 3 -type d -print | head -160 >> "$LOG" 2>&1
           cat "$LOG"
           set -e
 
