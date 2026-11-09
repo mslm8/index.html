@@ -3314,14 +3314,34 @@ $('motionPlayhead').addEventListener('input',renderMotionPreview);
 $('motion').addEventListener('change',renderMotionPreview);
 $('motionDuration').addEventListener('change',()=>{renderMotionPreview();renderMotionSceneList();});
 $('motionPlayPreview').addEventListener('click',()=>{
-  if(motionPreviewFrame){cancelAnimationFrame(motionPreviewFrame);motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
+  if(motionPreviewFrame){
+    cancelAnimationFrame(motionPreviewFrame);motionPreviewFrame=null;
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+    $('motionPlayPreview').textContent='پخش پیش‌نمایش';return;
+  }
   if(Number($('motionPlayhead').value)>=100)$('motionPlayhead').value=0;
   const sceneDuration=Number($('motionDuration').value)*1000/motionScenes.length;
   const start=performance.now()-Number($('motionPlayhead').value)/100*sceneDuration;
+  const spokenDialogues=new Set();
+  const scene=motionScenes[activeMotionScene];
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
   $('motionPlayPreview').textContent='توقف پیش‌نمایش';
   const tick=now=>{
     const progress=Math.min(100,(now-start)/sceneDuration*100);
     $('motionPlayhead').value=progress;renderMotionPreview();
+    if(window.speechSynthesis){
+      (scene.dialogues||[]).forEach((item,index)=>{
+        const key=String(index);
+        if(!item.text||spokenDialogues.has(key)||progress<(item.startAt??0))return;
+        spokenDialogues.add(key);
+        const utterance=new SpeechSynthesisUtterance(String(item.text));
+        const voices=window.speechSynthesis.getVoices();
+        const voice=voices.find(v=>v.name===(item.voiceName||''))||voices.find(v=>/^fa([-_]|$)/i.test(v.lang))||null;
+        if(voice)utterance.voice=voice;
+        utterance.lang=voice?.lang||'fa-IR';utterance.rate=1;utterance.pitch=1;
+        window.speechSynthesis.speak(utterance);
+      });
+    }
     if(progress>=100){motionPreviewFrame=null;$('motionPlayPreview').textContent='پخش پیش‌نمایش';return;}
     motionPreviewFrame=requestAnimationFrame(tick);
   };
