@@ -206,6 +206,30 @@ body.authenticated main>footer{display:none}
  #toolsPanel .card .row button{min-width:0}
 }
 
+
+/* Refined project library workspace */
+#projectsPanel>.viewHeading{padding:8px 5px 15px}
+#projectsPanel>.viewHeading h1{font-size:25px;letter-spacing:-.45px}
+#projectsPanel>.viewHeading p{font-size:13px;max-width:520px}
+#projectsPanel #projectCard{padding:20px}
+#projectsPanel #projectCard>h2{display:flex;align-items:center;gap:10px;font-size:18px}
+#projectsPanel #projectCard>h2:before{content:"▣";display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;color:#72e7d0;background:rgba(66,224,193,.12);font-size:17px}
+#projectsPanel #projectCard>p{margin:5px 0 16px;line-height:1.8}
+#projectsPanel #projectName,#projectsPanel #savedProjects{min-height:49px}
+#projectsPanel #projectName{border-color:rgba(137,117,255,.34)}
+#projectsPanel #projectCard .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+#projectsPanel #projectCard .row button{min-width:0;min-height:46px;padding:10px 8px;font-size:13px}
+#projectsPanel #saveNamedProject{background:linear-gradient(130deg,#35bfae,#277f91);box-shadow:0 8px 20px rgba(45,190,174,.15)}
+#projectsPanel #exportProject{background:linear-gradient(130deg,#35415f,#29334d)}
+#projectsPanel #loadNamedProject{background:linear-gradient(130deg,#8875ff,#6655df)}
+#projectsPanel #deleteNamedProject{background:linear-gradient(130deg,#a64458,#783247)}
+#projectsPanel #projectStatus{display:block;min-height:24px;margin-top:13px;padding:8px 10px;border-radius:10px;background:rgba(66,224,193,.055);color:#b9c9df;line-height:1.8}
+@media(max-width:520px){
+ #projectsPanel>.viewHeading h1{font-size:22px}
+ #projectsPanel #projectCard{padding:15px}
+ #projectsPanel #projectCard .row button{font-size:12px;min-height:44px}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
