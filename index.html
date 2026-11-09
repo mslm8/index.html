@@ -1182,7 +1182,8 @@ async function apiFetch(path, options = {}) {
 
 async function retrySafeGet(path, attempts = 3) {
   let lastError;
-  for (let attempt = 0; attempt < attempts; attempt++) {
+  const maxAttempts=Math.max(1,Math.min(3,Number(attempts)||3)); // one initial request + at most two retries
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await apiFetch(path, {method:'GET'});
     } catch (error) {
