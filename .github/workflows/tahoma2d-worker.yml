@@ -100,9 +100,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="$RUNNER_TEMP/tahoma2d-smoke.js"
-          OUTPUT="$RUNNER_TEMP/tahoma2d-smoke.tnz"
+          # Tahoma2D's CLI only runs scripts that belong to a registered project.
+          # The documented default project is Tahoma stuff/sandbox.
+          PROJECT="$TAHOMA_ROOT/sandbox"
+          SCENES="$PROJECT/+scenes"
+          SCRIPT="$SCENES/tahoma2d-smoke.js"
+          OUTPUT="$SCENES/tahoma2d-smoke.tnz"
           LOG="$RUNNER_TEMP/tahoma2d-script.log"
+          mkdir -p "$SCENES"
           cat > "$SCRIPT" <<EOF
           var scene = new Scene();
           scene.save("$OUTPUT");
@@ -115,11 +120,12 @@ jobs:
           set -e
           cat "$LOG"
           if [ ! -s "$OUTPUT" ]; then
-            echo "ToonzScript did not create a non-empty .tnz scene."
+            echo "ToonzScript did not create a non-empty .tnz scene inside the default sandbox project."
+            echo "Tahoma2D script runner exit code: $code"
             exit 1
           fi
           echo "Verified scene file: $OUTPUT ($(stat -c%s "$OUTPUT") bytes)"
-          echo "Tahoma2D script runner exit code: $code"
+          echo "Tahoma2D script runner exit code: $code (CLI may return 1 after script dispatch)"
           echo "TAHOMA_SCRIPT_TEST=passed" >> "$GITHUB_ENV"
 
       - name: Verify Tahoma2D can start in a virtual display
