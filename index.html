@@ -1419,11 +1419,23 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
-  for (const id of allowed) {
-    if (typeof data.fields[id] !== 'string') continue;
+  if (!data || !data.fields || typeof data.fields !== 'object' || Array.isArray(data.fields)) {
+    throw new Error('اطلاعات فیلدهای پروژه معتبر نیست.');
+  }
+  const limits = {
+    prompt:1800, negative:500, editPrompt:1200, size:40, ratio:40, style:40,
+    framing:40, lighting:40, palette:40, depth:40, focusTarget:40,
+    cameraAngle:40, cameraDistance:40, seed:40, editStrength:40,
+    cropRatio:40, motion:40, motionDuration:40
+  };
+  for (const [id, maxLength] of Object.entries(limits)) {
+    const value = data.fields[id];
+    if (typeof value !== 'string') continue;
     const el = $(id);
-    if (el) el.value = data.fields[id].slice(0, id === 'prompt' ? 1800 : id === 'negative' ? 500 : id === 'editPrompt' ? 1200 : 40);
+    if (!el) continue;
+    const safeValue = value.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, '').slice(0, maxLength);
+    if (el.tagName === 'SELECT' && !Array.from(el.options).some(option => option.value === safeValue)) continue;
+    el.value = safeValue;
   }
 }
 $('saveNamedProject').addEventListener('click', () => {
@@ -1517,7 +1529,9 @@ $('importProjectFile').addEventListener('change', async event => {
   try {
     if (file.size > 1024 * 1024) throw new Error('حجم فایل پروژه بیش از حد مجاز است.');
     const parsed = JSON.parse(await file.text());
-    if (!parsed || parsed.format !== 'ai-animator-project' || parsed.version !== 1 || !parsed.fields || typeof parsed.fields !== 'object') {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
+        parsed.format !== 'ai-animator-project' || parsed.version !== 1 ||
+        !parsed.fields || typeof parsed.fields !== 'object' || Array.isArray(parsed.fields)) {
       throw new Error('ساختار فایل پروژه معتبر نیست.');
     }
     applyProjectData(parsed);
