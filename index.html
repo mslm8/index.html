@@ -298,6 +298,25 @@ body.authenticated #undoImage{font-size:12px}
  body.authenticated #generationCard>.card{padding:12px}
 }
 
+
+/* Clearer guide and service information page */
+body.authenticated #guidePanel{gap:14px}
+body.authenticated #guidePanel>.viewHeading{margin-bottom:2px}
+body.authenticated #guidePanel>.viewHeading h1{font-size:21px}
+body.authenticated #guidePanel>section.card{position:relative;overflow:hidden;padding:17px 16px;border:1px solid rgba(145,160,210,.17);border-radius:17px;background:linear-gradient(145deg,rgba(27,37,63,.94),rgba(15,22,40,.96));box-shadow:0 8px 24px rgba(0,0,0,.14)}
+body.authenticated #guidePanel>section.card:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,#8b7cff,#42c5bd);opacity:.85}
+body.authenticated #guidePanel>section.card h2{font-size:15px;margin:0 0 12px;padding-left:2px}
+body.authenticated #guidePanel>section.card p{font-size:12px;line-height:2;color:var(--muted)}
+body.authenticated #guidePanel>section.card p:last-child{margin-bottom:0}
+body.authenticated #guidePanel>section.card .note{padding:12px 13px;border-radius:12px;background:rgba(112,130,190,.1);line-height:2}
+body.authenticated #guidePanel>section.card small{font-size:11px;line-height:2}
+body.authenticated #guidePanel>section.card a{color:#a9a0ff;text-decoration:underline;text-underline-offset:3px}
+body.authenticated #guidePanel>footer{padding:8px 4px 16px;text-align:center;opacity:.65}
+@media(max-width:520px){
+ body.authenticated #guidePanel>section.card{padding:15px 13px}
+ body.authenticated #guidePanel>section.card h2{font-size:14px}
+}
+
 /* Keep the document itself immobile; scroll is confined to the selected view */
 html,body{overscroll-behavior:none}
 body.authenticated{position:fixed;inset:0;width:100%;height:100%;overflow:hidden}
