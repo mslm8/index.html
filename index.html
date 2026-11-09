@@ -120,6 +120,30 @@ body:not(.authenticated)>main{display:none!important}
       </select>
     </div>
     <div>
+      <label for="lighting">نورپردازی</label>
+      <select id="lighting">
+        <option value="auto">خودکار</option>
+        <option value="natural">نور طبیعی روز</option>
+        <option value="golden">نور گرم غروب</option>
+        <option value="soft">نور نرم استودیویی</option>
+        <option value="dramatic">نورپردازی دراماتیک</option>
+        <option value="neon">نور نئونی رنگی</option>
+        <option value="moon">نور مهتابی شب</option>
+      </select>
+    </div>
+    <div>
+      <label for="palette">فضای رنگی</label>
+      <select id="palette">
+        <option value="auto">خودکار</option>
+        <option value="natural">رنگ‌های طبیعی</option>
+        <option value="warm">رنگ‌های گرم</option>
+        <option value="cool">رنگ‌های سرد</option>
+        <option value="pastel">رنگ‌های پاستلی</option>
+        <option value="vivid">رنگ‌های زنده و اشباع</option>
+        <option value="mono">سیاه‌وسفید</option>
+      </select>
+    </div>
+    <div>
       <label for="style">سبک هنری</label>
       <select id="style">
         <option value="none">بدون تغییر سبک</option>
@@ -530,7 +554,25 @@ async function generateImage() {
     top: 'Camera angle: high-angle overhead view looking down at the scene.'
   };
   const selectedFraming = framingPrompts[$('framing').value] || '';
-  const promptParts = [translatedPrompt, selectedStyle, selectedFraming].filter(Boolean);
+  const lightingPrompts = {
+    natural: 'Lighting: soft natural daylight with balanced realistic shadows.',
+    golden: 'Lighting: warm golden-hour sunlight with gentle long shadows.',
+    soft: 'Lighting: soft diffused studio lighting with even exposure and subtle shadows.',
+    dramatic: 'Lighting: dramatic directional lighting with controlled highlights and deep shadows.',
+    neon: 'Lighting: colorful neon illumination with cinematic reflections.',
+    moon: 'Lighting: cool moonlight with a calm night atmosphere and gentle contrast.'
+  };
+  const palettePrompts = {
+    natural: 'Color palette: balanced natural colors with realistic white balance.',
+    warm: 'Color palette: warm amber, gold and earthy tones.',
+    cool: 'Color palette: cool blue and teal tones with restrained saturation.',
+    pastel: 'Color palette: soft pastel colors with gentle contrast.',
+    vivid: 'Color palette: vivid rich colors with controlled high saturation.',
+    mono: 'Color palette: monochrome black and white with clear tonal separation.'
+  };
+  const selectedLighting = lightingPrompts[$('lighting').value] || '';
+  const selectedPalette = palettePrompts[$('palette').value] || '';
+  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette].filter(Boolean);
   const styledPrompt = promptParts.join('. ');
   const fullPrompt = translatedNegative
     ? styledPrompt + ' ### ' + translatedNegative
@@ -731,7 +773,7 @@ function renderNamedProjects(selectedId) {
   if (selectedId && projects.some(p => p.id === selectedId)) select.value = selectedId;
 }
 function applyProjectData(data) {
-  const allowed = ['prompt','negative','size','ratio','style','framing','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
+  const allowed = ['prompt','negative','size','ratio','style','framing','lighting','palette','seed','editPrompt','editStrength','cropRatio','motion','motionDuration'];
   for (const id of allowed) {
     if (typeof data.fields[id] !== 'string') continue;
     const el = $(id);
