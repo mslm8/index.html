@@ -701,7 +701,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <textarea id="motionDialogueText" rows="2" maxlength="180" placeholder="مثلاً: بالاخره پیدات کردم!" style="width:100%;box-sizing:border-box"></textarea>
       <button id="addMotionDialogue" type="button" class="secondary" style="margin-top:8px">+ افزودن دیالوگ</button>
       <div id="motionDialogueList" style="display:grid;gap:8px;margin-top:10px"></div>
-      <small>زمان شروع و پایان هر دیالوگ برحسب درصد زمان همین صحنه تنظیم می‌شود. این قابلیت حباب متنی است و هنوز هماهنگ‌سازی حرکت لب (Lip-sync) ندارد.</small>
+      <small>برای هر دیالوگ می‌توانی فایل صدای ضبط‌شده اضافه کنی. صدا در خروجی WebM با زمان شروع دیالوگ پخش می‌شود؛ هماهنگ‌سازی حرکت لب هنوز وجود ندارد.</small>
     </section>
   </section>
   <label for="motionLayerFiles">افزودن لایه‌های تصویری (حداکثر ۸ لایه)</label>
@@ -2431,6 +2431,21 @@ function renderMotionDialogueEditor(){
     const card=document.createElement('div');card.style.cssText='padding:9px;border:1px solid var(--border);border-radius:9px;display:grid;gap:6px';
     const input=document.createElement('textarea');input.rows=2;input.maxLength=180;input.value=item.text||'';input.setAttribute('aria-label','متن دیالوگ '+(index+1));
     input.addEventListener('input',()=>{item.text=input.value;renderMotionPreview();});
+    const audioLabel=document.createElement('label');audioLabel.textContent=item.audioName?'فایل صدا: '+item.audioName:'افزودن صدای همین دیالوگ';
+    const audioInput=document.createElement('input');audioInput.type='file';audioInput.accept='audio/*';audioInput.setAttribute('aria-label','فایل صدای دیالوگ '+(index+1));
+    audioInput.addEventListener('change',async()=>{
+      const file=audioInput.files&&audioInput.files[0];if(!file)return;
+      if(file.size>15*1024*1024){setStatus('حجم فایل صدا نباید بیشتر از ۱۵ مگابایت باشد.','var(--warn)');audioInput.value='';return;}
+      try{
+        const bytes=await file.arrayBuffer(),AudioCtx=window.AudioContext||window.webkitAudioContext;
+        if(!AudioCtx)throw new Error('مرورگر از پردازش صدا پشتیبانی نمی‌کند.');
+        const decoder=new AudioCtx();item.audioBuffer=await decoder.decodeAudioData(bytes.slice(0));item.audioName=file.name;await decoder.close();
+        audioLabel.textContent='فایل صدا: '+file.name;setStatus('صدای دیالوگ بارگذاری شد.');
+      }catch(error){setStatus('خواندن فایل صدا ناموفق بود: '+error.message,'var(--warn)');}
+      audioInput.value='';
+    });
+    audioLabel.appendChild(audioInput);
+
     const timing=document.createElement('div');timing.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
     [['startAt','شروع',0,99],['endAt','پایان',1,100]].forEach(([key,label,min,max])=>{
       const wrap=document.createElement('label');wrap.textContent=label+' ('+item[key]+'٪)';
@@ -2439,7 +2454,7 @@ function renderMotionDialogueEditor(){
       wrap.appendChild(range);timing.appendChild(wrap);
     });
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف دیالوگ';remove.addEventListener('click',()=>{scene.dialogues.splice(index,1);renderMotionDialogueEditor();renderMotionPreview();});
-    card.append(input,timing,remove);host.appendChild(card);
+    card.append(input,audioLabel,timing,remove);host.appendChild(card);
   });
 }
 $('addMotionDialogue').addEventListener('click',()=>{
@@ -2635,6 +2650,16 @@ function createMotionClip() {
   const ctx=canvas.getContext('2d');
   if(!ctx){button.disabled=false;setStatus('ساخت صحنه ناموفق بود.','var(--bad)');return;}
   const stream=canvas.captureStream(24);
+  let audioContext=null,audioDestination=null;
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  const dialogueAudio=exportScenes.flatMap((scene,index)=>(scene.dialogues||[]).filter(item=>item.audioBuffer).map(item=>({buffer:item.audioBuffer,when:index*(Number($('motionDuration').value)*1000/exportScenes.length)/1000+(item.startAt??0)/100*(Number($('motionDuration').value)/exportScenes.length)})));
+  if(dialogueAudio.length&&AudioCtx){
+    try{
+      audioContext=new AudioCtx();audioDestination=audioContext.createMediaStreamDestination();
+      dialogueAudio.forEach(clip=>{const node=audioContext.createBufferSource();node.buffer=clip.buffer;node.connect(audioDestination);clip.node=node;});
+      stream.addTrack(audioDestination.stream.getAudioTracks()[0]);
+    }catch(error){audioContext=null;audioDestination=null;setStatus('ترکیب صدا در این مرورگر ممکن نشد؛ خروجی بدون صدا ساخته می‌شود.','var(--warn)');}
+  }
   const candidates=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type))||'';
   let recorder;
@@ -2645,6 +2670,7 @@ function createMotionClip() {
   recorder.onerror=()=>{stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('هنگام ساخت انیمیشن خطای ضبط رخ داد.','var(--bad)');};
   recorder.onstop=()=>{
     stream.getTracks().forEach(track=>track.stop());
+    if(audioContext)audioContext.close().catch(()=>{});
     const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
     if(!blob.size){button.disabled=false;setStatus('فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.','var(--bad)');return;}
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
@@ -2658,6 +2684,12 @@ function createMotionClip() {
   const cameraScale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
   const baseFit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
   const start=performance.now();recorder.start(200);
+  if(audioContext){
+    audioContext.resume().then(()=>{
+      const audioStart=audioContext.currentTime+0.12;
+      dialogueAudio.forEach(clip=>{try{clip.node.start(audioStart+clip.when);}catch(_){}});
+    }).catch(()=>setStatus('فعال‌سازی صدای خروجی ناموفق بود؛ ویدئو بدون صدای دیالوگ ساخته می‌شود.','var(--warn)'));
+  }
   function drawSprite(image,motion,progress,scale){
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     let x=canvas.width/2,y=canvas.height/2,angle=0,alpha=1;
