@@ -504,6 +504,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
     </div>
   </div>
   <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
+  <button id="generateVariation" class="secondary" type="button" hidden>ساخت نسخه متفاوت با همین تنظیمات</button>
   <div class="row">
     <button id="cancel" class="danger" type="button" disabled>لغو درخواست</button>
   </div>
@@ -693,6 +694,7 @@ let generationInProgress = false;
 let currentImageUrl = null;
 let previousImages = [];
 let smartModelChoices = [];
+let lastGenerationSettings = null;
 
 function setStatus(message, color) {
   $('status').textContent = message;
@@ -861,6 +863,9 @@ async function generateImage() {
   if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
   if (activeRequestId || polling) return;
 
+  const settingIds = ['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
+  lastGenerationSettings = Object.fromEntries(settingIds.map(id => [id, $(id).value]));
+  $('generateVariation').hidden = true;
   generationInProgress = true;
   $('generate').disabled = true;
   $('cancel').disabled = true;
@@ -1446,6 +1451,7 @@ function displayImage(imageValue, seed, model) {
   img.onload = () => {
     $('download').href = url;
     $('download').hidden = false;
+    $('generateVariation').hidden = false;
     resetMaskCanvas();
     openCropTool();
     setStatus('تصویر آماده شد.' + (model ? '\nمدل: ' + model : '') + (seed ? '\nSeed: ' + seed : ''));
@@ -1853,6 +1859,15 @@ $('undoImage').addEventListener('click', restorePreviousImage);
 $('editImage').addEventListener('click', editCurrentImage);
 $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
+$('generateVariation').addEventListener('click', () => {
+  if (!lastGenerationSettings || generationInProgress) return;
+  Object.entries(lastGenerationSettings).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+  const randomSeed = new Uint32Array(1);
+  if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(randomSeed);
+  else randomSeed[0] = Math.floor(Math.random() * 4294967296);
+  $('seed').value = String(randomSeed[0]);
+  generateImage();
+});
 $('cancel').addEventListener('click', cancelRequest);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
