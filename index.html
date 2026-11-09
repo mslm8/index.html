@@ -727,6 +727,11 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <small>برای هر دیالوگ نام شخصیت و صدای قابل‌دسترس مرورگر را انتخاب کن و نمونه را بشنو. فایل صدای ضبط‌شده در خروجی WebM استفاده می‌شود؛ صدای تبدیل متن به گفتار فعلاً فقط پیش‌نمایش است و وارد خروجی نمی‌شود.</small>
     </section>
   </section>
+  <div class="motion-dialogue-panel" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:12px">
+    <strong>شخصیت‌ساز داخلی</strong>
+    <p style="margin:6px 0 10px"><small>یک شخصیت کارتونی ساده و چندتکه بساز؛ بدون آپلود تصویر یا سرویس خارجی. دست‌ها و پاها به‌صورت لایه‌های جداگانه با حرکت قدم‌زدن متحرک می‌شوند.</small></p>
+    <button id="createProceduralCharacter" class="primary" type="button">ساخت شخصیت کارتونی آماده</button>
+  </div>
   <label for="motionLayerFiles">افزودن لایه‌های تصویری (حداکثر ۸ لایه)</label>
   <input id="motionLayerFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
   <small>هر تصویر به‌عنوان لایه مستقل روی صحنه قرار می‌گیرد. برای بهترین نتیجه از PNG شفاف استفاده کن.</small>
@@ -3112,6 +3117,53 @@ previewCanvas.addEventListener('pointermove',event=>{
   renderMotionPreview();
 });
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>previewCanvas.addEventListener(type,()=>{motionDragState=null;}));
+
+
+function makeLocalSvgImage(svg,name){
+  const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  return new Promise((resolve,reject)=>{
+    const image=new Image();
+    image.onload=()=>resolve({image,url,name,motion:'still',startAt:0,endAt:100,startX:50,startY:60,endX:50,endY:60,scale:1});
+    image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('ساخت یکی از اجزای شخصیت ناموفق بود.'));};
+    image.src=url;
+  });
+}
+$('createProceduralCharacter').addEventListener('click',async()=>{
+  const button=$('createProceduralCharacter');
+  if(motionLayers.length+6>8){setStatus('برای ساخت شخصیت کامل باید دست‌کم ۶ جای خالی در لایه‌های صحنه داشته باشی. ابتدا چند لایه را حذف کن.','var(--warn)');return;}
+  button.disabled=true;
+  try{
+    const id='local-rig-'+Date.now().toString(36);
+    const parts=[
+      {name:'دست چپ',role:'arm-left',w:76,h:176,jx:50,jy:30,ox:-49,oy:0,svg:'<path d="M38 8 C15 18 12 52 23 83 L18 137 Q18 157 34 159 Q48 158 47 140 L52 91 Q65 55 59 24 Z" fill="#f0b36e" stroke="#593c38" stroke-width="6"/><path d="M23 137 Q5 157 20 169 Q40 181 49 158 L46 139" fill="#f0b36e" stroke="#593c38" stroke-width="6"/>'},
+      {name:'دست راست',role:'arm-right',w:76,h:176,jx:50,jy:30,ox:49,oy:0,svg:'<path d="M38 8 C15 18 12 52 23 83 L18 137 Q18 157 34 159 Q48 158 47 140 L52 91 Q65 55 59 24 Z" fill="#f0b36e" stroke="#593c38" stroke-width="6"/><path d="M23 137 Q5 157 20 169 Q40 181 49 158 L46 139" fill="#f0b36e" stroke="#593c38" stroke-width="6"/>'},
+      {name:'پای چپ',role:'leg-left',w:82,h:184,jx:50,jy:100,ox:-25,oy:0,svg:'<path d="M22 8 Q58 0 62 25 L54 125 Q52 145 38 148 L18 143 Q10 136 14 119 Z" fill="#4f78bd" stroke="#293b63" stroke-width="7"/><path d="M18 130 Q-2 145 8 165 Q30 181 65 164 Q75 151 55 141 L38 145" fill="#e9d5b5" stroke="#593c38" stroke-width="7"/>'},
+      {name:'پای راست',role:'leg-right',w:82,h:184,jx:50,jy:100,ox:25,oy:0,svg:'<path d="M22 8 Q58 0 62 25 L54 125 Q52 145 38 148 L18 143 Q10 136 14 119 Z" fill="#4f78bd" stroke="#293b63" stroke-width="7"/><path d="M18 130 Q-2 145 8 165 Q30 181 65 164 Q75 151 55 141 L38 145" fill="#e9d5b5" stroke="#593c38" stroke-width="7"/>'},
+      {name:'بدن',role:'body',w:220,h:300,jx:50,jy:50,ox:0,oy:0,svg:'<path d="M57 18 Q110 0 163 18 L188 83 L171 250 Q110 278 49 250 L32 83 Z" fill="#42a99b" stroke="#245b59" stroke-width="9"/><path d="M62 48 Q110 68 158 48 L151 104 Q110 122 69 104 Z" fill="#f2c66d"/><path d="M82 150 Q110 164 138 150" fill="none" stroke="#245b59" stroke-width="7" stroke-linecap="round"/>'},
+      {name:'سر',role:'head',w:190,h:190,jx:50,jy:0,ox:0,oy:-65,svg:'<path d="M25 91 Q18 22 95 18 Q172 22 165 91 L157 139 Q130 178 95 177 Q60 178 33 139 Z" fill="#f0b36e" stroke="#593c38" stroke-width="8"/><path d="M36 64 Q49 5 95 15 Q141 5 154 64 Q119 42 95 48 Q71 42 36 64" fill="#493b39"/><ellipse cx="68" cy="94" rx="10" ry="14" fill="#fff"/><ellipse cx="122" cy="94" rx="10" ry="14" fill="#fff"/><circle cx="70" cy="97" r="5" fill="#26334b"/><circle cx="120" cy="97" r="5" fill="#26334b"/><path d="M76 133 Q95 148 116 132" fill="none" stroke="#713d3c" stroke-width="6" stroke-linecap="round"/>'}
+    ];
+    const loaded=[];
+    for(const part of parts){
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+part.w+'" height="'+part.h+'" viewBox="0 0 '+part.w+' '+part.h+'">'+part.svg+'</svg>';
+      loaded.push(await makeLocalSvgImage(svg,part.name));
+    }
+    const root=loaded.find(x=>x.name==='بدن');
+    root.rigId=id+'-body';root.motion='walk';root.startX=50;root.startY=60;root.endX=50;root.endY=60;
+    for(let i=0;i<loaded.length;i++){
+      const layer=loaded[i];
+      if(layer===root)continue;
+      const part=parts.find(p=>p.name===layer.name);
+      layer.rigId=id+'-'+part.role;layer.parentLayerId=root.rigId;layer.rigRole=part.role;
+      layer.jointX=part.jx;layer.jointY=part.jy;layer.jointOffsetX=part.ox;layer.jointOffsetY=part.oy;
+      layer.startX=50;layer.startY=60;layer.endX=50;layer.endY=60;
+    }
+    motionLayers.push(...loaded);selectedMotionLayer=root;
+    renderMotionLayerList();renderMotionPreview();
+    setStatus('شخصیت کارتونی داخلی ساخته شد: سر، بدن، دو دست و دو پا. حرکت قدم‌زدن را در پیش‌نمایش بررسی کن.');
+  }catch(error){setStatus('ساخت شخصیت کارتونی انجام نشد: '+error.message,'var(--warn)');}
+  finally{button.disabled=false;}
+});
 
 $('motionLayerFiles').addEventListener('change', async event => {
   const files = Array.from(event.target.files || []);
