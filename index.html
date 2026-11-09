@@ -370,6 +370,7 @@ body.authenticated #guidePanel{min-height:0;max-height:none;touch-action:pan-y}
   </div>
   <label for="prompt">توضیح صحنه</label>
   <textarea id="prompt" maxlength="1800" placeholder="مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند."></textarea>
+  <div class="row" style="margin-top:8px"><button id="copyPrompt" class="secondary" type="button">کپی متن درخواست</button><small id="promptCount">۰ از ۱۸۰۰ نویسه</small></div>
   <div class="row" style="margin-top:8px">
     <button id="enhancePrompt" class="secondary" type="button">بهینه‌سازی ساختاری متن</button>
     <small id="enhanceHint">متن اصلی حفظ می‌شود؛ فقط راهنمای ترکیب‌بندی و کیفیت به آن افزوده می‌شود.</small>
@@ -1858,6 +1859,19 @@ $('loadLocalImage').addEventListener('click', importLocalImage);
 $('undoImage').addEventListener('click', restorePreviousImage);
 $('editImage').addEventListener('click', editCurrentImage);
 $('animate').addEventListener('click', createMotionClip);
+$('copyPrompt').addEventListener('click', async () => {
+  const text = $('prompt').value.trim();
+  if (!text) { setStatus('ابتدا متن درخواست را بنویس.'); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus('متن درخواست کپی شد.');
+  } catch (error) {
+    setStatus('کپی خودکار در این مرورگر در دسترس نیست؛ متن را انتخاب و دستی کپی کن.', 'var(--warn)');
+  }
+});
+$('prompt').addEventListener('input', () => {
+  $('promptCount').textContent = $('prompt').value.length.toLocaleString('fa-IR') + ' از ۱۸۰۰ نویسه';
+});
 $('generate').addEventListener('click', generateImage);
 $('generateVariation').addEventListener('click', () => {
   if (!lastGenerationSettings || generationInProgress) return;
