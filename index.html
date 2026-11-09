@@ -122,6 +122,25 @@ body:not(.authenticated)>main{display:none!important}
   <p><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a></p>
 </section>
 
+<section class="card" id="editCard" hidden>
+  <h2>ویرایش هوشمند تصویر</h2>
+  <p>با استفاده از تصویر فعلی، نسخه‌ای تازه بساز. شدت تغییر کمتر، تصویر اصلی را بیشتر حفظ می‌کند؛ نتیجه به مدل و پردازشگر داوطلب بستگی دارد.</p>
+  <label for="editPrompt">چه چیزی تغییر کند؟</label>
+  <textarea id="editPrompt" maxlength="1200" placeholder="مثلاً: نورپردازی را گرم‌تر کن و پس‌زمینه را به یک باغ پاییزی تغییر بده."></textarea>
+  <div class="grid">
+    <div>
+      <label for="editStrength">شدت تغییر</label>
+      <select id="editStrength">
+        <option value="0.25">کم · حفظ بیشتر تصویر</option>
+        <option value="0.45" selected>متوسط · تعادل تغییر و حفظ</option>
+        <option value="0.65">زیاد · تغییر محسوس‌تر</option>
+      </select>
+    </div>
+  </div>
+  <button id="editImage" class="primary" type="button">ساخت نسخه ویرایش‌شده</button>
+  <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
+</section>
+
 <section class="card" id="historyCard">
   <div class="row" style="justify-content:space-between">
     <h2>تاریخچه تصاویر</h2>
@@ -585,8 +604,106 @@ function displayImage(imageValue, seed, model) {
   img.src = url;
   img.hidden = false;
   $('motionCard').hidden = false;
+  $('editCard').hidden = false;
   $('animate').disabled = false;
   saveHistory(url, seed, model);
+}
+
+async function imageToWebpBase64(imageUrl) {
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error('دریافت تصویر اصلی برای ویرایش ناموفق بود.');
+  const blob = await response.blob();
+  const bitmap = await createImageBitmap(blob);
+  const maxEdge = 1536;
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(256, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(256, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('آماده‌سازی تصویر برای ویرایش ممکن نشد.');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const dataUrl = canvas.toDataURL('image/webp', 0.88);
+  if (!dataUrl.startsWith('data:image/webp;base64,')) throw new Error('تبدیل تصویر به WebP ناموفق بود.');
+  return dataUrl.split(',')[1];
+}
+
+async function editCurrentImage() {
+  const instruction = $('editPrompt').value.trim();
+  if (!instruction) {
+    $('editHint').textContent = 'اول توضیح بده چه چیزی باید تغییر کند.';
+    $('editPrompt').focus();
+    return;
+  }
+  if (!currentImageUrl || !$('result').complete || !$('result').naturalWidth) {
+    $('editHint').textContent = 'ابتدا یک تصویر تولید کن.';
+    return;
+  }
+  if (generationInProgress || activeRequestId || polling) return;
+  generationInProgress = true;
+  $('generate').disabled = true;
+  $('editImage').disabled = true;
+  $('cancel').disabled = true;
+  $('result').hidden = true;
+  $('download').hidden = true;
+  setStatus('در حال آماده‌سازی تصویر اصلی برای ویرایش...');
+  try {
+    const [sourceImage, translatedInstruction, translatedNegative, candidates] = await Promise.all([
+      imageToWebpBase64(currentImageUrl),
+      translateToEnglish(instruction),
+      $('negative').value.trim() ? translateToEnglish($('negative').value.trim()) : Promise.resolve(''),
+      loadModels(true)
+    ]);
+    if (!candidates.length) throw new Error('هیچ مدل فعالی برای پردازش پیدا نشد.');
+    const editPrompt = translatedNegative
+      ? translatedInstruction + ' ### ' + translatedNegative
+      : translatedInstruction;
+    setStatus('تصویر آماده شد؛ درخواست ویرایش با مدل ' + candidates[0] + ' ارسال می‌شود...');
+    const submitted = await apiFetch('/generate/async', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: editPrompt,
+        params: {
+          width: Math.min(1536, Math.max(256, Math.round($('result').naturalWidth / 64) * 64)),
+          height: Math.min(1536, Math.max(256, Math.round($('result').naturalHeight / 64) * 64)),
+          steps: Number($('quality').value) || 20,
+          n: 1,
+          cfg_scale: 7.5,
+          sampler_name: 'k_euler_a',
+          karras: true,
+          denoising_strength: Number($('editStrength').value)
+        },
+        source_image: sourceImage,
+        source_processing: 'img2img',
+        models: candidates,
+        nsfw: false,
+        censor_nsfw: true,
+        trusted_workers: false,
+        slow_workers: true,
+        extra_slow_workers: false,
+        allow_downgrade: true,
+        replacement_filter: true,
+        r2: true,
+        shared: false
+      })
+    });
+    if (!submitted.id) throw new Error('شناسه درخواست ویرایش دریافت نشد.');
+    activeRequestId = submitted.id;
+    $('cancel').disabled = false;
+    setStatus('درخواست ویرایش ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.');
+    await pollRequest(submitted.id);
+    $('editHint').textContent = 'نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس.';
+  } catch (error) {
+    setStatus('ویرایش تصویر انجام نشد: ' + error.message, 'var(--warn)');
+    $('editHint').textContent = 'اگر پردازشگر از img2img پشتیبانی نکند یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود.';
+  } finally {
+    activeRequestId = null;
+    polling = false;
+    generationInProgress = false;
+    $('generate').disabled = smartModelChoices.length === 0;
+    $('editImage').disabled = false;
+    $('cancel').disabled = true;
+  }
 }
 
 async function cancelRequest() {
@@ -685,6 +802,7 @@ function createMotionClip() {
   requestAnimationFrame(draw);
 }
 
+$('editImage').addEventListener('click', editCurrentImage);
 $('animate').addEventListener('click', createMotionClip);
 $('generate').addEventListener('click', generateImage);
 $('cancel').addEventListener('click', cancelRequest);
