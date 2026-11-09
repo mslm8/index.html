@@ -1298,6 +1298,10 @@ async function generateImageUnlocked() {
   const imageWidth = ratioW >= ratioH ? dimension : shortSide;
   const imageHeight = ratioH >= ratioW ? dimension : shortSide;
   const steps = Number($('quality').value) || 20;
+  if (!generationInProgress || !document.body.classList.contains('authenticated')) {
+    setStatus('عملیات به‌دلیل پایان نشست ورود متوقف شد.', 'var(--warn)');
+    return;
+  }
   setStatus('متن ترجمه شد. مدل: ' + candidates[0] +
     (candidates.length > 1 ? '\nگزینه‌های جایگزین هم آماده‌اند.' : '') +
     '\nاندازه خروجی: ' + imageWidth + '×' + imageHeight + ' · مراحل: ' + steps +
@@ -1331,6 +1335,10 @@ async function generateImageUnlocked() {
       })
     });
     if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
+    if (!document.body.classList.contains('authenticated')) {
+      try { await apiFetch('/generate/status/' + encodeURIComponent(submitted.id), {method:'DELETE'}); } catch (_) {}
+      throw new Error('نشست ورود هنگام ثبت درخواست پایان یافت؛ درخواست تازه لغو شد.');
+    }
     activeRequestId = submitted.id;
     savePendingRequest(submitted.id);
     $('cancel').disabled = false;
@@ -2102,6 +2110,10 @@ async function editCurrentImageUnlocked() {
       loadModels(true)
     ]);
     const useInpainting = !!sourceMask;
+    if (!generationInProgress || !document.body.classList.contains('authenticated')) {
+      setStatus('عملیات ویرایش به‌دلیل پایان نشست ورود متوقف شد.', 'var(--warn)');
+      return;
+    }
     if (!candidates.length) throw new Error('هیچ مدل فعالی برای پردازش پیدا نشد.');
     const editPrompt = translatedNegative
       ? translatedInstruction + ' ### ' + translatedNegative
@@ -2137,6 +2149,10 @@ async function editCurrentImageUnlocked() {
       })
     });
     if (!submitted.id) throw new Error('شناسه درخواست ویرایش دریافت نشد.');
+    if (!document.body.classList.contains('authenticated')) {
+      try { await apiFetch('/generate/status/' + encodeURIComponent(submitted.id), {method:'DELETE'}); } catch (_) {}
+      throw new Error('نشست ورود هنگام ثبت ویرایش پایان یافت؛ درخواست تازه لغو شد.');
+    }
     activeRequestId = submitted.id;
     $('cancel').disabled = false;
     setStatus(useInpainting ? 'درخواست ویرایش ناحیه انتخابی ثبت شد؛ نتیجه ممکن است فقط در بخش ماسک‌شده تغییر کند.' : 'درخواست ویرایش تصویر ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.');
