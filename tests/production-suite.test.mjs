@@ -307,3 +307,11 @@ test('scene staging selects all named participants and supports four-character l
   assert.match(build, /positionsByCount=\{1:\[50\],2:\[35,65\],3:\[25,50,75\],4:\[18,39,61,82\]\}/);
   assert.match(build, /scene\.activeCharacterNames=activeCharacterNames/);
 });
+
+test('one-input ToonVerse workflow hides paid switches and internal production diagnostics', () => {
+  assert.match(html, /id="storyToScenesInput"/);
+  assert.match(html, /id="autoEpisodeButton"/);
+  assert.match(html, /#storyToScenesPanel \.cloud-video-optin[\s\S]*display:none !important/);
+  assert.match(html, /#storyToScenesPanel #liveProduction[\s\S]*display:none !important/);
+  assert.match(html, /#storyToScenesPanel #autoEpisodeButton[\s\S]*min-height:56px/);
+});
