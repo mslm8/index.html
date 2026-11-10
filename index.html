@@ -3603,6 +3603,8 @@ async function autoBuildEpisodeFromStory(){
   if(!freeEngineManagerState.canvas){button.disabled=false;const message='ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const settingIds=['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
   const saved=Object.fromEntries(settingIds.map(id=>[id,$(id).value]));
+  // Story-to-video defaults to a standard widescreen episode; the renderer also supports portrait and square canvases.
+  if($('aspect'))$('aspect').value='wide';
   try{
     liveBuildUpdate(0,cloudVideoEnabled?'در حال بررسی اتصال امن ویدیوساز ابری و موتور فیلمنامه.':'در حال آماده‌سازی موتور فیلمنامه و تصویرسازی داخلی.',5);
     status.textContent='در حال بررسی موتور متن و موتور تصویر...';
@@ -5160,7 +5162,10 @@ function createMotionClip() {
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){const message='ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
-  const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
+  const canvas=document.createElement('canvas');
+  const videoAspect=String($('aspect')?.value||'wide');
+  const videoDimensions=({square:[960,960],landscape:[960,720],portrait:[720,960],wide:[960,540],tall:[540,960]})[videoAspect]||[960,540];
+  canvas.width=videoDimensions[0];canvas.height=videoDimensions[1];
   const ctx=canvas.getContext('2d');
   if(!ctx){button.disabled=false;const message='ساخت صحنه ناموفق بود؛ بوم گرافیکی در دسترس نیست.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
   let stream;
