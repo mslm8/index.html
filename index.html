@@ -3491,9 +3491,18 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
     '<path d="M55 12 Q110 -2 165 12 L205 74 L179 278 Q110 300 41 278 L15 74 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/>'+outfitDetails[characterIndex%outfitDetails.length]+'<path d="M42 260 Q110 284 178 260" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/>',
     'body',0,0,1.05);
   body.motion='idle';
-  const armArtwork='<path d="M39 8 Q8 18 13 60 L22 125 Q17 151 35 158 Q54 160 56 139 L50 83 Q68 44 58 17 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M22 126 Q38 137 55 128 L56 145 Q40 157 25 145 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/><path d="M35 133 Q13 151 25 169 Q43 181 57 155 L51 136" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M28 158 Q19 170 29 175 M37 160 Q31 175 41 178 M47 158 Q44 171 52 171" fill="none" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
-  const leftArm=await make('دست چپ '+characterName,76,176,armArtwork,'arm-left',-38,-15,.92);
-  const rightArm=await make('دست راست '+characterName,76,176,'<g transform="translate(76 0) scale(-1 1)">'+armArtwork+'</g>','arm-right',38,-15,.92);
+  const upperArmArtwork='<path d="M39 6 Q9 15 13 48 L22 91 Q25 108 39 108 Q55 106 55 91 L50 48 Q66 20 57 9 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M22 88 Q38 99 55 88 L55 103 Q39 114 24 102 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/>';
+  const forearmArtwork='<path d="M23 8 Q38 0 53 9 L55 65 Q57 82 45 89 L27 89 Q15 82 17 65 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M19 69 Q37 80 54 68 L56 84 Q39 98 21 84 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="5"/><path d="M23 83 Q8 99 22 108 Q39 119 56 96 L49 83" fill="'+p.skin+'" stroke="#28283b" stroke-width="8" stroke-linejoin="round"/><path d="M19 101 Q12 112 23 116 M31 104 Q25 117 37 119 M44 102 Q41 114 51 112" fill="none" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
+  const leftArm=await make('بازوی بالایی چپ '+characterName,76,116,upperArmArtwork,'arm-left',-39,-18,.94);
+  const rightArm=await make('بازوی بالایی راست '+characterName,76,116,'<g transform="translate(76 0) scale(-1 1)">'+upperArmArtwork+'</g>','arm-right',39,-18,.94);
+  const leftForearm=await make('ساعد و دست چپ '+characterName,70,124,forearmArtwork,'forearm-left',0,0,.94);
+  const rightForearm=await make('ساعد و دست راست '+characterName,70,124,'<g transform="translate(70 0) scale(-1 1)">'+forearmArtwork+'</g>','forearm-right',0,0,.94);
+  for(const [forearm,upper,side] of [[leftForearm,leftArm,'left'],[rightForearm,rightArm,'right']]){
+    forearm.parentLayerId=upper.rigId;
+    forearm.jointX=50;forearm.jointY=78;
+    forearm.jointOffsetX=0;forearm.jointOffsetY=34;
+    forearm.rigRole='forearm-'+side;
+  }
   const legArtwork='<path d="M18 8 Q58 -2 66 25 L57 132 Q51 153 34 151 L13 140 Q8 132 12 116 Z" fill="'+p.pants+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M15 132 Q-7 150 7 169 Q34 186 70 165 Q79 151 54 139 L34 147" fill="#f4e5c9" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M8 157 Q37 174 73 154" fill="none" stroke="'+p.accent+'" stroke-width="6" stroke-linecap="round"/><path d="M25 169 L58 169" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
   const leftLeg=await make('پای چپ '+characterName,82,184,legArtwork,'leg-left',-13,35,.92);
   const rightLeg=await make('پای راست '+characterName,82,184,'<g transform="translate(82 0) scale(-1 1)">'+legArtwork+'</g>','leg-right',13,35,.92);
@@ -3522,7 +3531,7 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
   head.eyeAnimation=true;head.blinkRate=2+characterIndex;head.eyeY=57;head.leftEyeX=35;head.rightEyeX=66;
   head.characterStyleIndex=characterIndex%4;
-  return [leftArm,rightArm,leftLeg,rightLeg,body,head];
+  return [leftArm,rightArm,leftForearm,rightForearm,leftLeg,rightLeg,body,head];
 }
 
 async function autoBuildEpisodeFromStory(){
@@ -3634,7 +3643,8 @@ async function autoBuildEpisodeFromStory(){
         const action=scene.autoDirection.action;
         const root=base.rigRole==='body'||base.rigId.endsWith('-body');
         const head=base.rigRole==='head';
-        const arm=String(base.rigRole||'').startsWith('arm-');
+        const role=String(base.rigRole||'');
+        const arm=role.startsWith('arm-')||role.startsWith('forearm-');
         const leg=String(base.rigRole||'').startsWith('leg-');
         const motion=root?(action==='run'?'run':action==='jump'?'jump':action==='walk'?'walk':action==='sway'?'sway':'idle'):'still';
         const x=positions[characterIndex];
@@ -3653,10 +3663,11 @@ async function autoBuildEpisodeFromStory(){
           ];
         }
         if(arm){
-          const sign=base.rigRole==='arm-left'?-1:1;
+          const sign=role.endsWith('left')?-1:1;
           const gesture=scene.autoDirection.gesture;
-          const swing=gesture==='wave'?sign*48:gesture!=='neutral'?sign*27:sign*5;
-          const lift=gesture==='wave'?-12:gesture!=='neutral'?-5:0;
+          const segmentScale=role.startsWith('forearm-')?.58:1;
+          const swing=(gesture==='wave'?48:gesture!=='neutral'?27:5)*sign*segmentScale;
+          const lift=gesture==='wave'?-12*segmentScale:gesture!=='neutral'?-5*segmentScale:0;
           layer.motionKeys=[
             {at:0,x,y:65,rotation:gesture==='neutral'?sign*-3:0},
             {at:28,x,y:65+lift,rotation:swing},
@@ -4553,7 +4564,7 @@ function getRigWorldTransform(layer,layers,progress,canvas){
       const running=parent.motion==='run';
       const parentFrom=(parent.startAt??0)/100,parentTo=(parent.endAt??100)/100;
       const parentProgress=parentTo<=parentFrom?0:Math.max(0,Math.min(1,(progress-parentFrom)/(parentTo-parentFrom)));
-      const limbAmplitude=role.startsWith('leg-')?(running?38:24):role.startsWith('arm-')?(running?29:16):0;
+      const limbAmplitude=role.startsWith('leg-')?(running?38:24):role.startsWith('arm-')?(running?29:16):role.startsWith('forearm-')?(running?17:9):0;
       if(limbAmplitude){const phase=role.endsWith('right')?Math.PI:0;jointRotation+=Math.sin(parentProgress*Math.PI*(running?10:6)+phase)*limbAmplitude*Math.PI/180;}
     }
     const localDelta=angle-baseAngle+jointRotation;
