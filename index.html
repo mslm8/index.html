@@ -3656,7 +3656,20 @@ async function autoBuildEpisodeFromStory(){
             'Camera direction: '+String(scene.shotType||'medium')+' · '+String(scene.directorNotes||''),
             'Maintain the same original character faces, proportions, clothing, colors and accessories; do not redesign characters. Clear staging, expressive acting, smooth natural motion, coherent background, no subtitles, no text, no logos.'
           ].join('\n\n');
-          const sceneReferences=scene.characterFocus.map(name=>characterReferenceMap.get(name)).filter(Boolean).slice(0,9);
+          const normalizeCharacterName=value=>String(value||'').normalize('NFKC').trim().toLocaleLowerCase();
+          const sceneCharacterNames=Array.from(new Set([
+            ...(Array.isArray(scene.characterFocus)?scene.characterFocus:[]),
+            ...(Array.isArray(scene.dialogues)?scene.dialogues.map(item=>item?.speaker):[])
+          ].map(value=>String(value||'').trim()).filter(Boolean)));
+          const sceneReferences=sceneCharacterNames.map(name=>{
+            const direct=characterReferenceMap.get(name);
+            if(direct)return direct;
+            const normalized=normalizeCharacterName(name);
+            for(const [referenceName,record] of characterReferenceMap.entries()){
+              if(normalizeCharacterName(referenceName)===normalized)return record;
+            }
+            return null;
+          }).filter(Boolean).slice(0,9);
           if(sceneReferences.length){
             status.textContent='در حال تولید ویدیوی مرجع‌محور صحنه '+(index+1)+' با H3 Max و '+sceneReferences.length+' شخصیت مرجع...';
             generatedVideo=await generateFalReferenceVideoScene(cloudPrompt,status,sceneReferences);
