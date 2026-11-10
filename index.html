@@ -635,7 +635,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <small>فرمت‌های JPG، PNG و WebP؛ حداکثر حجم فایل ۱۲ مگابایت. تصویر در مرورگر کوچک‌سازی و در تاریخچه محلی ذخیره می‌شود.</small>
   </div>
   <div class="outputHeading"><h2>پیش‌نمایش خروجی</h2><span class="pill">نتیجه زنده</span></div>
-  <div id="status" role="status" aria-live="polite">موتور تصویر داخلی آماده است؛ توضیح صحنه را وارد کن.</div>
+  <div id="status" role="status" aria-live="polite">مدل تصویر رایگان آماده است؛ توضیح صحنه را وارد کن.</div>
   <div id="resultFrame"><div id="outputEmpty"><span class="outputSpark">✦</span><strong>تصویر ساخته‌شده اینجا نمایش داده می‌شود</strong><small>پس از تولید، می‌توانی نتیجه را ذخیره یا ویرایش کنی.</small></div><img id="result" hidden alt="تصویر تولیدشده"></div>
   <p class="row"><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a><button id="undoImage" class="secondary" type="button" hidden>بازگشت به تصویر قبلی</button><button id="sendImageToAnimation" class="primary" type="button" hidden>استفاده در انیمیشن‌ساز</button></p>
 
@@ -2516,96 +2516,15 @@ function maskToWebpBase64() {
   return dataUrl.split(',')[1];
 }
 
-async function editCurrentImageUnlocked() {
-  const instruction = $('editPrompt').value.trim();
-  if (!instruction) {
-    $('editHint').textContent = 'اول توضیح بده چه چیزی باید تغییر کند.';
-    $('editPrompt').focus();
-    return;
-  }
-  if (!currentImageUrl || !$('result').complete || !$('result').naturalWidth) {
-    $('editHint').textContent = 'ابتدا یک تصویر تولید کن.';
-    return;
-  }
-  if (generationInProgress || activeRequestId || polling) return;
-  preservePendingRequestOnError = false;
-  generationInProgress = true;
-  $('generate').disabled = true;
-  $('editImage').disabled = true;
-  $('cancel').disabled = true;
-  $('result').hidden = true;
-  $('download').hidden = true;
-  setStatus('در حال آماده‌سازی تصویر اصلی برای ویرایش...');
-  try {
-    const [sourceImage, sourceMask, translatedInstruction, translatedNegative, candidates] = await Promise.all([
-      imageToWebpBase64(currentImageUrl),
-      Promise.resolve(maskHasPaint ? maskToWebpBase64() : ''),
-      translateToEnglish(instruction),
-      $('negative').value.trim() ? translateToEnglish($('negative').value.trim()) : Promise.resolve(''),
-      loadModels(true)
-    ]);
-    const useInpainting = !!sourceMask;
-    if (!generationInProgress || !document.body.classList.contains('authenticated')) {
-      setStatus('عملیات ویرایش به‌دلیل پایان نشست ورود متوقف شد.', 'var(--warn)');
-      return;
-    }
-    if (!candidates.length) throw new Error('هیچ مدل فعالی برای پردازش پیدا نشد.');
-    const editPrompt = translatedNegative
-      ? translatedInstruction + ' ### ' + translatedNegative
-      : translatedInstruction;
-    setStatus('تصویر آماده شد؛ درخواست ویرایش با مدل ' + candidates[0] + ' ارسال می‌شود...');
-    const submitted = await apiFetch('/generate/async', {
-      method: 'POST',
-      body: JSON.stringify({
-        prompt: editPrompt,
-        params: {
-          width: Math.min(1536, Math.max(256, Math.round($('result').naturalWidth / 64) * 64)),
-          height: Math.min(1536, Math.max(256, Math.round($('result').naturalHeight / 64) * 64)),
-          steps: Number($('quality').value) || 20,
-          n: 1,
-          cfg_scale: 7.5,
-          sampler_name: 'k_euler_a',
-          karras: true,
-          denoising_strength: useInpainting ? 1 : Number($('editStrength').value)
-        },
-        source_image: sourceImage,
-        source_processing: useInpainting ? 'inpainting' : 'img2img',
-        ...(useInpainting ? {source_mask: sourceMask} : {}),
-        models: candidates,
-        nsfw: false,
-        censor_nsfw: true,
-        trusted_workers: false,
-        slow_workers: false,
-        extra_slow_workers: false,
-        allow_downgrade: true,
-        replacement_filter: true,
-        r2: true,
-        shared: false
-      })
-    });
-    if (!submitted.id) throw new Error('شناسه درخواست ویرایش دریافت نشد.');
-    if (!document.body.classList.contains('authenticated')) {
-      try { await apiFetch('/generate/status/' + encodeURIComponent(submitted.id), {method:'DELETE'}); } catch (_) {}
-      throw new Error('نشست ورود هنگام ثبت ویرایش پایان یافت؛ درخواست تازه لغو شد.');
-    }
-    activeRequestId = submitted.id;
-    $('cancel').disabled = false;
-    setStatus(useInpainting ? 'درخواست ویرایش ناحیه انتخابی ثبت شد؛ نتیجه ممکن است فقط در بخش ماسک‌شده تغییر کند.' : 'درخواست ویرایش تصویر ثبت شد. ممکن است برای پیدا شدن پردازشگر سازگار کمی منتظر بمانی.');
-    await pollRequest(submitted.id);
-    $('editHint').textContent = 'نسخه ویرایش‌شده آماده شد. برای تغییر دوباره، دستور تازه‌ای بنویس یا انتخاب را پاک کن.';
-  } catch (error) {
-    preservePendingRequestOnError = !!error.recoverableRequest;
-    setStatus('ویرایش تصویر انجام نشد: ' + error.message, 'var(--warn)');
-    $('editHint').textContent = 'اگر پردازشگر از inpainting یا img2img پشتیبانی نکند، یا تصویر قابل دریافت نباشد، ویرایش ناموفق می‌شود. برای تغییر کل تصویر، انتخاب قرمز را پاک کن.';
-  } finally {
-    if (!preservePendingRequestOnError) clearPendingRequest(activeRequestId);
-    activeRequestId = null;
-    polling = false;
-    generationInProgress = false;
-    $('generate').disabled = smartModelChoices.length === 0;
-    $('editImage').disabled = false;
-    $('cancel').disabled = true;
-  }
+async function editCurrentImageUnlocked(){
+  const instruction=$('editPrompt').value.trim();
+  if(!instruction){$('editHint').textContent='اول توضیح بده چه چیزی باید تغییر کند.';$('editPrompt').focus();return;}
+  if(!currentImageUrl||!$('result').complete||!$('result').naturalWidth){$('editHint').textContent='ابتدا یک تصویر تولید کن.';return;}
+  if(generationInProgress||activeRequestId||polling)return;
+  const original=$('prompt').value.trim();
+  $('prompt').value=[original,'Create a new variation of the previous concept with these requested changes: '+instruction,'Keep the same subject identity and overall composition where possible.'].filter(Boolean).join('\n\n');
+  $('editHint').textContent='مدل عمومی رایگان از توضیح متنی برای ساخت نسخهٔ تازه استفاده می‌کند؛ فایل تصویر قبلی به سرویس ارسال نمی‌شود و ویرایش پیکسلی مستقیم در این نسخه پشتیبانی نمی‌شود.';
+  await generateLocalPromptImageUnlocked();
 }
 
 async function cancelRequest() {
@@ -3400,7 +3319,7 @@ async function autoBuildEpisodeFromStory(){
     freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.ToonVerseFreeImage;
     if(!freeEngineManagerState.image)throw new Error('موتور تصویر داخلی بارگذاری نشده است.');
     liveBuildLog('موتور کارگردان محلی ToonVerse فعال شد؛ تحلیل داستان بدون API و بدون هزینه انجام می‌شود.');
-    liveBuildLog('پس‌زمینه‌ها از مدل مولد تصویر رایگان Hugging Face ZeroGPU دریافت می‌شوند؛ تصویرسازی برداری داخلی حذف شده است.');
+    liveBuildLog('پس‌زمینه‌ها از مدل مولد تصویر رایگان Hugging Face ZeroGPU دریافت می‌شوند؛ مدل تصویر مولد رایگان حذف شده است.');
     liveBuildUpdate(0,'کارگردان محلی در حال تحلیل داستان و ساخت فیلمنامه است.',8);
     let screenplay=buildLocalFallbackScreenplay(raw);
     if(window.AIAnimatorDirector){
@@ -5323,7 +5242,7 @@ $('cancel').addEventListener('click', cancelRequest);
       if (activeRequestId === id) activeRequestId = null;
       polling = false;
       generationInProgress = false;
-      $('generate').disabled = smartModelChoices.length === 0;
+      $('generate').disabled = false;
       $('editImage').disabled = false;
       $('cancel').disabled = true;
     }
