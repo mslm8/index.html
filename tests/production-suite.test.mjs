@@ -243,6 +243,15 @@ test('wrist articulation responds deterministically to scene gestures', () => {
 });
 
 
+test('automatic hand artwork is scaled down to stay proportional to forearms', () => {
+  const rigStart = html.indexOf('async function createAutomaticCharacterRig');
+  const rigEnd = html.indexOf('async function autoBuildEpisodeFromStory', rigStart);
+  const rig = html.slice(rigStart, rigEnd);
+  assert.match(rig, /const hand=await make\('دست '\+pose\+' '\+side\+' '\+characterName,76,86,svg,'hand-'\+pose\+'-'\+side,0,0,\.68\)/);
+  assert.match(rig, /hand\.parentLayerId=forearm\.rigId/);
+  assert.match(rig, /hand\.jointOffsetY=26/);
+});
+
 test('automatic rigs provide open, fist, and pointing hand poses', () => {
   const start = html.indexOf('async function createAutomaticCharacterRig');
   const end = html.indexOf('async function autoBuildEpisodeFromStory', start);
