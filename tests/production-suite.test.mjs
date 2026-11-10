@@ -151,4 +151,9 @@ test('high-detail cloud image generation is explicit opt-in and supports 2K/4K',
   assert.match(gateway, /google\/nano-banana-2\.1/);
   assert.match(gateway, /thinking_level: "high"/);
   assert.match(gateway, /"1K", "2K", "4K"/);
+  assert.ok(html.includes('id="enablePaidCharacterReferences"'));
+  assert.match(html, /generateFalReferenceVideoScene/);
+  assert.match(html, /characterReferences/);
+  assert.match(gateway, /minimax\/h3-max\/reference-to-video/);
+  assert.match(gateway, /INVALID_REFERENCE_IMAGES/);
 });
