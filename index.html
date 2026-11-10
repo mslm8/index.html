@@ -3811,7 +3811,7 @@ function renderPreparedBackgroundLibrary(){
   $('backgroundLibraryStatus').innerHTML=preparedBackgrounds.length?'<small>'+preparedBackgrounds.length+' پس‌زمینه در کتابخانه · تصویر انتخاب‌شده: '+(selectedPreparedBackground>=0?selectedPreparedBackground+1:'هیچ‌کدام')+'</small>':'<small>کتابخانه پس‌زمینه خالی است.</small>';
   $('applyPreparedBackground').disabled=selectedPreparedBackground<0||!preparedBackgrounds[selectedPreparedBackground];
 }
-function backgroundImageToBlob(image,maxEdge=1920,quality=0.9){
+function backgroundImageToBlob(image,maxEdge=4096,quality=0.94){
   return new Promise((resolve,reject)=>{
     try{
       const width=Number(image.naturalWidth||image.width),height=Number(image.naturalHeight||image.height);
@@ -3961,8 +3961,16 @@ async function generatePreparedBackground(index){
   const scene=motionScenes[index];if(!scene)throw new Error('صحنه مقصد پیدا نشد.');
   const useReference=$('backgroundUseReference').checked;
   if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
-  const prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
+  let prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
   const useCloudAI=$('backgroundUseCloudAI')?.checked===true;
+  if(useCloudAI&&useReference){
+    try{
+      const colors=await window.AIAnimatorImageEngine.extractPalette(backgroundReferenceDataUrl);
+      if(Array.isArray(colors)&&colors.length){
+        prompt+='\\n\\nREFERENCE PALETTE (sampled locally; no reference image is uploaded): '+colors.slice(0,5).join(', ')+'. Use these colors subtly while preserving scene-specific lighting.';
+      }
+    }catch(error){liveBuildLog('استخراج پالت مرجع برای مدل ابری انجام نشد: '+String(error?.message||error).slice(0,120));}
+  }
   const generatedUrl=useCloudAI
     ?await generateFalBackground(prompt,status,{
       resolution:$('backgroundImageResolution')?.value||'2K',
