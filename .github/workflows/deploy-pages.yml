@@ -70,10 +70,10 @@ jobs:
         run: |
           node --check analytics.js
           node --test tests/posthog.test.mjs
-      - name: Check built-in image engine
+      - name: Check free Hugging Face image provider
         run: |
-          node --check image-engine.js
-          node --test tests/image-engine.test.mjs
+          node --check free-image-provider.js
+          node --test tests/free-image-provider.test.mjs
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
