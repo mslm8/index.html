@@ -54,6 +54,10 @@ jobs:
           NODE
       - name: Check browser-side rescue console JavaScript
         run: node --check production-rescue.js
+      - name: Check automatic screenplay director
+        run: |
+          node --check auto-director.js
+          node --test tests/auto-director.test.mjs
       - name: Check AI manager browser JavaScript
         run: node --check manager.js
       - name: Check animation production suite JavaScript
