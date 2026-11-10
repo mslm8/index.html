@@ -493,7 +493,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   </div>
   <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
   <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
-  <div class="note" id="autoModelInfo">موتور هوشمند در حال پیدا کردن سریع‌ترین مدل فعال است؛ انتخاب مدل به‌صورت خودکار انجام می‌شود.</div>
+  <div class="note" id="autoModelInfo">مدل رایگان Z-Image Turbo آماده است؛ وضعیت صف هنگام تولید بررسی می‌شود.</div>
   <button id="refreshModels" class="secondary" type="button" hidden>بررسی دوباره مدل‌های سریع</button>
   <div class="grid">
     <div>
@@ -517,9 +517,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <div>
       <label for="quality">تعادل سرعت و جزئیات</label>
       <select id="quality">
-        <option value="15">سریع‌تر · ۱۵ مرحله</option>
-        <option value="20" selected>متعادل · ۲۰ مرحله</option>
-        <option value="26">جزئیات بیشتر · ۲۶ مرحله</option>
+        <option value="6">سریع‌تر · ۶ مرحله</option>
+        <option value="9" selected>متعادل · ۹ مرحله</option>
+        <option value="12">جزئیات بیشتر · ۱۲ مرحله</option>
       </select>
     </div>
     <div>
@@ -1650,8 +1650,18 @@ async function generateLocalPromptImageUnlocked(){
   const seed=seedText===''?Math.floor(Math.random()*4294967295):Number(seedText);
   if(!Number.isSafeInteger(seed)||seed<0||seed>4294967295){setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.','var(--warn)');return;}
   const settings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id)?.value||'']));
-  const aspectDimensions={square:[1024,1024],landscape:[1024,768],portrait:[768,1024],wide:[1024,576],tall:[576,1024]};
+  const baseSize=Math.max(512,Math.min(1024,Number($('size')?.value)||1024));
+  const dimension=(value)=>Math.max(512,Math.round(value/64)*64);
+  const aspectDimensions={
+    square:[baseSize,baseSize],
+    landscape:[baseSize,dimension(baseSize*0.75)],
+    portrait:[dimension(baseSize*0.75),baseSize],
+    wide:[baseSize,dimension(baseSize*9/16)],
+    tall:[dimension(baseSize*9/16),baseSize]
+  };
   const dimensions=aspectDimensions[$('aspect')?.value]||aspectDimensions.wide;
+  const stepMap={'6':6,'9':9,'12':12};
+  const steps=stepMap[$('quality')?.value]||9;
   const styleMap={none:'original polished animated illustration',photorealistic:'photorealistic cinematic image',cinematic:'cinematic animated feature-film concept art',anime:'high-quality anime illustration','3d':'polished 3D animated cartoon render',watercolor:'watercolor illustration',oil:'painterly oil illustration',pixel:'detailed pixel art',fantasy:'whimsical fantasy illustration'};
   const framingMap={close:'close-up composition',medium:'medium shot',full:'full shot',wide:'wide establishing shot',top:'high-angle overhead view'};
   const lightingMap={natural:'soft natural daylight',golden:'warm golden-hour sunlight',soft:'soft diffused lighting',dramatic:'dramatic directional lighting',neon:'colorful neon lighting',moon:'cool moonlight'};
@@ -1660,7 +1670,7 @@ async function generateLocalPromptImageUnlocked(){
   button.disabled=true;generationInProgress=true;$('generate').disabled=true;$('editImage').disabled=true;
   setStatus('در حال اتصال به مدل تصویر رایگان Hugging Face ZeroGPU...');
   try{
-    const image=await window.ToonVerseFreeImage.generate(prompt,{seed,width:dimensions[0],height:dimensions[1],onStatus:message=>setStatus(message,'var(--muted)')});
+    const image=await window.ToonVerseFreeImage.generate(prompt,{seed,width:dimensions[0],height:dimensions[1],steps,onStatus:message=>setStatus(message,'var(--muted)')});
     displayImage(image,String(seed),'Hugging Face ZeroGPU · Z-Image Turbo',settings);
     setStatus('تصویر با مدل متن‌باز Z-Image Turbo تولید شد. محدودیت سهمیهٔ رایگان سرویس ممکن است اعمال شود.');
   }catch(error){
@@ -2992,6 +3002,7 @@ async function generateStudioBackground(prompt,status,options={}){
   const result=await window.ToonVerseFreeImage.generate(cleanPrompt,{
     width:Number.isFinite(options.width)?options.width:1024,
     height:Number.isFinite(options.height)?options.height:576,
+    steps:Number.isFinite(options.steps)?options.steps:9,
     seed:Number.isSafeInteger(options.seed)?options.seed:undefined,
     onStatus:message=>{if(status)status.textContent=message;liveBuildLog(message);}
   });
