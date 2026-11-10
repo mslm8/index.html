@@ -3197,6 +3197,13 @@ async function generateFalVideoScene(prompt,status){
   throw new Error('ساخت کلیپ بیش از ۱۰ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
 }
 
+function stableStorySceneSeed(story,worldKey='shared-world'){
+  const source=String(story||'')+'|'+String(worldKey||'shared-world');
+  let hash=2166136261;
+  for(let i=0;i<source.length;i++){hash^=source.charCodeAt(i);hash=Math.imul(hash,16777619);}
+  return hash>>>0;
+}
+
 async function generateStudioBackground(prompt,status,options={}){
   const engine=window.AIAnimatorImageEngine;
   if(!engine||typeof engine.generateBackground!=='function')throw new Error('موتور تصویر داخلی بارگذاری نشده است؛ فایل image-engine.js را بررسی کن.');
@@ -3442,7 +3449,9 @@ async function autoBuildEpisodeFromStory(){
         return {text:String(item.text).slice(0,180),speaker,speakerId:speakerIdFor(speaker),startAt:0,endAt:100,voiceName:''};
       }),
       backgroundImage:null,backgroundUrl:'',selectedIndex:-1,storyText:String(plan.visual||raw),
-      directorNotes:String(plan.directorNotes||''),characterFocus:Array.isArray(plan.characterFocus)?plan.characterFocus.slice(0,4):[],shotType:String(plan.shotType||''),
+      location:String(plan.location||'').slice(0,180),timeOfDay:String(plan.timeOfDay||'').slice(0,80),
+      continuityNote:String(plan.continuityNote||'').slice(0,280),
+      directorNotes:String(plan.directorNotes||''),characterFocus:Array.isArray(plan.characterFocus)?plan.characterFocus.slice(0,4):[],shotType:String(plan.shotType||'medium'),
       durationSeconds:Math.max(4,Math.min(18,Number(plan.durationSeconds)||8)),
       autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
@@ -3511,16 +3520,27 @@ async function autoBuildEpisodeFromStory(){
             'Original animated science-fiction comedy scene, polished high-end stylized cartoon animation, widescreen 16:9.',
             'Character identity bible (repeat exactly across every shot): '+characterBible,
             'Scene action and visual: '+String(scene.storyText||scenePrompt),
-            'Camera direction: '+String(scene.directorNotes||scene.shotType||'medium cinematic shot'),
+            'Present characters: '+String(scene.characterFocus.join(', ')||speakerNames.join(', ')),
+            'Location and time: '+[scene.location,scene.timeOfDay].filter(Boolean).join(' · '),
+            'Continuity requirements: '+String(scene.continuityNote||'Keep spatial and prop continuity with adjacent shots.'),
+            'Camera direction: '+String(scene.shotType||'medium')+' · '+String(scene.directorNotes||''),
             'Maintain the same original character faces, proportions, clothing, colors and accessories; do not redesign characters. Clear staging, expressive acting, smooth natural motion, coherent background, no subtitles, no text, no logos.'
           ].join('\n\n');
           status.textContent='در حال تولید ویدیوی هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+' با Seedance...';
           generatedVideo=await generateFalVideoScene(cloudPrompt,status);
         }else{
           status.textContent='در حال تصویرسازی صحنه '+(index+1)+' با موتور برداری داخلی...';
-          generatedUrl=await generateStudioBackground(scene.storyText||scenePrompt,status,{
-            sceneText:scene.storyText||scenePrompt,preset:'story',mood:'dramatic',
-            composition:'layered',palette:'vivid',sceneIndex:index
+          const localScenePrompt=[
+            scene.storyText||scenePrompt,
+            scene.location?'مکان داستان: '+scene.location:'',
+            scene.timeOfDay?'زمان داستان: '+scene.timeOfDay:'',
+            scene.continuityNote?'تداوم: '+scene.continuityNote:'',
+            'قاب '+String(scene.shotType||'medium')
+          ].filter(Boolean).join(' · ');
+          generatedUrl=await generateStudioBackground(localScenePrompt,status,{
+            sceneText:localScenePrompt,preset:'story',mood:'dramatic',
+            composition:'layered',palette:'consistent',
+            seed:stableStorySceneSeed(raw,scene.location||'shared-world')
           });
           liveBuildLog('تصویر صحنه '+(index+1)+' با موتور داخلی ساخته شد.');
         }
