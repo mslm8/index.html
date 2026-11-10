@@ -2937,17 +2937,22 @@ async function requestAutomaticScreenplay(story,status,models){
   const available=Array.isArray(models)?models.filter(Boolean).slice(0,12):[];
   if(!available.length)throw new Error('مدل متن رایگان فعالی پیدا نشد.');
   const prompt=[
-    'You are an expert screenplay writer and storyboard artist for an original family-friendly 2D science-fiction comedy.',
-    'Convert the supplied story into a compact, production-ready storyboard.',
+    'You are the lead screenwriter, animation director and storyboard supervisor for an original family-friendly 2D science-fiction comedy.',
+    'Adapt the story into a coherent, production-ready sequence of animated scenes. This is one continuous story, NOT a collection of unrelated video prompts.',
     'Return ONLY valid JSON with this schema:',
-    '{"characters":[{"name":"...","description":"..."}],"scenes":[{"visual":"...","dialogues":[{"speaker":"...","text":"..."}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}',
-    'Create 4 to 6 scenes in chronological order. Preserve the original plot and named characters. Do not invent extra characters or events.',
-    'Write all descriptions and dialogue in Persian. Each visual should be a concise, drawable background/action description. Keep dialogue short. Use no more than 4 speaking characters.',
+    '{"characters":[{"name":"...","description":"..."}],"scenes":[{"visual":"...","location":"...","timeOfDay":"...","continuityNote":"...","shotType":"wide|medium|close","durationSeconds":8,"dialogues":[{"speaker":"...","text":"..."}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}',
+    'Create 4 to 8 scenes according to story length. Preserve the actual plot in chronological order: beginning, cause-and-effect progression, turning point, climax and resolution when present. Do not force missing beats into very short stories.',
+    'Every scene must advance the plot or reveal a necessary reaction. Never add unrelated establishing clips, random scenery, filler, new subplots, invented events or a changed ending.',
+    'Keep exact character names and stable visual identity throughout. Character descriptions must specify recognizable visual traits, clothing and signature colors; repeat essential identity anchors in scene visuals when a character appears.',
+    'Each visual must describe one drawable moment: who is present, what they are doing, where they are, and the relevant background. Avoid vague phrases such as "the story continues".',
+    'Use shotType and camera intentionally: wide for geography/action, medium for interaction, close for emotion or details. Vary shots only when the story supports it.',
+    'Dialogue must be assigned only to listed characters, remain concise and natural, and relate directly to the scene. Do not invent dialogue that changes the plot. No more than 4 speaking characters.',
+    'Write all descriptions, continuity notes and dialogue in Persian. Set durationSeconds between 5 and 14 based on action/dialogue. Return valid JSON with no markdown or commentary.',
     'STORY:\n'+String(story||'').slice(0,12000)
   ].join('\n\n');
   const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
     prompt,
-    params:{max_length:1100,temperature:0.55,top_p:0.9,top_k:40,rep_pen:1.08},
+    params:{max_length:1800,temperature:0.42,top_p:0.88,top_k:40,rep_pen:1.12},
     models:available,
     trusted_workers:false,
     slow_workers:false,
@@ -2985,8 +2990,14 @@ async function requestAutomaticScreenplay(story,status,models){
       if(!line||typeof line!=='object')return null;
       return {speaker:String(line.speaker||line.character||line.name||'شخصیت اصلی').trim(),text:String(line.text||line.line||line.dialogue||line.متن||'').trim()};
     }).filter(line=>line&&line.text).slice(0,6);
-    return {visual:visual||String(item.storyText||item.text||('رویداد داستان در صحنه '+(index+1))),dialogues,
-      action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
+    const duration=Number(item.durationSeconds||item.duration||8);
+    return {visual:visual||String(item.storyText||item.text||('رویداد داستان در صحنه '+(index+1))),
+      location:String(item.location||item.environment||'').trim().slice(0,180),
+      timeOfDay:String(item.timeOfDay||item.time||'').trim().slice(0,80),
+      continuityNote:String(item.continuityNote||item.continuity||'').trim().slice(0,280),
+      shotType:['wide','medium','close'].includes(item.shotType)?item.shotType:'medium',
+      durationSeconds:Number.isFinite(duration)?Math.max(5,Math.min(14,Math.round(duration))):8,
+      dialogues,action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
       emotion:['none','happy','sad','angry','surprised'].includes(item.emotion)?item.emotion:'none',
       gesture:['neutral','wave','talk'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
       camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(item.camera)?item.camera:'zoom-in'};
