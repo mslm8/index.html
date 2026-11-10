@@ -4631,8 +4631,9 @@ function createMotionClip() {
     const to=Math.max(from+1,Math.min(100,Number(item.endAt)||100));
     return {buffer:item.audioBuffer,when:index*sceneSeconds+(from/100)*sceneSeconds,windowDuration:((to-from)/100)*sceneSeconds};
   }));
-  if(allDialogues.length&&!dialogueAudio.length){
-    setStatus('دیالوگ‌ها هنوز فایل گفتار ندارند؛ پیش‌نمایش گفتار مرورگر داخل ویدئو ضبط نمی‌شود. موسیقی زمینه و افکت‌های صوتی به خروجی اضافه می‌شوند.','var(--warn)');
+  const missingDialogueCount=Math.max(0,allDialogues.length-dialogueAudio.length);
+  if(missingDialogueCount>0){
+    setStatus('برای '+missingDialogueCount+' دیالوگ هنوز فایل گفتار اضافه نشده است؛ پیش‌نمایش گفتار مرورگر داخل ویدئو ضبط نمی‌شود. برای شنیده‌شدن این دیالوگ‌ها باید فایل صوتی هرکدام را بارگذاری کنی.','var(--warn)');
   }
   if(AudioCtx){
     try{
@@ -4664,8 +4665,9 @@ function createMotionClip() {
     liveBuildUpdate(5,'فریم‌ها ضبط شدند؛ فایل WebM در حال آماده‌سازی است.',98);
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
     $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
-    const audioSummary=!audioTrackAttached?'مسیر صوتی در این مرورگر فعال نشد؛ خروجی ممکن است بی‌صدا باشد.':dialogueAudio.length?'موسیقی زمینه، افکت انتقال و فایل‌های دیالوگ در خروجی قرار گرفتند.':'موسیقی زمینه و افکت انتقال در خروجی قرار گرفتند؛ گفتار شخصیت‌ها هنوز باید به فایل صوتی تبدیل و اضافه شود.';
-    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است. '+audioSummary,audioTrackAttached?'var(--good)':'var(--warn)');liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد. '+audioSummary);
+    const audioSummary=!audioTrackAttached?'مسیر صوتی در این مرورگر فعال نشد؛ خروجی ممکن است بی‌صدا باشد.':missingDialogueCount>0?'موسیقی زمینه و افکت انتقال اضافه شدند؛ '+dialogueAudio.length+' دیالوگ از '+allDialogues.length+' دیالوگ فایل صوتی دارند و '+missingDialogueCount+' دیالوگ بدون گفتار باقی ماندند.':'موسیقی زمینه، افکت انتقال و '+dialogueAudio.length+' فایل گفتار دیالوگ در خروجی قرار گرفتند.';
+    const audioStatusColor=(!audioTrackAttached||missingDialogueCount>0)?'var(--warn)':'var(--good)';
+    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است. '+audioSummary,audioStatusColor);liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد. '+audioSummary);
   };
   const requestedDuration=Number($('motionDuration').value);
   const totalDuration=Number.isFinite(requestedDuration)&&requestedDuration>0?Math.max(1000,requestedDuration*1000):60000;
