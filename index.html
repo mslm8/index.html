@@ -424,6 +424,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 #storyToScenesInput{min-height:180px;font-size:16px;line-height:1.9}
 #autoEpisodeButton{width:100%;min-height:54px;font-size:18px;margin-top:12px}
 #aiStoryEngineStatus{display:block;min-height:24px;margin-top:12px;line-height:1.8}
+.cloud-video-optin{display:flex;align-items:center;gap:10px;margin:14px 0 5px;padding:12px;border:1px solid rgba(255,190,100,.4);border-radius:12px;background:rgba(255,190,100,.08);color:#ffe0ad;font-weight:800}.cloud-video-optin input{width:20px;height:20px;flex:none;accent-color:#ffbd65}.cloud-video-notice{display:block;color:#f3c987;line-height:1.8;padding:0 3px 7px}
 #videoPreview{display:block;width:100%;margin-top:16px;border-radius:12px}
 #downloadVideo{font-size:16px}
 
@@ -816,6 +817,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     
     <label for="storyToScenesInput">داستان کاملت را همین‌جا بنویس؛ لازم نیست صحنه، شخصیت، حرکت یا دیالوگ را جداگانه مشخص کنی</label>
     <textarea id="storyToScenesInput" maxlength="12000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
+    <label class="cloud-video-optin"><input id="enablePaidCloudVideo" type="checkbox"> استفاده از موتور ویدیوساز ابری (کیفیت بالاتر، هزینه‌دار)</label>
+    <small class="cloud-video-notice">در حالت عادی ساخت محلی و رایگان استفاده می‌شود. با فعال‌کردن این گزینه و زدن «ساخت ویدیو»، برای هر صحنه یک کلیپ ۵ ثانیه‌ای 720p با مدل Seedance ساخته می‌شود و هزینه آن از اعتبار حساب Fal کسر می‌شود. هزینه دقیق به تنظیمات و نرخ حساب بستگی دارد. بدون فعال‌کردن این گزینه هیچ درخواست پولی ارسال نمی‌شود.</small>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
@@ -3142,6 +3145,45 @@ async function generateFalBackground(prompt,status){
     status.textContent='fal.ai در حال پردازش تصویر صحنه است؛ وضعیت: '+(state||'در صف');
   }
   throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
+}
+
+async function generateFalVideoScene(prompt,status){
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw new Error('اتصال امن Supabase برای موتور ویدیوی ابری در دسترس نیست.');
+  const submitted=await client.functions.invoke('fal-gateway',{body:{
+    action:'submit',task:'video',prompt:String(prompt||'').slice(0,5000),
+    duration:'5',resolution:'720p',aspect_ratio:'16:9'
+  }});
+  if(submitted.error)throw submitted.error;
+  const requestId=submitted.data?.request_id;
+  if(!requestId)throw new Error('شناسه درخواست ویدیوی ابری دریافت نشد.');
+  const started=Date.now();liveBuildLog('درخواست ویدیوی ابری ثبت شد؛ شناسه '+requestId);
+  while(Date.now()-started<600000){
+    await new Promise(resolve=>setTimeout(resolve,4000));
+    const checked=await client.functions.invoke('fal-gateway',{body:{action:'status',task:'video',request_id:requestId}});
+    if(checked.error)throw checked.error;
+    const state=String(checked.data?.status||'').toUpperCase();
+    if(state==='FAILED'||state==='CANCELLED')throw new Error('تولید ویدیوی ابری ناموفق بود: '+String(checked.data?.error||state));
+    if(state==='COMPLETED'){
+      const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'video',request_id:requestId}});
+      if(result.error)throw result.error;
+      const url=result.data?.video?.url||result.data?.video_url||result.data?.url||'';
+      if(!/^https:\/\//i.test(url))throw new Error('مدل ویدیو نتیجه معتبر و قابل پخش برنگرداند.');
+      const video=document.createElement('video');
+      video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;video.preload='auto';video.src=url;
+      await new Promise((resolve,reject)=>{
+        if(video.readyState>=1&&video.videoWidth){resolve();return;}
+        const timer=setTimeout(()=>reject(new Error('بارگذاری کلیپ ویدیویی بیش از حد طول کشید.')),45000);
+        video.addEventListener('loadedmetadata',()=>{clearTimeout(timer);resolve();},{once:true});
+        video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('مرورگر نتوانست کلیپ ویدیویی را از CDN دریافت کند.'));},{once:true});
+      });
+      if(!video.videoWidth||!video.videoHeight)throw new Error('ابعاد ویدیوی دریافتی معتبر نیست.');
+      video.dataset.remoteGenerated='true';video.dataset.remoteUrl=url;
+      return video;
+    }
+    if(status)status.textContent='موتور Seedance در حال ساخت کلیپ صحنه است؛ وضعیت: '+(state||'در صف');
+  }
+  throw new Error('ساخت کلیپ بیش از ۱۰ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
 }
 
 async function generateStudioBackground(prompt,status,options={}){
