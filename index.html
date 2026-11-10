@@ -829,6 +829,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <textarea id="storyToScenesInput" maxlength="12000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
     <label class="cloud-video-optin"><input id="enablePaidCloudVideo" type="checkbox"> استفاده از موتور ویدیوساز ابری (کیفیت بالاتر، هزینه‌دار)</label>
     <small class="cloud-video-notice">در حالت عادی ساخت محلی و رایگان استفاده می‌شود. با فعال‌کردن این گزینه و زدن «ساخت ویدیو»، برای هر صحنه یک کلیپ ۵ ثانیه‌ای 720p با مدل Seedance ساخته می‌شود و هزینه آن از اعتبار حساب Fal کسر می‌شود. هزینه دقیق به تنظیمات و نرخ حساب بستگی دارد. بدون فعال‌کردن این گزینه هیچ درخواست پولی ارسال نمی‌شود.</small>
+    <label class="cloud-video-optin"><input id="enablePaidCharacterReferences" type="checkbox"> ساخت تصویر مرجع هوش مصنوعی برای شخصیت‌ها (هزینه‌دار)</label>
+    <small class="cloud-video-notice">در صورت فعال‌سازی، برای هر شخصیت اصلی یک تصویر مرجع ۲K ساخته و در کتابخانه همین مرورگر ذخیره می‌شود. اگر تولید ویدیوی ابری هم روشن باشد، این تصاویر به مدل مرجع‌محور H3 Max داده می‌شوند تا ثبات چهره و لباس بهتر حفظ شود. این گزینه پیش‌فرض خاموش است و تا وقتی خودت روشنش نکنی هزینه‌ای ایجاد نمی‌کند.</small>
+    <div id="characterReferenceLibrary" class="character-reference-library" aria-live="polite"></div>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
@@ -1968,11 +1971,12 @@ function openHistoryDb() {
   if (!('indexedDB' in window)) return Promise.reject(new Error('ذخیره‌سازی محلی در این مرورگر پشتیبانی نمی‌شود.'));
   if (!historyDbPromise) {
     historyDbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open('AIAnimatorStudioHistory', 2);
+      const request = indexedDB.open('AIAnimatorStudioHistory', 3);
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', {keyPath:'id'});
         if (!db.objectStoreNames.contains('backgrounds')) db.createObjectStore('backgrounds', {keyPath:'id'});
+        if (!db.objectStoreNames.contains('characterReferences')) db.createObjectStore('characterReferences', {keyPath:'key'});
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error || new Error('باز کردن تاریخچه ناموفق بود.'));
@@ -3144,10 +3148,11 @@ async function generateFalBackground(prompt,status,options={}){
   const client=window.__aiAnimatorSupabaseClient;
   if(!client)throw new Error('نشست Supabase برای اتصال fal.ai در دسترس نیست.');
   const resolution=['2K','4K'].includes(options.resolution)?options.resolution:'2K';
+  const aspectRatio=['16:9','3:2','1:1','4:3','9:16'].includes(options.aspectRatio)?options.aspectRatio:'16:9';
   status.textContent='ارسال تصویر با جزئیات بالا به Nano Banana 2.1 · '+resolution+'...';
   const submitted=await client.functions.invoke('fal-gateway',{body:{
     action:'submit',task:'image',prompt:String(prompt||'').slice(0,12000),
-    resolution,aspect_ratio:'16:9',seed:Number.isSafeInteger(options.seed)?options.seed:undefined
+    resolution,aspect_ratio:aspectRatio,seed:Number.isSafeInteger(options.seed)?options.seed:undefined
   }});
   if(submitted.error)throw submitted.error;
   const requestId=submitted.data?.request_id;
@@ -3170,6 +3175,102 @@ async function generateFalBackground(prompt,status,options={}){
     status.textContent='fal.ai در حال پردازش تصویر صحنه است؛ وضعیت: '+(state||'در صف');
   }
   throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
+}
+
+const characterReferenceCache=new Map();
+function characterReferenceKey(name,description){
+  const source=String(name||'')+'|'+String(description||'');
+  return 'character-'+stableStorySceneSeed(source,'toonverse-character-reference').toString(16);
+}
+async function saveCharacterReference(record){
+  const db=await openHistoryDb();
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction('characterReferences','readwrite');
+    tx.objectStore('characterReferences').put(record);
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('ذخیره تصویر مرجع شخصیت ناموفق بود.'));
+  });
+  characterReferenceCache.set(record.name,record);renderCharacterReferenceLibrary();
+}
+async function restoreCharacterReferenceLibrary(){
+  try{
+    const db=await openHistoryDb();
+    const rows=await new Promise((resolve,reject)=>{
+      const tx=db.transaction('characterReferences','readonly'),request=tx.objectStore('characterReferences').getAll();
+      request.onsuccess=()=>resolve(request.result||[]);request.onerror=()=>reject(request.error||new Error('خواندن تصاویر مرجع ناموفق بود.'));
+    });
+    rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));
+    for(const row of rows.slice(-30))if(row?.key&&row?.url&&/^https:\/\//i.test(row.url))characterReferenceCache.set(row.name,row);
+    renderCharacterReferenceLibrary();
+  }catch(error){liveBuildLog('بازیابی کتابخانه شخصیت‌ها ممکن نشد: '+String(error?.message||error).slice(0,120));}
+}
+function renderCharacterReferenceLibrary(){
+  const host=$('characterReferenceLibrary');if(!host)return;
+  host.replaceChildren();
+  if(!characterReferenceCache.size){const note=document.createElement('small');note.textContent='هنوز تصویر مرجع هوش مصنوعی برای شخصیتی ذخیره نشده است.';host.append(note);return;}
+  for(const record of characterReferenceCache.values()){
+    const card=document.createElement('figure');card.className='character-reference-card';
+    const image=document.createElement('img');image.src=record.url;image.alt='تصویر مرجع '+record.name;image.loading='lazy';
+    const caption=document.createElement('figcaption');caption.textContent=record.name+' · مرجع ذخیره‌شده';
+    card.append(image,caption);host.append(card);
+  }
+}
+async function generateCharacterReference(name,description,status){
+  const key=characterReferenceKey(name,description),cached=characterReferenceCache.get(name);
+  if(cached?.key===key&&cached.url)return cached;
+  const prompt=[
+    'Create one original animated-series character identity reference image for production continuity. This must be an original character design, not resembling any existing copyrighted character.',
+    'CHARACTER NAME: '+String(name).slice(0,80),
+    'CANONICAL IDENTITY: '+String(description||'Distinctive original stylized cartoon character with a memorable face, clear silhouette, and coherent costume.').slice(0,700),
+    'Show exactly one character, full body, standing in a neutral relaxed pose, facing camera, entire head and feet visible. Keep face unobstructed. Distinctive facial geometry, expressive eyes, specific hairstyle, readable clothing construction, consistent accessories, clear hands and shoes.',
+    'Premium 2D animated feature-film character design, polished clean linework, rich controlled colors, carefully rendered fabric and material details, subtle dimensional shading, crisp edges.',
+    'Plain soft neutral studio background, even readable lighting, no props, no other characters, no text, no labels, no watermark, no logo, no split panels, no collage, no turnaround sheet.'
+  ].join('\\n\\n');
+  status.textContent='در حال طراحی مرجع ۲K برای شخصیت «'+name+'»...';
+  const url=await generateFalBackground(prompt,status,{resolution:'2K',aspectRatio:'3:2',seed:stableStorySceneSeed(description||name,name)});
+  const record={key,name,description:String(description||'').slice(0,900),url,model:'google/nano-banana-2.1',createdAt:Date.now()};
+  await saveCharacterReference(record);
+  liveBuildLog('تصویر مرجع شخصیت «'+name+'» ساخته و در کتابخانه محلی ذخیره شد.');
+  return record;
+}
+async function generateFalReferenceVideoScene(prompt,status,referenceRecords){
+  const client=window.__aiAnimatorSupabaseClient;
+  if(!client)throw new Error('اتصال امن Supabase برای مدل مرجع‌محور در دسترس نیست.');
+  const refs=(Array.isArray(referenceRecords)?referenceRecords:[]).filter(item=>item&&/^https:\/\//i.test(String(item.url||''))).slice(0,9);
+  if(!refs.length)throw new Error('برای تولید مرجع‌محور هیچ تصویر شخصیت معتبری پیدا نشد.');
+  const imageDescriptions=refs.map((item,index)=>'Image '+(index+1)+' is the canonical design of character '+item.name+'. Preserve this exact face, hair, body proportions, costume and accessories.').join(' ');
+  const submitted=await client.functions.invoke('fal-gateway',{body:{
+    action:'submit',task:'reference-video',prompt:String(prompt||'').slice(0,12000)+'\\n\\nCHARACTER REFERENCE MAP: '+imageDescriptions,
+    reference_image_urls:refs.map(item=>item.url),duration:5,resolution:'768P',
+    prompt_expansion_mode:'balanced',aspect_ratio:'16:9'
+  }});
+  if(submitted.error)throw submitted.error;
+  const requestId=submitted.data?.request_id;
+  if(!requestId)throw new Error('شناسه درخواست ویدیوی مرجع‌محور دریافت نشد.');
+  const started=Date.now();liveBuildLog('درخواست ویدیوی H3 Max با '+refs.length+' تصویر مرجع ثبت شد.');
+  while(Date.now()-started<600000){
+    await new Promise(resolve=>setTimeout(resolve,4000));
+    const checked=await client.functions.invoke('fal-gateway',{body:{action:'status',task:'reference-video',request_id:requestId}});
+    if(checked.error)throw checked.error;
+    const state=String(checked.data?.status||'').toUpperCase();
+    if(state==='FAILED'||state==='CANCELLED')throw new Error('تولید H3 Max ناموفق بود: '+String(checked.data?.error||state));
+    if(state==='COMPLETED'){
+      const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'reference-video',request_id:requestId}});
+      if(result.error)throw result.error;
+      const url=result.data?.video?.url||result.data?.video_url||result.data?.url||'';
+      if(!/^https:\/\//i.test(url))throw new Error('مدل H3 Max نشانی معتبر ویدیو برنگرداند.');
+      const video=document.createElement('video');video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;video.preload='auto';video.src=url;
+      await new Promise((resolve,reject)=>{
+        if(video.readyState>=2&&video.videoWidth){resolve();return;}
+        const timer=setTimeout(()=>reject(new Error('بارگذاری کلیپ H3 Max بیش از حد طول کشید.')),45000);
+        video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true});
+        video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('مرورگر نتوانست کلیپ H3 Max را از CDN دریافت کند.'));},{once:true});
+      });
+      if(!video.videoWidth||!video.videoHeight)throw new Error('ابعاد ویدیوی H3 Max معتبر نیست.');
+      video.dataset.remoteGenerated='true';video.dataset.remoteUrl=url;return video;
+    }
+    if(status)status.textContent='H3 Max در حال حفظ هویت شخصیت‌ها و تولید ویدیو است؛ وضعیت: '+(state||'در صف');
+  }
+  throw new Error('ساخت کلیپ H3 Max بیش از ۱۰ دقیقه طول کشید؛ شناسه درخواست: '+requestId);
 }
 
 async function generateFalVideoScene(prompt,status){
@@ -3456,6 +3557,20 @@ async function autoBuildEpisodeFromStory(){
       const entry=screenplay.characters.find(character=>String(character.name||'').trim()===name);
       return name+': '+String(entry?.description||'شخصیت کارتونی اصلی با طراحی دوبعدی منسجم، چهره خوانا، لباس و رنگ ثابت در تمام نماها.').slice(0,420);
     }).join('\n');
+    const characterReferenceMap=new Map();
+    if($('enablePaidCharacterReferences')?.checked===true){
+      liveBuildUpdate(1,'در حال آماده‌سازی تصاویر مرجع شخصیت‌ها با Nano Banana 2.1.',18);
+      const gateway=await isFalGatewayReady();
+      if(!gateway.ok||!gateway.configured)throw new Error('برای ساخت تصاویر مرجع باید FAL_KEY در درگاه امن تنظیم شده باشد؛ هیچ درخواست پولی ارسال نشد.');
+      for(let characterIndex=0;characterIndex<speakerNames.length;characterIndex++){
+        const name=speakerNames[characterIndex];
+        const entry=screenplay.characters.find(character=>String(character.name||'').trim()===name);
+        const description=String(entry?.description||'').slice(0,900);
+        const record=await generateCharacterReference(name,description,status);
+        characterReferenceMap.set(name,record);
+        liveBuildUpdate(1,'تصویر مرجع شخصیت '+name+' آماده شد ('+(characterIndex+1)+' از '+speakerNames.length+').',18+((characterIndex+1)/speakerNames.length)*5);
+      }
+    }
     const nextScenes=plans.map((plan,index)=>({
       name:'صحنه '+(index+1),layers:[],
       dialogues:(Array.isArray(plan.dialogues)?plan.dialogues:[]).filter(item=>item&&String(item.text||'').trim()).slice(0,6).map(item=>{
@@ -3540,8 +3655,14 @@ async function autoBuildEpisodeFromStory(){
             'Camera direction: '+String(scene.shotType||'medium')+' · '+String(scene.directorNotes||''),
             'Maintain the same original character faces, proportions, clothing, colors and accessories; do not redesign characters. Clear staging, expressive acting, smooth natural motion, coherent background, no subtitles, no text, no logos.'
           ].join('\n\n');
-          status.textContent='در حال تولید ویدیوی هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+' با Seedance...';
-          generatedVideo=await generateFalVideoScene(cloudPrompt,status);
+          const sceneReferences=scene.characterFocus.map(name=>characterReferenceMap.get(name)).filter(Boolean).slice(0,9);
+          if(sceneReferences.length){
+            status.textContent='در حال تولید ویدیوی مرجع‌محور صحنه '+(index+1)+' با H3 Max و '+sceneReferences.length+' شخصیت مرجع...';
+            generatedVideo=await generateFalReferenceVideoScene(cloudPrompt,status,sceneReferences);
+          }else{
+            status.textContent='در حال تولید ویدیوی هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+' با Seedance...';
+            generatedVideo=await generateFalVideoScene(cloudPrompt,status);
+          }
         }else{
           status.textContent='در حال تصویرسازی صحنه '+(index+1)+' با موتور برداری داخلی...';
           const localScenePrompt=[
@@ -4075,7 +4196,7 @@ $('cancelBackgroundBatch').addEventListener('click',()=>{
   $('backgroundBatchProgress').textContent='درخواست توقف ثبت شد؛ صحنه جاری تمام می‌شود و سپس ساخت متوقف خواهد شد.';
   $('cancelBackgroundBatch').disabled=true;
 });
-refreshBackgroundSceneOptions();renderPreparedBackgroundLibrary();restorePreparedBackgroundLibrary();updateBackgroundBatchControls();
+refreshBackgroundSceneOptions();renderPreparedBackgroundLibrary();restorePreparedBackgroundLibrary();restoreCharacterReferenceLibrary();updateBackgroundBatchControls();
 
 function drawMotionDialogues(ctx, dialogues, progress) {
   (dialogues||[]).forEach(item=>{
