@@ -195,7 +195,7 @@ test('automatic character rigs animate head nods and both arms even during neutr
   const build = html.slice(start, end);
   assert.match(build, /const nod=speaking\?5:2\.5/);
   assert.match(build, /layer\.motionKeys=\[/);
-  assert.match(build, /gesture==='wave'\?sign\*48/);
+  assert.match(build, /gesture==='wave'\?48:gesture!=='neutral'\?27:5/);
   assert.match(build, /gesture==='neutral'\?sign\*-3:0/);
 });
 
