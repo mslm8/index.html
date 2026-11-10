@@ -91,7 +91,7 @@ test('story-only episode build creates automatic six-part character rigs', () =>
   const buildEnd = html.indexOf("$('autoEpisodeButton').addEventListener", buildStart);
   const build = html.slice(buildStart, buildEnd);
   assert.ok(build.includes('createAutomaticCharacterRig(characterName,characterIndex)'), 'Automatic build must generate rigs without manual setup');
-  assert.ok(build.includes('autoCharacterRigs.flatMap'), 'Each scene must reuse the generated character rigs');
+  assert.ok(build.includes('activeRigs.flatMap'), 'Each scene must reuse the generated character rigs');
   assert.ok(build.includes('scene.autoDirection.gesture'), 'Story gesture analysis must drive automatic arm animation');
 });
 
