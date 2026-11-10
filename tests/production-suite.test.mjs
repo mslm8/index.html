@@ -126,15 +126,19 @@ test('automatic director is loaded and connected to story, camera, emotion and c
 });
 
 
-test('cloud video generation is an explicit opt-in and uses scene clips', () => {
-  assert.match(html, /id="enablePaidCloudVideo" type="checkbox"/);
-  assert.match(html, /cloudVideoEnabled=\$\('enablePaidCloudVideo'\)\?\.checked===true/);
+test('paid cloud video is disabled in free-only ToonVerse mode', () => {
+  assert.match(html, /const cloudVideoEnabled=false/);
+  assert.doesNotMatch(html, /const cloudVideoEnabled=\$\('enablePaidCloudVideo'\)/);
   assert.match(html, /generateFalVideoScene\(cloudPrompt,status\)/);
-  assert.match(html, /task:'video'/);
-  assert.match(html, /backgroundVideo=true/);
   assert.match(html, /function visualFrameSize\(image\)/);
   assert.match(html, /instanceof HTMLVideoElement/);
   assert.match(html, /canvas\.captureStream\(24\)/);
+});
+
+test('story backgrounds use the external free image provider and never fall back to the custom vector engine', () => {
+  assert.match(html, /\.\/free-image-provider\.js/);
+  assert.match(html, /window\.ToonVerseFreeImage\.generate/);
+  assert.doesNotMatch(html, /AIAnimatorImageEngine|image-engine\.js/);
 });
 
 test('Fal gateway exposes controlled Seedance and image-to-video routes', () => {
