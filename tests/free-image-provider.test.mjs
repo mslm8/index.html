@@ -49,6 +49,6 @@ test("free image adapter submits a text prompt to a Gradio image endpoint and pa
   const result = await sandbox.ToonVerseFreeImage.generate("a colorful cartoon planet", { seed: 123, width: 1024, height: 576 });
   assert.equal(result, "data:image/png;base64,AAAA");
   assert.equal(calls.length, 3);
-  assert.match(calls[1].url, /gradio_api\/call\/generate$/);
+  assert.match(calls[1].url, /gradio_api\/call\/generate_image$/);
   assert.deepEqual(JSON.parse(calls[1].options.body).data, ["a colorful cartoon planet", 576, 1024, 9, 123, false]);
 });
