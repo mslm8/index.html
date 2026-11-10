@@ -16,6 +16,18 @@
     try{return await fetch(url,{...options,signal:controller.signal,mode:'cors',credentials:'omit'});}
     finally{clearTimeout(timer);}
   }
+  async function readSseTimed(url,timeoutMs=240000){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(url,{headers:{Accept:'text/event-stream'},signal:controller.signal,mode:'cors',credentials:'omit'});
+      if(!response.ok)throw new Error('دریافت نتیجه از مدل رایگان ناموفق بود (HTTP '+response.status+').');
+      return await response.text();
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('زمان انتظار برای مدل رایگان به پایان رسید؛ صف عمومی ممکن است شلوغ باشد.');
+      throw error;
+    }finally{clearTimeout(timer);}
+  }
   async function getConfig(force=false){
     if(force)configPromise=null;
     if(!configPromise)configPromise=fetchTimed(CONFIG_URL,{headers:{Accept:'application/json'}},25000).then(async response=>{
@@ -97,17 +109,15 @@
   async function imageAsDataUrl(value){
     if(/^data:image\//i.test(value))return value;
     const url=/^https?:\/\//i.test(value)?value:SPACE_HOST+(value.startsWith('/')?value:'/gradio_api/file='+encodeURIComponent(value));
-    try{
-      const response=await fetchTimed(url,{headers:{Accept:'image/*'}},45000);
-      if(!response.ok)throw new Error('دانلود تصویر خروجی ناموفق بود (HTTP '+response.status+').');
-      const blob=await response.blob();
-      return await new Promise((resolve,reject)=>{
-        const reader=new FileReader();
-        reader.onload=()=>resolve(String(reader.result));
-        reader.onerror=()=>reject(new Error('خواندن تصویر خروجی ناموفق بود.'));
-        reader.readAsDataURL(blob);
-      });
-    }catch(_){return url;}
+    const response=await fetchTimed(url,{headers:{Accept:'image/*'}},45000);
+    if(!response.ok)throw new Error('دانلود تصویر خروجی ناموفق بود (HTTP '+response.status+').');
+    const blob=await response.blob();
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(String(reader.result));
+      reader.onerror=()=>reject(new Error('خواندن تصویر خروجی ناموفق بود.'));
+      reader.readAsDataURL(blob);
+    });
   }
   async function generate(prompt,options={}){
     const clean=String(prompt||'').trim().slice(0,3000);
@@ -127,11 +137,8 @@
     const ticket=await submitted.json();
     if(!ticket?.event_id)throw new Error('شناسه درخواست از فضای مدل دریافت نشد.');
     setStatus(status,'مدل تصویر رایگان در حال تولید است؛ ممکن است به‌دلیل صف عمومی کمی زمان ببرد...');
-    const completed=await fetchTimed(SPACE_HOST+'/gradio_api/call/'+apiName+'/'+encodeURIComponent(ticket.event_id),{
-      headers:{Accept:'text/event-stream'}
-    },240000);
-    if(!completed.ok)throw new Error('دریافت نتیجه از مدل رایگان ناموفق بود (HTTP '+completed.status+').');
-    const payload=parseSse(await completed.text());
+    const sseBody=await readSseTimed(SPACE_HOST+'/gradio_api/call/'+apiName+'/'+encodeURIComponent(ticket.event_id),240000);
+    const payload=parseSse(sseBody);
     const image=findImage(payload);
     if(!image)throw new Error('مدل رایگان پاسخ داد اما فایل تصویر در خروجی پیدا نشد.');
     const result=await imageAsDataUrl(image);
