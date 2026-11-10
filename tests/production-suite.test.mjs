@@ -268,7 +268,10 @@ test('automatic rigs attach reusable story props to the grasping hand', () => {
   const rig = html.slice(start, end);
   assert.match(rig, /const propArtworks=/);
   assert.match(rig, /prop\.parentLayerId=rightFist\.rigId/);
-  assert.match(rig, /\['cup','book','phone','orb'\]/);
+  assert.match(rig, /cup:'<path/);
+  assert.match(rig, /book:'<path/);
+  assert.match(rig, /phone:'<rect/);
+  assert.match(rig, /orb:'<circle/);
   assert.match(rig, /\.\.\.propLayers/);
 });
 
@@ -278,4 +281,5 @@ test('screenplay detects object-specific holding and renders only the matching p
   const build = html.slice(html.indexOf('async function autoBuildEpisodeFromStory'), html.indexOf("$('autoEpisodeButton').addEventListener"));
   assert.match(build, /gesture==='fist'\|\|gesture==='hold'\?'fist'/);
   assert.match(build, /scene\.autoDirection\.gesture==='hold'&&base\.propType===requested\?1:0/);
+  assert.match(build, /scene\.autoDirection\.propType=inferred\.propType/);
 });
