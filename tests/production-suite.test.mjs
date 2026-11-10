@@ -198,3 +198,24 @@ test('automatic character rigs animate head nods and both arms even during neutr
   assert.match(build, /gesture==='wave'\?sign\*48/);
   assert.match(build, /gesture==='neutral'\?sign\*-3:0/);
 });
+
+
+test('automatic character rigs use separate upper-arm and forearm joints', () => {
+  const start = html.indexOf('async function createAutomaticCharacterRig');
+  const end = html.indexOf('async function autoBuildEpisodeFromStory', start);
+  const rig = html.slice(start, end);
+  assert.match(rig, /بازوی بالایی چپ/);
+  assert.match(rig, /ساعد و دست چپ/);
+  assert.match(rig, /forearm\.parentLayerId=upper\.rigId/);
+  assert.match(rig, /forearm\.jointY=78/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,leftLeg,rightLeg,body,head\]/);
+});
+
+test('forearms receive independent gesture and gait articulation', () => {
+  const start = html.indexOf('async function autoBuildEpisodeFromStory');
+  const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
+  const build = html.slice(start, end);
+  assert.match(build, /role\.startsWith\('forearm-'\)/);
+  assert.match(build, /segmentScale=role\.startsWith\('forearm-'\)\?\.58:1/);
+  assert.match(html, /role\.startsWith\('forearm-'\)\?\(running\?17:9\):0/);
+});
