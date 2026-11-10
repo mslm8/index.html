@@ -177,3 +177,24 @@ test('cartoon face rig supports expressive brows, eye states, and dialogue visem
   assert.match(html, /\['confused','گیج'\]/);
   assert.match(html, /\['sleepy','خواب‌آلود'\]/);
 });
+
+
+test('rig world transforms propagate the full parent rotation and use parent-local gait time', () => {
+  const start = html.indexOf('function getRigWorldTransform(layer,layers,progress,canvas)');
+  const end = html.indexOf('function drawAnimatedMouth', start);
+  const transform = html.slice(start, end);
+  assert.match(transform, /const worldDelta=inheritedDelta\+localDelta/);
+  assert.match(transform, /delta:worldDelta/);
+  assert.match(transform, /parentProgress=Math\.max\(0,Math\.min\(1,\(progress-parentFrom\)\/\(parentTo-parentFrom\)\)\)/);
+  assert.match(transform, /Math\.sin\(parentProgress\*Math\.PI/);
+});
+
+test('automatic character rigs animate head nods and both arms even during neutral scenes', () => {
+  const start = html.indexOf('async function autoBuildEpisodeFromStory');
+  const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
+  const build = html.slice(start, end);
+  assert.match(build, /const nod=speaking\?5:2\.5/);
+  assert.match(build, /layer\.motionKeys=\[/);
+  assert.match(build, /gesture==='wave'\?sign\*48/);
+  assert.match(build, /gesture==='neutral'\?sign\*-3:0/);
+});
