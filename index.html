@@ -726,9 +726,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <textarea id="backgroundPrompt" rows="3" maxlength="1200" placeholder="مثلاً: خیابان بارانی یک شهر آینده‌نگر، ساختمان‌های بلند، تابلوهای نئونی بدون نوشته، انعکاس نور روی آسفالت..."></textarea>
   <div class="note">
     <strong>تصویر مرجع برای هماهنگی سبک</strong>
-    <small>تصویر مرجع فقط برای استخراج رنگ‌های غالب استفاده می‌شود؛ فایل آن به هیچ سرویس بیرونی ارسال نمی‌شود و بازسازی دقیق تصویر یا انتقال خودکار سبک تضمین‌شده نیست.</small>
+    <small>مدل رایگان فعلی ورودی تصویر مرجع ندارد؛ تصویر انتخابی به سرویس ارسال نمی‌شود و برای تولید پس‌زمینه استفاده نخواهد شد.</small>
     <input id="backgroundReferenceFile" type="file" accept="image/png,image/jpeg,image/webp">
-    <label><input id="backgroundUseReference" type="checkbox"> استفاده از تصویر مرجع در تولید این پس‌زمینه‌ها</label>
+    <label><input id="backgroundUseReference" type="checkbox" disabled> تصویر مرجع در مدل رایگان فعلی پشتیبانی نمی‌شود</label>
     <small id="backgroundReferenceStatus" aria-live="polite">تصویر مرجعی انتخاب نشده است.</small>
   </div>
   <div class="grid">
@@ -984,7 +984,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <label class="production-field"><span>داستان / فیلمنامه</span><textarea id="productionStory" rows="7" maxlength="12000" placeholder="هر صحنه را در یک پاراگراف جدا بنویس. می‌توانی دیالوگ، کنش و مکان را هم مشخص کنی."></textarea></label>
     <div class="row"><button id="productionSplitStory" type="button" class="secondary">تقسیم به صحنه‌ها</button><button id="productionSendToAnimator" type="button" class="secondary">ارسال طرح به استودیوی انیمیشن</button></div>
     <button id="productionOneClickBuild" type="button" class="primary" style="width:100%;margin-top:10px">شروع تولید خودکار انیمیشن از همین داستان</button>
-    <small>با این دکمه، داستان به موتور تولید منتقل می‌شود و خط لولهٔ موجودِ فیلمنامه، کارگردانی قواعدمحور، ریگ دوبعدی، پس‌زمینهٔ برداری و رندر WebM اجرا می‌شود. تولید تصویر مولد عصبی و گویندگی حرفه‌ای هنوز فعال نیستند.</small>
+    <small>با این دکمه، داستان به موتور تولید منتقل می‌شود و خط لولهٔ موجودِ فیلمنامه، کارگردانی قواعدمحور، ریگ دوبعدی، پس‌زمینه‌ها با مدل مولد رایگان Hugging Face ساخته می‌شوند و رندر نهایی در مرورگر انجام می‌شود. تولید ویدیوی مولد و گویندگی حرفه‌ای هنوز فعال نیستند.</small>
     <small id="productionStatus" role="status" aria-live="polite"></small>
   </section>
   <section class="card">
@@ -1094,7 +1094,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <div class="note"><small>این سرویس با رایانه‌های داوطلبان کار می‌کند؛ درخواست ناشناس اولویت پایین‌تری دارد و ممکن است در صف بماند یا به‌دلیل نبود کارگر مناسب منقضی شود. هزینه پولی ندارد، اما سرعت و دسترس‌پذیری تضمین‌شده نیست.</small></div>
   <p><small>برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. درخواست‌ها روی رایانه داوطلبان پردازش می‌شوند و اپراتور آن رایانه ممکن است به متن و تصویر دسترسی داشته باشد.</small></p>
   <p><small>برای نتیجه دقیق‌تر، تعداد سوژه‌ها، نوع هر سوژه و کاری که انجام می‌دهد را روشن و جداگانه بنویس. هیچ مدل تصویری پیروی کامل از متن را تضمین نمی‌کند.</small></p>
-  <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">صفحه رسمی تولید تصویر AI Horde</a> در دسترس است.</small></p>
+  <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">مستندات مدل مولد تصویر Hugging Face</a> در دسترس است.</small></p>
 </section>
 <footer><small>AI Animator Studio</small></footer>
 <section class="card" id="aboutStudioCard"><h2>AI Animator Studio</h2><p>این بخش فقط برای ساخت سوژه، شخصیت و پس‌زمینه است؛ خروجی آن با یک دکمه مستقیماً وارد لایه‌های استودیوی انیمیشن می‌شود. تولید تصویر به‌تنهایی انیمیشن نیست.</p></section>
@@ -1258,7 +1258,7 @@ const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای 
 "فایلی انتخاب نشده است":"No file selected"};
 Object.assign(uiEnglish,{
 "ساخت فیلمنامه با موتور متن رایگان":"Write screenplay with free text engine",
-"موتور متن AI Horde برای نوشتن فیلمنامه؛ موتور تصویر AI Horde برای ساخت تصویر؛ رندر نهایی با موتور داخلی Canvas.":"AI Horde text engine writes the screenplay; AI Horde image engine creates artwork; the built-in Canvas engine renders the final video.",
+"کارگردان محلی ToonVerse صحنه‌ها را برنامه‌ریزی می‌کند؛ Hugging Face ZeroGPU تصاویر را می‌سازد؛ رندر نهایی در مرورگر انجام می‌شود.":"ToonVerse local story director plans scenes; Hugging Face ZeroGPU generates scene artwork; the browser compositor renders the final WebM.",
 "در حال پیدا کردن مدل‌های متن رایگان و فعال...":"Finding free, active text models...",
 "موتور متن رایگان در حال نوشتن ۶ صحنه است.":"The free text engine is writing 6 scenes.",
 "فیلمنامه با موتور متن AI Horde ساخته شد و به صحنه‌های اولیه تبدیل شد.":"The screenplay was created with the AI Horde text engine and converted into initial scenes."
@@ -3286,8 +3286,6 @@ async function autoBuildEpisodeFromStory(){
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');
-  if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
-  if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
   const paidCharacterReferencesEnabled=false;
   const cloudVideoEnabled=false; // Free-only mode: paid video inference is hard-disabled.
   button.disabled=true;liveBuildStart();
@@ -3513,7 +3511,7 @@ async function autoBuildEpisodeFromStory(){
             generatedVideo=await generateFalVideoScene(cloudPrompt,status);
           }
         }else{
-          status.textContent='در حال تولید تصویر مولد صحنه '+(index+1)+' با موتور برداری داخلی...';
+          status.textContent='در حال تولید تصویر مولد صحنه '+(index+1)+' با Hugging Face ZeroGPU...';
           const localScenePrompt=[
             scene.storyText||scenePrompt,
             scene.location?'مکان داستان: '+scene.location:'',
@@ -3526,16 +3524,16 @@ async function autoBuildEpisodeFromStory(){
             composition:'layered',palette:'consistent',
             seed:stableStorySceneSeed(raw,scene.location||'shared-world')
           });
-          liveBuildLog('تصویر صحنه '+(index+1)+' با موتور داخلی ساخته شد.');
+          liveBuildLog('تصویر صحنه '+(index+1)+' با مدل رایگان Hugging Face ZeroGPU ساخته شد.');
         }
       }catch(error){
         lastSceneError=error;
-        liveBuildLog((cloudVideoEnabled?'تولید ویدیوی ابری':'تصویرسازی داخلی')+' صحنه '+(index+1)+' ناموفق بود: '+String(error?.message||error).slice(0,260));
+        liveBuildLog((cloudVideoEnabled?'تولید ویدیوی ابری':'تولید تصویر با مدل رایگان')+' صحنه '+(index+1)+' ناموفق بود: '+String(error?.message||error).slice(0,260));
       }
       if(!generatedUrl&&!generatedVideo){
         const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر در دسترس نبود';
         if(!cloudVideoEnabled)enqueueSceneImageRetries(storyFingerprint(raw),nextScenes,index);
-        throw new Error((cloudVideoEnabled?'موتور ویدیوی ابری':'موتور تصویر داخلی')+' نتوانست صحنه '+(index+1)+' را بسازد. جزئیات: '+reason);
+        throw new Error((cloudVideoEnabled?'موتور ویدیوی ابری':'مدل تصویر رایگان Hugging Face')+' نتوانست صحنه '+(index+1)+' را بسازد. جزئیات: '+reason);
       }
       if(cloudVideoEnabled){
         scene.backgroundImage=generatedVideo;
