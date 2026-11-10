@@ -146,7 +146,7 @@ test('high-detail cloud image generation is explicit opt-in and supports 2K/4K',
   assert.match(html, /useCloudAI=\$\('backgroundUseCloudAI'\)\?\.checked===true/);
   assert.match(html, /generateFalBackground\(prompt,status/);
   assert.match(html, /backgroundImageToBlob\(image,maxEdge=4096,quality=0\.94\)/);
-  assert.match(html, /REFERENCE PALETTE \\(sampled locally; no reference image is uploaded\\)/);
+  assert.match(html, /REFERENCE PALETTE \(sampled locally; no reference image is uploaded\)/);
   const gateway = readFileSync(new URL('../supabase/functions/fal-gateway/index.ts', import.meta.url), 'utf8');
   assert.match(gateway, /google\/nano-banana-2\.1/);
   assert.match(gateway, /thinking_level: "high"/);
