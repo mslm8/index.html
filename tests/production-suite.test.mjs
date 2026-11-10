@@ -115,3 +115,25 @@ test('automatic director is loaded and connected to story, camera, emotion and c
   }
   assert.match(html, /directorNotes:String\(plan\.directorNotes\|\|''\)/);
 });
+
+
+test('cloud video generation is an explicit opt-in and uses scene clips', () => {
+  assert.match(html, /id="enablePaidCloudVideo" type="checkbox"/);
+  assert.match(html, /cloudVideoEnabled=\$\('enablePaidCloudVideo'\)\?\.checked===true/);
+  assert.match(html, /generateFalVideoScene\(cloudPrompt,status\)/);
+  assert.match(html, /task:'video'/);
+  assert.match(html, /backgroundVideo=true/);
+  assert.match(html, /function visualFrameSize\(image\)/);
+  assert.match(html, /instanceof HTMLVideoElement/);
+  assert.match(html, /canvas\.captureStream\(24\)/);
+});
+
+test('Fal gateway exposes controlled Seedance and image-to-video routes', () => {
+  const gateway = readFileSync(new URL('../supabase/functions/fal-gateway/index.ts', import.meta.url), 'utf8');
+  assert.match(gateway, /bytedance\/seedance-2\.5\/us\/text-to-video/);
+  assert.match(gateway, /alibaba\/wan-3\.0-prime\/image-to-video/);
+  assert.match(gateway, /generate_audio: false/);
+  assert.match(gateway, /INVALID_DURATION/);
+  assert.match(gateway, /INVALID_IMAGE_URL/);
+  assert.match(gateway, /FAL_KEY/);
+});
