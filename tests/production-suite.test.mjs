@@ -137,3 +137,16 @@ test('Fal gateway exposes controlled Seedance and image-to-video routes', () => 
   assert.match(gateway, /INVALID_IMAGE_URL/);
   assert.match(gateway, /FAL_KEY/);
 });
+
+test('high-detail cloud image generation is explicit opt-in and supports 2K/4K', () => {
+  assert.ok(html.includes('id="backgroundUseCloudAI"'));
+  assert.ok(html.includes('id="backgroundImageResolution"'));
+  assert.match(html, /value="2K" selected/);
+  assert.match(html, /value="4K"/);
+  assert.match(html, /useCloudAI=\$\('backgroundUseCloudAI'\)\?\.checked===true/);
+  assert.match(html, /generateFalBackground\(prompt,status/);
+  const gateway = readFileSync(new URL('../supabase/functions/fal-gateway/index.ts', import.meta.url), 'utf8');
+  assert.match(gateway, /google\/nano-banana-2\.1/);
+  assert.match(gateway, /thinking_level: "high"/);
+  assert.match(gateway, /"1K", "2K", "4K"/);
+});
