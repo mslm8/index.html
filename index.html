@@ -1688,7 +1688,12 @@ async function generateLocalPromptImageUnlocked(){
     setStatus('تصویر برداری ساخته شد · محیط: '+result.environment+' · '+result.width+'×'+result.height+' · بدون API و بدون ارسال داده به سرور.');
   }catch(error){
     setStatus('ساخت تصویر داخلی ناموفق بود: '+String(error?.message||error),'var(--bad)');
-  }finally{button.disabled=false;}
+  }finally{
+    generationInProgress=false;
+    $('generate').disabled=smartModelChoices.length===0;
+    $('editImage').disabled=false;
+    button.disabled=false;
+  }
 }
 
 
