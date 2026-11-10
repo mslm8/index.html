@@ -4813,11 +4813,13 @@ function createMotionClip() {
   try{recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);}
   catch(error){stream.getTracks().forEach(track=>track.stop());button.disabled=false;setStatus('مرورگر نتوانست ضبط ویدئو را آغاز کند: '+error.message,'var(--warn)');return;}
   const chunks=[];
-  let renderFailure=null,renderWatchdog=null;
+  let renderFailure=null,renderWatchdog=null,renderWakeLock=null;
+  const releaseRenderWakeLock=()=>{if(renderWakeLock){try{renderWakeLock.release();}catch(_){}renderWakeLock=null;}};
   recorder.ondataavailable=event=>{if(event.data&&event.data.size)chunks.push(event.data);};
-  recorder.onerror=event=>{renderFailure=event&&event.error?event.error.message:'خطای MediaRecorder';if(renderWatchdog)clearTimeout(renderWatchdog);stream.getTracks().forEach(track=>track.stop());if(audioContext)audioContext.close().catch(()=>{});button.disabled=false;setStatus('هنگام ضبط ویدیو خطا رخ داد: '+renderFailure,'var(--bad)');liveBuildFinish(false,'خطای ضبط: '+renderFailure);};
+  recorder.onerror=event=>{renderFailure=event&&event.error?event.error.message:'خطای MediaRecorder';if(renderWatchdog)clearTimeout(renderWatchdog);releaseRenderWakeLock();stream.getTracks().forEach(track=>track.stop());if(audioContext)audioContext.close().catch(()=>{});button.disabled=false;setStatus('هنگام ضبط ویدیو خطا رخ داد: '+renderFailure,'var(--bad)');liveBuildFinish(false,'خطای ضبط: '+renderFailure);};
   recorder.onstop=()=>{
     if(renderWatchdog)clearTimeout(renderWatchdog);
+    releaseRenderWakeLock();
     stream.getTracks().forEach(track=>track.stop());
     exportScenes.forEach(scene=>{if(scene.backgroundImage instanceof HTMLVideoElement){try{scene.backgroundImage.pause();scene.backgroundImage.currentTime=0;}catch(_){}}});
     if(audioContext)audioContext.close().catch(()=>{});
@@ -4845,8 +4847,15 @@ function createMotionClip() {
   function beginRecording(){
     if(recorder.state!=='inactive')return;
     start=performance.now();
+    // Keep mobile browsers awake while the real-time canvas recording is running.
+    if(navigator.wakeLock&&typeof navigator.wakeLock.request==='function'){
+      navigator.wakeLock.request('screen').then(lock=>{renderWakeLock=lock;if(recorder.state!=='recording')releaseRenderWakeLock();}).catch(error=>liveBuildLog('قفل بیدارماندن صفحه در این مرورگر در دسترس نیست؛ هنگام رندر صفحه را باز نگه دار.'));
+    }
     recorder.start(200);
-    renderWatchdog=setTimeout(()=>{if(recorder.state==='recording'){renderFailure='زمان‌بندی رندر از حد مجاز گذشت؛ ضبط برای جلوگیری از انتظار بی‌پایان متوقف شد.';try{recorder.stop();}catch(_){button.disabled=false;liveBuildFinish(false,renderFailure);}}},totalDuration+20000);
+    // Mobile RAF scheduling and encoding can be slower than the nominal clip duration.
+    // Allow a generous grace period before treating a stalled render as a failure.
+    const watchdogGrace=Math.max(90000,totalDuration*0.75);
+    renderWatchdog=setTimeout(()=>{if(recorder.state==='recording'){renderFailure='رندر پس از زمان اضافهٔ مجاز هنوز کامل نشده است؛ ضبط برای جلوگیری از توقف بی‌پایان متوقف شد.';try{recorder.stop();}catch(_){releaseRenderWakeLock();button.disabled=false;liveBuildFinish(false,renderFailure);}}},totalDuration+watchdogGrace);
     if(audioContext&&audioMaster){
       const audioStart=audioContext.currentTime+0.08;
       const scheduleTone=(frequency,when,duration,volume=.012,wave='sine')=>{
