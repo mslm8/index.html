@@ -240,3 +240,22 @@ test('wrist articulation responds deterministically to scene gestures', () => {
   assert.match(build, /gesture==='wave'\?sign\*24:gesture==='talk'\?sign\*12:sign\*3/);
   assert.match(build, /if\(hand\)\{/);
 });
+
+
+test('automatic rigs provide open, fist, and pointing hand poses', () => {
+  const start = html.indexOf('async function createAutomaticCharacterRig');
+  const end = html.indexOf('async function autoBuildEpisodeFromStory', start);
+  const rig = html.slice(start, end);
+  assert.match(rig, /\['open',handArtwork\],\['fist',fistArtwork\],\['point',pointArtwork\]/);
+  assert.match(rig, /hand\.handPose=pose/);
+  assert.match(rig, /\.\.\.handLayers/);
+});
+
+test('scene gestures select one visible hand pose and render opacity in preview and export', () => {
+  const start = html.indexOf('async function autoBuildEpisodeFromStory');
+  const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
+  const build = html.slice(start, end);
+  assert.match(build, /const desiredPose=gesture==='fist'\?'fist':gesture==='point'\?'point':'open'/);
+  assert.match(build, /layer\.opacity=base\.handPose===desiredPose\?1:0/);
+  assert.match(html, /alpha=Math\.max\(0,Math\.min\(1,Number\(layer\.opacity\?\?1\)\)\)/);
+});
