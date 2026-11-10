@@ -161,3 +161,19 @@ test('high-detail cloud image generation is explicit opt-in and supports 2K/4K',
   assert.match(gateway, /minimax\/h3-max\/reference-to-video/);
   assert.match(gateway, /INVALID_REFERENCE_IMAGES/);
 });
+
+
+test('cartoon face rig supports expressive brows, eye states, and dialogue visemes', () => {
+  const start = html.indexOf('function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues)');
+  const end = html.indexOf('function renderMotionPreview()', start);
+  const face = html.slice(start, end);
+  for (const token of ['worried', 'confused', 'sleepy', 'surprised', 'activeLine', 'syllableCount', 'viseme', 'blinkPulse']) {
+    assert.ok(face.includes(token), 'Facial animation is missing: ' + token);
+  }
+  for (const token of ["'worried'", "'confused'", "'sleepy'"]) {
+    assert.ok(html.includes(token), 'Emotion pipeline is missing: ' + token);
+  }
+  assert.match(html, /\['worried','نگران'\]/);
+  assert.match(html, /\['confused','گیج'\]/);
+  assert.match(html, /\['sleepy','خواب‌آلود'\]/);
+});
