@@ -3224,7 +3224,7 @@ async function generateCharacterReference(name,description,status){
     'Show exactly one character, full body, standing in a neutral relaxed pose, facing camera, entire head and feet visible. Keep face unobstructed. Distinctive facial geometry, expressive eyes, specific hairstyle, readable clothing construction, consistent accessories, clear hands and shoes.',
     'Premium 2D animated feature-film character design, polished clean linework, rich controlled colors, carefully rendered fabric and material details, subtle dimensional shading, crisp edges.',
     'Plain soft neutral studio background, even readable lighting, no props, no other characters, no text, no labels, no watermark, no logo, no split panels, no collage, no turnaround sheet.'
-  ].join('\\n\\n');
+  ].join('\n\n');
   status.textContent='در حال طراحی مرجع ۲K برای شخصیت «'+name+'»...';
   const url=await generateFalBackground(prompt,status,{resolution:'2K',aspectRatio:'3:2',seed:stableStorySceneSeed(description||name,name)});
   const record={key,name,description:String(description||'').slice(0,900),url,model:'google/nano-banana-2.1',createdAt:Date.now()};
@@ -3239,7 +3239,7 @@ async function generateFalReferenceVideoScene(prompt,status,referenceRecords){
   if(!refs.length)throw new Error('برای تولید مرجع‌محور هیچ تصویر شخصیت معتبری پیدا نشد.');
   const imageDescriptions=refs.map((item,index)=>'Image '+(index+1)+' is the canonical design of character '+item.name+'. Preserve this exact face, hair, body proportions, costume and accessories.').join(' ');
   const submitted=await client.functions.invoke('fal-gateway',{body:{
-    action:'submit',task:'reference-video',prompt:String(prompt||'').slice(0,12000)+'\\n\\nCHARACTER REFERENCE MAP: '+imageDescriptions,
+    action:'submit',task:'reference-video',prompt:String(prompt||'').slice(0,12000)+'\n\nCHARACTER REFERENCE MAP: '+imageDescriptions,
     reference_image_urls:refs.map(item=>item.url),duration:5,resolution:'768P',
     prompt_expansion_mode:'balanced',aspect_ratio:'16:9'
   }});
