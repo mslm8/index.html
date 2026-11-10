@@ -2889,11 +2889,11 @@ function inferSceneDirection(scene,index){
     has(/\b(reveal|کشف|آشکار|نگاه\s*کن)\b/u)?'zoom-in':
     has(/\b(دور\s*می\s*شود|خروج|خداحافظ|تمام)\b/u)?'zoom-out':
     ['zoom-in','pan-right','zoom-out','pan-left'][index%4];
-  const propType=has(/\b(لیوان|فنجان|ماگ|cup)\b/u)?'cup':
-    has(/\b(کتاب|دفتر|book)\b/u)?'book':
-    has(/\b(گوشی|تلفن|موبایل|phone)\b/u)?'phone':
-    has(/\b(گوی|توپ|گوی\s*نورانی|orb)\b/u)?'orb':'none';
-  const holding=has(/\b(گرفت|برداشت|در\s*دست|نگه\s*داشت|می\s*گیرد|می\s*بردارد|hold|holding)\b/u);
+  const propType=has(/لیوان|فنجان|ماگ|\bcup\b/iu)?'cup':
+    has(/کتاب|دفتر|\bbook\b/iu)?'book':
+    has(/گوشی|تلفن|موبایل|\bphone\b/iu)?'phone':
+    has(/گوی|توپ|گوی\s*نورانی|\borb\b/iu)?'orb':'none';
+  const holding=has(/گرفت|برداشت|در\s*دست|نگه\s*داشت|می\s*گیرد|می\s*بردارد|\bhold(?:ing)?\b/iu);
   return {action,emotion,camera,propType,gesture:holding&&propType!=='none'?'hold':
     has(/\b(سلام|دست\s*تکان|wave)\b/u)?'wave':
     has(/\b(اشاره|point|نشان\s*می\s*دهد)\b/u)?'point':
