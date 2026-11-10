@@ -208,7 +208,7 @@ test('automatic character rigs use separate upper-arm and forearm joints', () =>
   assert.match(rig, /ساعد و دست چپ/);
   assert.match(rig, /forearm\.parentLayerId=upper\.rigId/);
   assert.match(rig, /forearm\.jointY=78/);
-  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,leftLeg,rightLeg,body,head\]/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,leftHand,rightHand,leftLeg,rightLeg,body,head\]/);
 });
 
 test('forearms receive independent gesture and gait articulation', () => {
