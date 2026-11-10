@@ -283,3 +283,16 @@ test('screenplay detects object-specific holding and renders only the matching p
   assert.match(build, /scene\.autoDirection\.gesture==='hold'&&base\.propType===requested\?1:0/);
   assert.match(build, /scene\.autoDirection\.propType=inferred\.propType/);
 });
+
+
+test('scene staging selects all named participants and supports four-character layouts', () => {
+  const start = html.indexOf('async function autoBuildEpisodeFromStory');
+  const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
+  const build = html.slice(start, end);
+  assert.match(build, /const focusNames=Array\.isArray\(scene\.characterFocus\)/);
+  assert.match(build, /const mentionedNames=speakerNames\.filter\(name=>sceneText\.includes/);
+  assert.match(build, /activeCharacterNames=Array\.from\(new Set\(\[\.\.\.focusNames,\.\.\.dialogueNames,\.\.\.mentionedNames\]\)\)/);
+  assert.match(build, /activeRigs=autoCharacterRigs\.filter/);
+  assert.match(build, /positionsByCount=\{1:\[50\],2:\[35,65\],3:\[25,50,75\],4:\[18,39,61,82\]\}/);
+  assert.match(build, /scene\.activeCharacterNames=activeCharacterNames/);
+});
