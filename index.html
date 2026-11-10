@@ -4621,7 +4621,7 @@ function createMotionClip() {
   const ctx=canvas.getContext('2d');
   if(!ctx){button.disabled=false;const message='ساخت صحنه ناموفق بود؛ بوم گرافیکی در دسترس نیست.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
   const stream=canvas.captureStream(24);
-  let audioContext=null,audioDestination=null;
+  let audioContext=null,audioDestination=null,audioMaster=null,audioTrackAttached=false;
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
   const episodeSeconds=Math.max(1,Number($('motionDuration').value)||60);
   const sceneSeconds=episodeSeconds/Math.max(1,exportScenes.length);
@@ -4632,17 +4632,18 @@ function createMotionClip() {
     return {buffer:item.audioBuffer,when:index*sceneSeconds+(from/100)*sceneSeconds,windowDuration:((to-from)/100)*sceneSeconds};
   }));
   if(allDialogues.length&&!dialogueAudio.length){
-    setStatus('این صحنه‌ها دیالوگ دارند، اما فایل صدایی برایشان بارگذاری نشده است. «شنیدن نمونه صدا» فقط پیش‌نمایش است و وارد ویدئو نمی‌شود. برای خروجی صدادار، برای هر دیالوگ فایل صوتی اضافه کن.','var(--warn)');
+    setStatus('دیالوگ‌ها هنوز فایل گفتار ندارند؛ پیش‌نمایش گفتار مرورگر داخل ویدئو ضبط نمی‌شود. موسیقی زمینه و افکت‌های صوتی به خروجی اضافه می‌شوند.','var(--warn)');
   }
-  if(dialogueAudio.length&&AudioCtx){
+  if(AudioCtx){
     try{
       audioContext=new AudioCtx();audioDestination=audioContext.createMediaStreamDestination();
+      audioMaster=audioContext.createGain();audioMaster.gain.value=.78;audioMaster.connect(audioDestination);
       dialogueAudio.forEach(clip=>{
-        const node=audioContext.createBufferSource();node.buffer=clip.buffer;node.connect(audioDestination);clip.node=node;
+        const node=audioContext.createBufferSource();node.buffer=clip.buffer;node.connect(audioMaster);clip.node=node;
         clip.playDuration=Math.min(clip.buffer.duration,clip.windowDuration);
       });
-      stream.addTrack(audioDestination.stream.getAudioTracks()[0]);
-    }catch(error){audioContext=null;audioDestination=null;setStatus('ترکیب صدا در این مرورگر ممکن نشد؛ خروجی بدون صدا ساخته می‌شود: '+error.message,'var(--warn)');}
+      stream.addTrack(audioDestination.stream.getAudioTracks()[0]);audioTrackAttached=true;
+    }catch(error){audioContext=null;audioDestination=null;audioMaster=null;setStatus('ساخت مسیر صوتی ممکن نشد؛ خروجی ممکن است بدون صدا باشد: '+error.message,'var(--warn)');}
   }
   const candidates=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type))||'';
@@ -4663,7 +4664,8 @@ function createMotionClip() {
     liveBuildUpdate(5,'فریم‌ها ضبط شدند؛ فایل WebM در حال آماده‌سازی است.',98);
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
     $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
-    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است.');liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد.');
+    const audioSummary=!audioTrackAttached?'مسیر صوتی در این مرورگر فعال نشد؛ خروجی ممکن است بی‌صدا باشد.':dialogueAudio.length?'موسیقی زمینه، افکت انتقال و فایل‌های دیالوگ در خروجی قرار گرفتند.':'موسیقی زمینه و افکت انتقال در خروجی قرار گرفتند؛ گفتار شخصیت‌ها هنوز باید به فایل صوتی تبدیل و اضافه شود.';
+    setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است. '+audioSummary,audioTrackAttached?'var(--good)':'var(--warn)');liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد. '+audioSummary);
   };
   const requestedDuration=Number($('motionDuration').value);
   const totalDuration=Number.isFinite(requestedDuration)&&requestedDuration>0?Math.max(1000,requestedDuration*1000):60000;
@@ -4680,9 +4682,29 @@ function createMotionClip() {
     start=performance.now();
     recorder.start(200);
     renderWatchdog=setTimeout(()=>{if(recorder.state==='recording'){renderFailure='زمان‌بندی رندر از حد مجاز گذشت؛ ضبط برای جلوگیری از انتظار بی‌پایان متوقف شد.';try{recorder.stop();}catch(_){button.disabled=false;liveBuildFinish(false,renderFailure);}}},totalDuration+20000);
-    if(audioContext){
-      const audioStart=audioContext.currentTime+0.04;
-      dialogueAudio.forEach(clip=>{try{if(clip.playDuration>0)clip.node.start(audioStart+clip.when,0,clip.playDuration);}catch(error){liveBuildLog('پخش دیالوگ در خروجی ناموفق بود: '+error.message);}});
+    if(audioContext&&audioMaster){
+      const audioStart=audioContext.currentTime+0.08;
+      const scheduleTone=(frequency,when,duration,volume=.012,wave='sine')=>{
+        if(duration<=.08)return;
+        const oscillator=audioContext.createOscillator(),gain=audioContext.createGain();
+        oscillator.type=wave;oscillator.frequency.setValueAtTime(frequency,when);
+        gain.gain.setValueAtTime(.0001,when);
+        gain.gain.linearRampToValueAtTime(volume,when+Math.min(.45,duration*.2));
+        gain.gain.setValueAtTime(volume,Math.max(when+.05,when+duration-Math.min(.5,duration*.2)));
+        gain.gain.linearRampToValueAtTime(.0001,when+duration);
+        oscillator.connect(gain);gain.connect(audioMaster);
+        oscillator.start(when);oscillator.stop(when+duration+.03);
+      };
+      // Original low-volume ambient score and scene-change chimes.
+      const chords=[[130.81,164.81,196.00],[110.00,146.83,174.61],[123.47,155.56,185.00],[98.00,130.81,164.81]];
+      chords.forEach((chord,index)=>{
+        const when=audioStart+index*sceneDuration/1000;
+        if(when>=audioStart+totalDuration/1000)return;
+        const length=Math.min(sceneDuration/1000,totalDuration/1000-index*sceneDuration/1000);
+        chord.forEach((frequency,noteIndex)=>scheduleTone(frequency,when,length,.012/(noteIndex+1),'sine'));
+        if(index>0)scheduleTone(659.25,when,.42,.022,'sine');
+      });
+      dialogueAudio.forEach(clip=>{try{if(clip.playDuration>0&&clip.when<totalDuration/1000)clip.node.start(audioStart+clip.when,0,clip.playDuration);}catch(error){liveBuildLog('پخش دیالوگ در خروجی ناموفق بود: '+error.message);}});
     }
     requestAnimationFrame(draw);
   }
