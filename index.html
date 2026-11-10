@@ -815,7 +815,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <section class="motion-scene-panel" id="storyToScenesPanel">
     
     <label for="storyToScenesInput">داستان کاملت را همین‌جا بنویس؛ لازم نیست صحنه، شخصیت، حرکت یا دیالوگ را جداگانه مشخص کنی</label>
-    <textarea id="storyToScenesInput" maxlength="6000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
+    <textarea id="storyToScenesInput" maxlength="12000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
@@ -964,8 +964,10 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <section class="card">
     <h2>۱. فیلمنامه و تقسیم داستان</h2>
     <p>داستان را وارد کن؛ ابزار آن را به صحنه‌های اولیه تقسیم می‌کند. این تقسیم‌بندی قواعدمحور است و جایگزین بازنویسی و تأیید نویسنده نمی‌شود.</p>
-    <label class="production-field"><span>داستان / فیلمنامه</span><textarea id="productionStory" rows="7" maxlength="24000" placeholder="هر صحنه را در یک پاراگراف جدا بنویس. می‌توانی دیالوگ، کنش و مکان را هم مشخص کنی."></textarea></label>
-    <div class="row"><button id="productionSplitStory" type="button" class="primary">تقسیم به صحنه‌ها</button><button id="productionSendToAnimator" type="button" class="secondary">ارسال طرح به استودیوی انیمیشن</button></div>
+    <label class="production-field"><span>داستان / فیلمنامه</span><textarea id="productionStory" rows="7" maxlength="12000" placeholder="هر صحنه را در یک پاراگراف جدا بنویس. می‌توانی دیالوگ، کنش و مکان را هم مشخص کنی."></textarea></label>
+    <div class="row"><button id="productionSplitStory" type="button" class="secondary">تقسیم به صحنه‌ها</button><button id="productionSendToAnimator" type="button" class="secondary">ارسال طرح به استودیوی انیمیشن</button></div>
+    <button id="productionOneClickBuild" type="button" class="primary" style="width:100%;margin-top:10px">شروع تولید خودکار انیمیشن از همین داستان</button>
+    <small>با این دکمه، داستان به موتور تولید منتقل می‌شود و خط لولهٔ موجودِ فیلمنامه، کارگردانی قواعدمحور، ریگ دوبعدی، پس‌زمینهٔ برداری و رندر WebM اجرا می‌شود. تولید تصویر مولد عصبی و گویندگی حرفه‌ای هنوز فعال نیستند.</small>
     <small id="productionStatus" role="status" aria-live="polite"></small>
   </section>
   <section class="card">
@@ -5283,5 +5285,37 @@ $('cancel').addEventListener('click', cancelRequest);
   <a href="./LICENSE" target="_blank" rel="noopener">مشاهده متن مجوز</a> ·
   <a href="https://github.com/mslm8/index.html" target="_blank" rel="noopener">دسترسی به کد منبع</a>
 </footer>
+<script>
+(() => {
+  const button = document.getElementById('productionOneClickBuild');
+  if (!button || button.dataset.ready) return;
+  button.dataset.ready = '1';
+  button.addEventListener('click', () => {
+    const source = document.getElementById('productionStory');
+    const target = document.getElementById('storyToScenesInput');
+    const start = document.getElementById('autoEpisodeButton');
+    const status = document.getElementById('productionStatus');
+    const story = String(source?.value || '').trim();
+    if (!story) {
+      if (status) status.textContent = 'ابتدا داستان را در کادر بالا وارد کن.';
+      source?.focus();
+      return;
+    }
+    if (!target || !start) {
+      if (status) status.textContent = 'موتور تولید در این نسخه بارگذاری نشده است؛ صفحه را تازه‌سازی کن.';
+      return;
+    }
+    if (story.length > 12000) {
+      if (status) status.textContent = 'داستان بیش از سقف ۱۲٬۰۰۰ نویسه است؛ آن را کوتاه‌تر کن.';
+      return;
+    }
+    target.value = story;
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('#studioNav button[data-view="animation"]')?.click();
+    if (status) status.textContent = 'داستان منتقل شد؛ خط لولهٔ تولید خودکار آغاز می‌شود. اگر ورود به حساب خواسته شد، ابتدا وارد شو.';
+    start.click();
+  });
+})();
+</script>
 </body>
 </html>
