@@ -3373,14 +3373,21 @@ async function autoBuildEpisodeFromStory(){
   if(!raw){setStatus('ابتدا داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
-  const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');button.disabled=true;liveBuildStart();
+  const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');
+  const cloudVideoEnabled=$('enablePaidCloudVideo')?.checked===true;
+  button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
   if(!freeEngineManagerState.canvas){button.disabled=false;const message='ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const settingIds=['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
   const saved=Object.fromEntries(settingIds.map(id=>[id,$(id).value]));
   try{
-    liveBuildUpdate(0,'در حال آماده‌سازی موتور فیلمنامه و تصویرسازی داخلی.',5);
-    status.textContent='در حال بررسی موتور متن و موتور تصویر داخلی...';
+    liveBuildUpdate(0,cloudVideoEnabled?'در حال بررسی اتصال امن ویدیوساز ابری و موتور فیلمنامه.':'در حال آماده‌سازی موتور فیلمنامه و تصویرسازی داخلی.',5);
+    status.textContent='در حال بررسی موتور متن و موتور تصویر...';
+    if(cloudVideoEnabled){
+      const gateway=await isFalGatewayReady();
+      if(!gateway.ok||!gateway.configured)throw new Error('موتور ابری فعال نیست یا کلید FAL_KEY در سرور تنظیم نشده است؛ هیچ درخواست تولیدی ارسال نشد.');
+      liveBuildLog('موتور ویدیوی ابری فعال است؛ هزینه هر صحنه از اعتبار Fal کسر خواهد شد.');
+    }
     // Story generation must never query the shared anonymous AI Horde image pool.
     const textModels=await loadTextModels();
     freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=false;
@@ -3406,9 +3413,9 @@ async function autoBuildEpisodeFromStory(){
     ])).slice(0,4);
 
     if(!speakerNames.length)speakerNames.push('شخصیت اصلی');
-    // Generate a reusable six-part 2D rig for each speaker. No manual image splitting or joint setup is required.
+    // In cloud-video mode, the video model renders characters directly; local rigs remain the free fallback.
     const autoCharacterRigs=[];
-    for(let characterIndex=0;characterIndex<speakerNames.length;characterIndex++){
+    for(let characterIndex=0;!cloudVideoEnabled&&characterIndex<speakerNames.length;characterIndex++){
       const characterName=speakerNames[characterIndex];
       liveBuildUpdate(1,'در حال ساخت خودکار ریگ شش‌تکه شخصیت «'+characterName+'»؛ سر، تنه، دست‌ها و پاها.',14+characterIndex*2);
       autoCharacterRigs.push(await createAutomaticCharacterRig(characterName,characterIndex));
@@ -3513,14 +3520,14 @@ async function autoBuildEpisodeFromStory(){
       liveBuildUpdate(2,'تصویر واقعی صحنه '+(index+1)+' آماده شد؛ طراحی شخصیت‌ها برای نماهای بعدی حفظ می‌شود.',22+((index+1)/nextScenes.length)*48);
     }
     liveBuildUpdate(3,'دیالوگ‌ها زمان‌بندی شدند؛ حرکت دوربین و گذار بین نماها تنظیم شد.',73);
-    $('motionDuration').value='60';activeMotionScene=0;
+    $('motionDuration').value=cloudVideoEnabled?String(Math.max(5,nextScenes.length*5)):'60';activeMotionScene=0;
     // Keep the first scene's generated character rig active for the renderer.
     // Clearing motionLayers here caused saveActiveMotionScene() to overwrite scene 1 with an empty layer list.
     motionLayers.splice(0,motionLayers.length,...(motionScenes[0]?.layers||[]));
     selectedMotionLayer=motionLayers[motionScenes[0]?.selectedIndex]||motionLayers[0]||null;
     renderMotionSceneList();renderMotionLayerList();renderMotionPreview();
-    liveBuildUpdate(4,'تمام تصاویر صحنه‌ها آماده‌اند؛ رندر و ضبط ویدیوی ۶۰ ثانیه‌ای آغاز می‌شود.',78);
-    status.textContent='تصویرسازی صحنه‌ها کامل شد؛ رندر ویدیوی ۶۰ ثانیه‌ای آغاز شد.';
+    liveBuildUpdate(4,cloudVideoEnabled?'تمام کلیپ‌های مولد آماده‌اند؛ تدوین و ضبط قسمت آغاز می‌شود.':'تمام تصاویر صحنه‌ها آماده‌اند؛ رندر و ضبط ویدیو آغاز می‌شود.',78);
+    status.textContent=cloudVideoEnabled?'کلیپ‌های هوش مصنوعی آماده‌اند؛ تدوین ویدیوی نهایی آغاز شد.':'تصویرسازی صحنه‌ها کامل شد؛ رندر ویدیو آغاز شد.';
     createMotionClip();
   }catch(error){
     liveBuildFinish(false,error.message||String(error));
