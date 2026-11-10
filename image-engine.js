@@ -253,7 +253,28 @@
   }
   async function generateBackground(options) {
     const result = buildSvg(options || {});
-    return Object.assign(result, { dataUrl: svgDataUrl(result.svg), engine: "AI Animator Studio · Procedural Vector Engine", format: "SVG" });
+    const vectorDataUrl = svgDataUrl(result.svg);
+    let dataUrl = vectorDataUrl, format = "SVG";
+    if (typeof Image !== "undefined" && typeof document !== "undefined") {
+      try {
+        const image = new Image();
+        image.src = vectorDataUrl;
+        if (image.decode) await image.decode();
+        else await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+        const canvas = document.createElement("canvas");
+        canvas.width = WIDTH; canvas.height = HEIGHT;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(image, 0, 0, WIDTH, HEIGHT);
+          dataUrl = canvas.toDataURL("image/png");
+          format = "PNG";
+        }
+      } catch (_) {
+        dataUrl = vectorDataUrl;
+        format = "SVG";
+      }
+    }
+    return Object.assign(result, { dataUrl, vectorDataUrl, engine: "AI Animator Studio · Procedural Vector Engine", format });
   }
   globalThis.AIAnimatorImageEngine = Object.freeze({
     version: "1.0.0",
