@@ -3127,125 +3127,36 @@ async function generateFalBackground(prompt,status){
   throw new Error('صف fal.ai بیش از ۵ دقیقه طول کشید؛ شناسه درخواست برای پیگیری حفظ شد: '+requestId);
 }
 
-async function generateCloudflareBackground(prompt,status){
-  const cleanPrompt=String(prompt||'').trim().slice(0,2048);
-  if(cleanPrompt.length<4)throw Object.assign(new Error('توضیح پس‌زمینه برای تولید تصویر کافی نیست.'),{code:'INVALID_PROMPT'});
-  const workerUrl='https://shiny-field-9b69.mslmadelt8.workers.dev/generate';
-  const attempts=[];
-  const toDataUrl=blob=>new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>typeof reader.result==='string'?resolve(reader.result):reject(new Error('تبدیل تصویر Worker ناموفق بود.'));
-    reader.onerror=()=>reject(new Error('خواندن تصویر Worker ناموفق بود.'));
-    reader.readAsDataURL(blob);
+async function generateStudioBackground(prompt,status,options={}){
+  const engine=window.AIAnimatorImageEngine;
+  if(!engine||typeof engine.generateBackground!=='function')throw new Error('موتور تصویر داخلی بارگذاری نشده است؛ فایل image-engine.js را بررسی کن.');
+  const cleanPrompt=String(prompt||'').trim().slice(0,2400);
+  if(cleanPrompt.length<4)throw Object.assign(new Error('توضیح صحنه برای تصویرسازی کافی نیست.'),{code:'INVALID_PROMPT',retryable:false});
+  if(status)status.textContent='موتور داخلی تصویرسازی برداری: تحلیل محیط، رنگ و عمق صحنه...';
+  let referenceColors=[];
+  if(options.referenceDataUrl){
+    try{
+      referenceColors=await engine.extractPalette(options.referenceDataUrl);
+      if(referenceColors.length)liveBuildLog('رنگ‌های غالب تصویر مرجع استخراج شد؛ خود تصویر به هیچ سرویس بیرونی ارسال نمی‌شود.');
+    }catch(error){
+      liveBuildLog('استخراج رنگ از تصویر مرجع انجام نشد؛ پالت انتخاب‌شده استفاده می‌شود: '+String(error?.message||error).slice(0,140));
+    }
+  }
+  const result=await engine.generateBackground({
+    prompt:cleanPrompt,
+    sceneText:String(options.sceneText||cleanPrompt).slice(0,1200),
+    preset:options.preset||'story',
+    mood:options.mood||'match',
+    composition:options.composition||'layered',
+    palette:options.palette||'consistent',
+    referenceColors,
+    seed:Number.isSafeInteger(options.seed)?options.seed:undefined,
+    sceneIndex:Number.isInteger(options.sceneIndex)?options.sceneIndex:0
   });
-  // First route: dedicated Cloudflare Worker, avoiding the Supabase request-body
-  // streaming path that previously remained open until the Edge runtime dropped it.
-  try{
-    status.textContent='موتور تصویر Cloudflare: انتخاب خودکار از چند مدل و بررسی مجوز...';
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort('worker-timeout'),50000);
-    let response;
-    try{
-      response=await fetch(workerUrl,{method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:cleanPrompt}),signal:controller.signal,cache:'no-store'});
-    }finally{clearTimeout(timer);}
-    if(!response.ok){
-      const rawDetail=(await response.text()).slice(0,4000);
-      let workerPayload=null;
-      try{workerPayload=JSON.parse(rawDetail);}catch(_){}
-      const detail=String(workerPayload?.error||rawDetail).slice(0,350);
-      throw Object.assign(new Error('Worker HTTP '+response.status+' · '+detail),{
-        status:response.status,
-        code:workerPayload?.code||(response.status===503?'WORKER_NOT_READY':response.status===429?'WORKER_RATE_LIMIT':'WORKER_HTTP'),
-        workerPayload
-      });
-    }
-    const type=String(response.headers.get('content-type')||'').toLowerCase();
-    if(!type.startsWith('image/'))throw Object.assign(new Error('Worker پاسخ تصویری برنگرداند: '+type),{code:'WORKER_INVALID_CONTENT'});
-    const blob=await response.blob();
-    if(blob.size<1000||blob.size>12*1024*1024)throw Object.assign(new Error('اندازه تصویر Worker معتبر نیست.'),{code:'WORKER_IMAGE_SIZE'});
-    const dataUrl=await toDataUrl(blob);
-    if(!/^data:image\/(?:jpeg|png|webp);base64,/i.test(dataUrl))throw Object.assign(new Error('فرمت تصویر Worker پشتیبانی نمی‌شود.'),{code:'WORKER_INVALID_IMAGE'});
-    const selectedModel=response.headers.get('X-AI-Model')||'مدل خودکار Cloudflare';
-    liveBuildLog('تصویر با موتور چندمدلی Worker تولید شد؛ مدل: '+selectedModel);
-    return dataUrl;
-  }catch(workerError){
-    const workerDetail=String(workerError?.message||workerError).slice(0,260);
-    attempts.push('Worker: '+workerDetail);
-    // A model allowlist denial is an account/model permission problem, not a
-    // transport failure. Calling the same Cloudflare model again through
-    // Supabase only duplicates the failure and wastes execution time.
-    let workerCode=workerError?.code||'';
-    let workerPayload=workerError?.workerPayload||null;
-    try{
-      if(!workerPayload){
-        const jsonStart=workerDetail.indexOf('{');
-        if(jsonStart>=0)workerPayload=JSON.parse(workerDetail.slice(jsonStart));
-      }
-      workerCode=workerPayload?.code||workerCode;
-    }catch(_){}
-    if(workerCode==='NO_ALLOWED_IMAGE_MODEL'||/no configured cloudflare image model|no allowed cloudflare image model|model.{0,40}(not allowed|not available)|not allowed.{0,40}model/i.test(workerDetail)){
-      const modelDetails=Array.isArray(workerPayload?.details)
-        ?workerPayload.details.slice(0,7).map((item)=>String(item).slice(0,220)).join(' | ')
-        :'';
-      const diagnostic=modelDetails||String(workerPayload?.guidance||'جزئیات فنی در پاسخ Worker موجود نبود.').slice(0,700);
-      liveBuildLog('Worker هیچ‌یک از مدل‌های تصویر را نپذیرفت. جزئیات فنی: '+diagnostic.slice(0,700));
-      throw Object.assign(new Error('Cloudflare هیچ‌یک از مدل‌های امتحان‌شده را نپذیرفت. این پاسخ به‌تنهایی ثابت نمی‌کند دسترسی کل حساب غیرفعال است. جزئیات فنی: '+diagnostic.slice(0,700)+' مسیر تکراری Supabase اجرا نشد.'),{code:'NO_ALLOWED_IMAGE_MODEL',retryable:false});
-    }
-    liveBuildLog('مسیر مستقیم Worker ناموفق بود؛ مسیر پشتیبان فقط برای خطاهای اتصال یا سرویس بررسی می‌شود.');
-  }
-  // Second route: authenticated Supabase Edge Function, bounded on the client.
-  const client=window.__aiAnimatorSupabaseClient;
-  if(!client)throw Object.assign(new Error('هر دو مسیر تصویر در دسترس نیستند. '+attempts.join(' | ')),{code:'IMAGE_ROUTES_UNAVAILABLE'});
-  status.textContent='مسیر پشتیبان: Supabase Edge Function و FLUX.1 Schnell...';
-  let timer;
-  try{
-    const invoke=client.functions.invoke('fal-gateway',{body:{action:'cloudflare-image',prompt:cleanPrompt}});
-    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(new Error('پاسخ درگاه Supabase بیش از ۵۰ ثانیه طول کشید.'),{code:'EDGE_GATEWAY_TIMEOUT',retryable:true})),50000);});
-    const response=await Promise.race([invoke,timeout]);
-    if(response.error){
-      const context=response.error.context||{};
-      let detail=response.error.message||'درخواست Supabase ناموفق بود.';
-      try{
-        if(context.body&&typeof context.body==='string')detail=context.body;
-        else if(context.json)detail=JSON.stringify(context.json);
-        else if(typeof context.text==='function')detail=await context.text();
-      }catch(_){}
-      const httpStatus=Number(context.status||response.error.status||0);
-      const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':httpStatus===429?'CLOUDFLARE_RATE_LIMIT':httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':httpStatus>=500?'CLOUDFLARE_UPSTREAM':/failed to fetch|network/i.test(detail)?'NETWORK_ERROR':'CLOUDFLARE_REQUEST';
-      throw Object.assign(new Error('Supabase '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,320)),{code,status:httpStatus,retryable:httpStatus===429||httpStatus>=500});
-    }
-    const imageUrl=response.data?.image_data_url;
-    if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl)||imageUrl.length<1000)throw Object.assign(new Error('Supabase تصویر معتبر برنگرداند.'),{code:'INVALID_IMAGE_RESPONSE'});
-    liveBuildLog('تصویر با مسیر پشتیبان Supabase تولید شد.');
-    return imageUrl;
-  }catch(edgeError){
-    attempts.push('Supabase: '+String(edgeError?.message||edgeError).slice(0,320));
-    throw Object.assign(new Error('تولید تصویر از هر دو مسیر ناموفق بود. '+attempts.join(' | ')),{code:edgeError?.code||'IMAGE_ROUTES_FAILED',status:edgeError?.status||0,retryable:true});
-  }finally{clearTimeout(timer);}
-}
-
-async function generateCloudflareReferenceBackground(prompt,status,referenceImage){
-  const client=window.__aiAnimatorSupabaseClient;
-  if(!client)throw Object.assign(new Error('اتصال Supabase برای موتور تصویر مرجع در دسترس نیست.'),{code:'SUPABASE_CLIENT_MISSING'});
-  if(typeof referenceImage!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(referenceImage)||referenceImage.length>1800000)throw Object.assign(new Error('تصویر مرجع معتبر نیست یا بیش از اندازه بزرگ است.'),{code:'INVALID_REFERENCE_IMAGE'});
-  status.textContent='در حال بازسازی با تصویر مرجع توسط Cloudflare FLUX.2 Klein 4B...';
-  const response=await client.functions.invoke('fal-gateway',{body:{action:'cloudflare-reference-background',prompt:String(prompt||'').slice(0,2048),reference_image:referenceImage}});
-  if(response.error){
-    const context=response.error.context||{};
-    const httpStatus=Number(context.status||response.error.status||0);
-    const detail=typeof context.body==='string'?context.body:response.error.message||'درخواست تصویر مرجع ناموفق بود.';
-    const code=httpStatus===401||httpStatus===403?'CLOUDFLARE_AUTH':
-      httpStatus===429?'CLOUDFLARE_RATE_LIMIT':
-      httpStatus===408||httpStatus===504?'CLOUDFLARE_TIMEOUT':
-      httpStatus>=500?'CLOUDFLARE_UPSTREAM':
-      /failed to fetch|network/i.test(detail)?'NETWORK_ERROR':'CLOUDFLARE_REFERENCE_REQUEST';
-    const error=new Error('خطای '+code+(httpStatus?' · HTTP '+httpStatus:'')+' · '+String(detail).slice(0,260));
-    error.code=code;error.status=httpStatus;error.retryable=['CLOUDFLARE_RATE_LIMIT','CLOUDFLARE_TIMEOUT','CLOUDFLARE_UPSTREAM','NETWORK_ERROR'].includes(code);
-    throw error;
-  }
-  const imageUrl=response.data?.image_data_url;
-  if(typeof imageUrl!=='string'||!/^data:image\/(?:jpeg|png|webp);base64,/i.test(imageUrl)||imageUrl.length<1000)throw Object.assign(new Error('مدل مرجع تصویر معتبر برنگرداند.'),{code:'INVALID_REFERENCE_OUTPUT'});
-  return imageUrl;
+  if(!result||typeof result.dataUrl!=='string'||!result.dataUrl.startsWith('data:image/svg+xml'))throw new Error('موتور داخلی خروجی برداری معتبر تولید نکرد.');
+  liveBuildLog('پس‌زمینه با موتور داخلی ساخته شد · محیط: '+result.environment+' · بوم: '+result.width+'×'+result.height+' · بدون API خارجی.');
+  if(status)status.textContent='تصویرسازی داخلی کامل شد · '+result.environment+' · '+result.width+'×'+result.height+' · بدون اینترنت و کلید API.';
+  return result.dataUrl;
 }
 
 function storyFingerprint(value){
