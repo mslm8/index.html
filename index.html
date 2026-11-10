@@ -1679,212 +1679,15 @@ async function generateLocalPromptImageUnlocked(){
     setStatus('تولید تصویر رایگان انجام نشد: '+String(error?.message||error),'var(--bad)');
   }finally{
     generationInProgress=false;
-    $('generate').disabled=smartModelChoices.length===0;
+    $('generate').disabled=false;
     $('editImage').disabled=false;
     button.disabled=false;
   }
 }
 
 
-async function generateImageUnlocked() {
-  const prompt = $('prompt').value.trim();
-  if (!prompt) { setStatus('اول توضیح صحنه را بنویس.'); return; }
-  if (generationInProgress || activeRequestId || polling) return;
-
-  const settingIds = ['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'];
-  lastGenerationSettings = Object.fromEntries(settingIds.map(id => [id, $(id).value]));
-  $('generateVariation').hidden = true;
-  preservePendingRequestOnError = false;
-  generationInProgress = true;
-  $('generate').disabled = true;
-  $('cancel').disabled = true;
-  $('result').hidden = true;
-  $('download').hidden = true;
-  setStatus('در حال بررسی صف و ترجمه متن به‌صورت هم‌زمان...');
-  const negative = $('negative').value.trim();
-  const modelsTask = loadModels(true);
-  let candidates = [];
-  let translatedPrompt = '';
-  let translatedNegative = '';
-  try {
-    [candidates, translatedPrompt, translatedNegative] = await Promise.all([
-      modelsTask,
-      translateToEnglish(prompt),
-      negative ? translateToEnglish(negative) : Promise.resolve('')
-    ]);
-  } catch (error) {
-    // Defensive fallback: translation must never block image generation.
-    candidates = await modelsTask;
-    translatedPrompt = 'Persian-language scene description: ' + prompt +
-      '. Create an image that faithfully depicts this description and preserves all subjects and actions.';
-    translatedNegative = '';
-    setStatus('سرویس ترجمه در دسترس نیست؛ تولید با متن اصلی فارسی ادامه پیدا می‌کند.', 'var(--warn)');
-  }
-  if (!candidates.length) {
-    generationInProgress = false;
-    $('generate').disabled = true;
-    setStatus('هیچ مدل فعالی پیدا نشد. چند لحظه بعد دوباره امتحان کن.', 'var(--warn)');
-    return;
-  }
-  const stylePrompts = {
-    none: '',
-    photorealistic: 'Photorealistic photography, natural textures, realistic lighting and physically plausible details.',
-    cinematic: 'Cinematic visual style, intentional composition, dramatic but natural lighting, rich filmic color grading.',
-    anime: 'High-quality anime illustration, clean expressive linework, carefully rendered colors and backgrounds.',
-    '3d': 'Polished 3D cartoon render, appealing materials, dimensional lighting and clean detailed rendering.',
-    watercolor: 'Traditional watercolor painting, translucent layered pigments, soft edges and visible paper texture.',
-    oil: 'Classical oil painting, rich brushwork, layered pigments and painterly texture.',
-    pixel: 'Detailed pixel art, crisp pixel clusters, controlled limited palette and clean pixel edges.',
-    fantasy: 'Whimsical fantasy illustration, imaginative atmosphere, intricate environmental details and luminous lighting.'
-  };
-  const roleConstraints = buildSemanticRoleConstraints(prompt);
-  if (roleConstraints.prompt) translatedPrompt += '. ' + roleConstraints.prompt;
-  if (roleConstraints.negative) {
-    translatedNegative = [translatedNegative, roleConstraints.negative].filter(Boolean).join(', ');
-  }
-  const selectedStyle = stylePrompts[$('style').value] || '';
-  const framingPrompts = {
-    close: 'Camera framing: close-up shot, emphasize the main subject details.',
-    medium: 'Camera framing: medium shot, show the subject clearly with some surrounding context.',
-    full: 'Camera framing: full shot, keep every main subject fully visible inside the frame.',
-    wide: 'Camera framing: wide establishing shot, show the environment and spatial context.',
-    top: 'Camera angle: high-angle overhead view looking down at the scene.'
-  };
-  const selectedFraming = framingPrompts[$('framing').value] || '';
-  const lightingPrompts = {
-    natural: 'Lighting: soft natural daylight with balanced realistic shadows.',
-    golden: 'Lighting: warm golden-hour sunlight with gentle long shadows.',
-    soft: 'Lighting: soft diffused studio lighting with even exposure and subtle shadows.',
-    dramatic: 'Lighting: dramatic directional lighting with controlled highlights and deep shadows.',
-    neon: 'Lighting: colorful neon illumination with cinematic reflections.',
-    moon: 'Lighting: cool moonlight with a calm night atmosphere and gentle contrast.'
-  };
-  const palettePrompts = {
-    natural: 'Color palette: balanced natural colors with realistic white balance.',
-    warm: 'Color palette: warm amber, gold and earthy tones.',
-    cool: 'Color palette: cool blue and teal tones with restrained saturation.',
-    pastel: 'Color palette: soft pastel colors with gentle contrast.',
-    vivid: 'Color palette: vivid rich colors with controlled high saturation.',
-    mono: 'Color palette: monochrome black and white with clear tonal separation.'
-  };
-  const selectedLighting = lightingPrompts[$('lighting').value] || '';
-  const selectedPalette = palettePrompts[$('palette').value] || '';
-  const depthPrompts = {
-    deep: 'Depth of field: deep focus, keep the main subject and background clearly detailed.',
-    shallow: 'Depth of field: shallow focus, keep the main subject sharp with a softly blurred background.',
-    bokeh: 'Depth of field: artistic shallow focus with smooth, soft background bokeh.',
-    macro: 'Photography: macro close-up with precise subject detail and a gently blurred background.'
-  };
-  const selectedDepth = depthPrompts[$('depth').value] || '';
-  const focusPrompts = {
-    subject: 'Camera focus: keep the primary subject in crisp, precise focus.',
-    eyes: 'Camera focus: prioritize sharp, natural-looking focus on the subject eyes.',
-    foreground: 'Camera focus: keep foreground elements sharp, with the scene behind them less emphasized.',
-    background: 'Camera focus: keep the background details sharp and clearly legible.',
-    center: 'Camera focus: place the sharpest focus around the center of the composition.'
-  };
-  const selectedFocus = focusPrompts[$('focusTarget').value] || '';
-  const cameraPrompts = {
-    eye: 'Camera angle: eye-level frontal view with natural perspective.',
-    low: 'Camera angle: low-angle view looking slightly upward at the subject.',
-    high: 'Camera angle: high-angle view looking slightly downward at the subject.',
-    threequarter: 'Camera angle: three-quarter view, showing natural depth and perspective.',
-    side: 'Camera angle: side profile view with clear silhouette.',
-    overhead: 'Camera angle: directly overhead top-down composition.'
-  };
-  const selectedCamera = cameraPrompts[$('cameraAngle').value] || '';
-  const distancePrompts = {
-    extremeClose: 'Camera distance: extreme close-up, frame fine subject details while keeping important features inside the image.',
-    close: 'Camera distance: close shot, frame the subject prominently with limited surrounding space.',
-    medium: 'Camera distance: medium shot, show the subject and a balanced amount of surrounding context.',
-    far: 'Camera distance: long shot, show the complete subject with clear space around it.',
-    extremeWide: 'Camera distance: extreme wide shot, make the environment prominent while keeping the subject readable.'
-  };
-  const selectedDistance = distancePrompts[$('cameraDistance').value] || '';
-  const promptParts = [translatedPrompt, selectedStyle, selectedFraming, selectedLighting, selectedPalette, selectedDepth, selectedFocus, selectedCamera, selectedDistance].filter(Boolean);
-  const styledPrompt = promptParts.join('. ');
-  const fullPrompt = translatedNegative
-    ? styledPrompt + ' ### ' + translatedNegative
-    : styledPrompt;
-  const seedText = $('seed').value.trim();
-  const seedValue = seedText === '' ? undefined : Number(seedText);
-  if (seedValue !== undefined && (!Number.isSafeInteger(seedValue) || seedValue < 0 || seedValue > 4294967295)) {
-    setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.', 'var(--warn)');
-    generationInProgress = false;
-    $('generate').disabled = smartModelChoices.length === 0;
-    return;
-  }
-  const dimension = Number($('size').value);
-  const aspectDimensions = {
-    square: [1, 1],
-    landscape: [4, 3],
-    portrait: [3, 4],
-    wide: [16, 9],
-    tall: [9, 16]
-  };
-  const [ratioW, ratioH] = aspectDimensions[$('aspect').value] || [1, 1];
-  // Keep the selected size as the longest edge; Horde dimensions are rounded to 64px.
-  const shortSide = Math.max(256, Math.round((dimension * Math.min(ratioW, ratioH) / Math.max(ratioW, ratioH)) / 64) * 64);
-  const imageWidth = ratioW >= ratioH ? dimension : shortSide;
-  const imageHeight = ratioH >= ratioW ? dimension : shortSide;
-  const steps = Number($('quality').value) || 20;
-  if (!generationInProgress || !document.body.classList.contains('authenticated')) {
-    setStatus('عملیات به‌دلیل پایان نشست ورود متوقف شد.', 'var(--warn)');
-    return;
-  }
-  setStatus('متن ترجمه شد. مدل: ' + candidates[0] +
-    (candidates.length > 1 ? '\nگزینه‌های جایگزین هم آماده‌اند.' : '') +
-    '\nاندازه خروجی: ' + imageWidth + '×' + imageHeight + ' · مراحل: ' + steps +
-    '\nدر حال ارسال درخواست به موتور رایگان...');
-
-  try {
-    const submitted = await apiFetch('/generate/async', {
-      method: 'POST',
-      body: JSON.stringify({
-        prompt: fullPrompt,
-        params: {
-          width: imageWidth,
-          height: imageHeight,
-          steps,
-          n: 1,
-          cfg_scale: 7.5,
-          sampler_name: 'k_euler_a',
-          karras: true,
-          ...(seedValue === undefined ? {} : {seed: String(seedValue)})
-        },
-        models: candidates,
-        nsfw: false,
-        censor_nsfw: true,
-        trusted_workers: false,
-        slow_workers: true,
-        extra_slow_workers: true,
-        allow_downgrade: true,
-        replacement_filter: true,
-        r2: true,
-        shared: false
-      })
-    });
-    if (!submitted.id) throw new Error('شناسه درخواست از سرویس دریافت نشد.');
-    if (!document.body.classList.contains('authenticated')) {
-      try { await apiFetch('/generate/status/' + encodeURIComponent(submitted.id), {method:'DELETE'}); } catch (_) {}
-      throw new Error('نشست ورود هنگام ثبت درخواست پایان یافت؛ درخواست تازه لغو شد.');
-    }
-    activeRequestId = submitted.id;
-    savePendingRequest(submitted.id);
-    $('cancel').disabled = false;
-    setStatus('درخواست ثبت شد؛ از بین حداکثر ۵۰۰ مدل تصویری فعال و دارای پردازشگر، هر پردازشگر سازگار می‌تواند درخواست را انجام دهد. این یک درخواست واحد است، نه ۵۰۰ تصویر جداگانه.');
-    await pollRequest(submitted.id, lastGenerationSettings ? {...lastGenerationSettings} : null);
-  } catch (error) {
-    preservePendingRequestOnError = !!error.recoverableRequest;
-    setStatus('ارسال درخواست ناموفق بود: ' + error.message, 'var(--bad)');
-  } finally {
-    if (!preservePendingRequestOnError) clearPendingRequest(activeRequestId);
-    activeRequestId = null;
-    polling = false;
-    generationInProgress = false;
-    $('generate').disabled = smartModelChoices.length === 0;
-    $('cancel').disabled = true;
-  }
+async function generateImageUnlocked(){
+  return generateLocalPromptImageUnlocked();
 }
 
 async function pollRequest(id, historySettings = null) {
@@ -3576,6 +3379,7 @@ async function autoBuildEpisodeFromStory(){
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');
   if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
   if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
+  const paidCharacterReferencesEnabled=false;
   const cloudVideoEnabled=false; // Free-only mode: paid video inference is hard-disabled.
   button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
@@ -3585,8 +3389,8 @@ async function autoBuildEpisodeFromStory(){
   // Story-to-video defaults to a standard widescreen episode; the renderer also supports portrait and square canvases.
   if($('aspect'))$('aspect').value='wide';
   try{
-    liveBuildUpdate(0,cloudVideoEnabled?'در حال بررسی اتصال امن ویدیوساز ابری و موتور فیلمنامه.':'در حال آماده‌سازی موتور فیلمنامه و تصویرسازی داخلی.',5);
-    status.textContent='در حال بررسی موتور متن و موتور تصویر...';
+    liveBuildUpdate(0,'در حال آماده‌سازی کارگردان داستان و اتصال به مدل تصویر مولد رایگان.',5);
+    status.textContent='در حال آماده‌سازی کارگردان محلی و اتصال به مدل تصویر رایگان...';
     if(cloudVideoEnabled){
       const gateway=await isFalGatewayReady();
       if(!gateway.ok||!gateway.configured)throw new Error('موتور ابری فعال نیست یا کلید FAL_KEY در سرور تنظیم نشده است؛ هیچ درخواست تولیدی ارسال نشد.');
@@ -3623,7 +3427,7 @@ async function autoBuildEpisodeFromStory(){
       return name+': '+String(entry?.description||'شخصیت کارتونی اصلی با طراحی دوبعدی منسجم، چهره خوانا، لباس و رنگ ثابت در تمام نماها.').slice(0,420);
     }).join('\n');
     const characterReferenceMap=new Map();
-    if($('enablePaidCharacterReferences')?.checked===true){
+    if(paidCharacterReferencesEnabled){
       liveBuildUpdate(1,'در حال آماده‌سازی تصاویر مرجع شخصیت‌ها با Nano Banana 2.1.',18);
       const gateway=await isFalGatewayReady();
       if(!gateway.ok||!gateway.configured)throw new Error('برای ساخت تصاویر مرجع باید FAL_KEY در درگاه امن تنظیم شده باشد؛ هیچ درخواست پولی ارسال نشد.');
@@ -3869,13 +3673,12 @@ let freeEngineManagerCheckedAt=0;
 let freeEngineManagerState={text:false,image:false,canvas:false,voicePreview:false};
 async function refreshFreeEngineManager(status){
   if(status)status.textContent='مدیر هوشمند در حال بررسی موتورهای رایگان است؛ حداکثر ۱۲ ثانیه...';
-  const [textResult,imageResult]=await Promise.allSettled([
-    apiFetch('/status/models?type=text',{timeoutMs:12000}),
-    apiFetch('/status/models?type=image',{timeoutMs:12000})
+  const [textResult]=await Promise.allSettled([
+    apiFetch('/status/models?type=text',{timeoutMs:12000})
   ]);
   const active=list=>Array.isArray(list)?list.filter(model=>model&&model.name&&Number(model.count||model.worker_count||0)>0).sort((a,b)=>modelScore(a)-modelScore(b)):[];
   const textModels=textResult.status==='fulfilled'?active(textResult.value):[];
-  const imageModels=imageResult.status==='fulfilled'?active(imageResult.value):[];
+  const imageModels=[];
   smartTextModelChoices=textModels.slice(0,12).map(model=>model.name);
   smartModelChoices=imageModels.slice(0,40).map(model=>model.name);
   freeEngineManagerState={
