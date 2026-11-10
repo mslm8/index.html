@@ -1,6 +1,0 @@
-name = "ai-animator-image-proxy"
-main = "worker.js"
-compatibility_date = "2026-11-09"
-
-[vars]
-ALLOWED_ORIGIN = "https://OWNER.github.io"
