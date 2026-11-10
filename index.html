@@ -3488,36 +3488,57 @@ async function autoBuildEpisodeFromStory(){
     $('negative').value='text, subtitles, captions, watermark, logo, extra limbs, duplicate characters, inconsistent costume, photorealism, blurry, low quality';
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];
-      liveBuildUpdate(2,'در حال ساخت تصویر برداری صحنه '+(index+1)+' از '+nextScenes.length+' با موتور داخلی.',22+(index/nextScenes.length)*48);
+      liveBuildUpdate(2,cloudVideoEnabled?'در حال تولید کلیپ هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+'.':'در حال ساخت تصویر برداری صحنه '+(index+1)+' از '+nextScenes.length+'.',22+(index/nextScenes.length)*48);
       const scenePrompt=buildSceneImagePrompt(scene,index,nextScenes.length);
       $('prompt').value=scenePrompt;
       let generatedUrl='';
+      let generatedVideo=null;
       let lastSceneError=null;
       try{
-        status.textContent='در حال تصویرسازی صحنه '+(index+1)+' با موتور برداری داخلی...';
-        generatedUrl=await generateStudioBackground(scene.storyText||scenePrompt,status,{
-          sceneText:scene.storyText||scenePrompt,preset:'story',mood:'dramatic',
-          composition:'layered',palette:'vivid',sceneIndex:index
-        });
-        liveBuildLog('تصویر صحنه '+(index+1)+' با موتور داخلی ساخته شد.');
+        if(cloudVideoEnabled){
+          const cloudPrompt=[
+            'Original animated science-fiction comedy scene, polished high-end stylized cartoon animation, widescreen 16:9.',
+            'Character identity bible (repeat exactly across every shot): '+characterBible,
+            'Scene action and visual: '+String(scene.storyText||scenePrompt),
+            'Camera direction: '+String(scene.directorNotes||scene.shotType||'medium cinematic shot'),
+            'Maintain the same original character faces, proportions, clothing, colors and accessories; do not redesign characters. Clear staging, expressive acting, smooth natural motion, coherent background, no subtitles, no text, no logos.'
+          ].join('\n\n');
+          status.textContent='در حال تولید ویدیوی هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+' با Seedance...';
+          generatedVideo=await generateFalVideoScene(cloudPrompt,status);
+        }else{
+          status.textContent='در حال تصویرسازی صحنه '+(index+1)+' با موتور برداری داخلی...';
+          generatedUrl=await generateStudioBackground(scene.storyText||scenePrompt,status,{
+            sceneText:scene.storyText||scenePrompt,preset:'story',mood:'dramatic',
+            composition:'layered',palette:'vivid',sceneIndex:index
+          });
+          liveBuildLog('تصویر صحنه '+(index+1)+' با موتور داخلی ساخته شد.');
+        }
       }catch(error){
         lastSceneError=error;
-        liveBuildLog('تصویرسازی داخلی صحنه '+(index+1)+' ناموفق بود: '+String(error?.message||error).slice(0,260));
+        liveBuildLog((cloudVideoEnabled?'تولید ویدیوی ابری':'تصویرسازی داخلی')+' صحنه '+(index+1)+' ناموفق بود: '+String(error?.message||error).slice(0,260));
       }
-      if(!generatedUrl){
-        const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر رایگان در دسترس نبود';
-        enqueueSceneImageRetries(storyFingerprint(raw),nextScenes,index);
-        liveBuildLog('ساخت متوقف شد: تصویر واقعی صحنه '+(index+1)+' تولید نشد؛ '+(nextScenes.length-index)+' تصویر در صف بازیابی ذخیره شد. علت: '+reason);
-        throw new Error('موتور تصویر داخلی نتوانست صحنه '+(index+1)+' را بسازد. جزئیات: '+reason);
+      if(!generatedUrl&&!generatedVideo){
+        const reason=lastSceneError?String(lastSceneError.message||lastSceneError).slice(0,200):'پردازشگر در دسترس نبود';
+        if(!cloudVideoEnabled)enqueueSceneImageRetries(storyFingerprint(raw),nextScenes,index);
+        throw new Error((cloudVideoEnabled?'موتور ویدیوی ابری':'موتور تصویر داخلی')+' نتوانست صحنه '+(index+1)+' را بسازد. جزئیات: '+reason);
       }
-      const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
-      if(typeof frame.decode==='function')await frame.decode();
-      else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
-      if(!frame.naturalWidth||!frame.naturalHeight)throw new Error('تصویر تولیدشده ابعاد معتبر ندارد.');
-      scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویرسازی برداری داخلی '+scene.name;
+      if(cloudVideoEnabled){
+        scene.backgroundImage=generatedVideo;
+        scene.backgroundUrl=generatedVideo.dataset.remoteUrl||'';
+        scene.backgroundName='ویدیوی مولد ابری Seedance · '+scene.name;
+        scene.backgroundVideo=true;
+        scene.durationSeconds=5;
+        liveBuildLog('کلیپ ویدیویی صحنه '+(index+1)+' آماده شد؛ ۵ ثانیه، 720p.');
+      }else{
+        const frame=new Image();frame.crossOrigin='anonymous';frame.src=generatedUrl;
+        if(typeof frame.decode==='function')await frame.decode();
+        else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+        if(!frame.naturalWidth||!frame.naturalHeight)throw new Error('تصویر تولیدشده ابعاد معتبر ندارد.');
+        scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویرسازی برداری داخلی '+scene.name;
+      }
       writeSceneRetryQueue(readSceneRetryQueue().filter(item=>!(item.storyHash===storyFingerprint(raw)&&item.sceneIndex===index)));
       renderMotionSceneList();renderMotionPreview();
-      liveBuildUpdate(2,'تصویر واقعی صحنه '+(index+1)+' آماده شد؛ طراحی شخصیت‌ها برای نماهای بعدی حفظ می‌شود.',22+((index+1)/nextScenes.length)*48);
+      liveBuildUpdate(2,(cloudVideoEnabled?'کلیپ ویدیویی':'تصویر صحنه')+' '+(index+1)+' آماده شد.',22+((index+1)/nextScenes.length)*48);
     }
     liveBuildUpdate(3,'دیالوگ‌ها زمان‌بندی شدند؛ حرکت دوربین و گذار بین نماها تنظیم شد.',73);
     $('motionDuration').value=cloudVideoEnabled?String(Math.max(5,nextScenes.length*5)):'60';activeMotionScene=0;
