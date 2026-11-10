@@ -705,14 +705,14 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 
 <section class="card" id="backgroundStudioCard">
   <h2>استودیوی آماده‌سازی هوشمند پس‌زمینه‌ها</h2>
-  <p>برای هر صحنه پس‌زمینه مستقل بساز، از تصویر مرجع برای حفظ سبک استفاده کن، چند تصویر را یک‌جا وارد کن و کتابخانه را در همین مرورگر نگه دار. تولید پس‌زمینه از Cloudflare Workers AI انجام می‌شود؛ دسترسی و سهمیه به تنظیمات حساب Cloudflare وابسته است.</p>
+  <p>برای هر صحنه پس‌زمینه مستقل بساز، از تصویر مرجع برای حفظ سبک استفاده کن، چند تصویر را یک‌جا وارد کن و کتابخانه را در همین مرورگر نگه دار. تولید تصویر با موتور برداری داخلی برنامه انجام می‌شود؛ بدون کلید API، سرویس ابری یا هزینه هر تصویر.</p>
   <label for="backgroundSceneSelect">صحنه مقصد</label>
   <select id="backgroundSceneSelect"></select>
   <label for="backgroundPrompt">شرح محیط و پس‌زمینه</label>
   <textarea id="backgroundPrompt" rows="3" maxlength="1200" placeholder="مثلاً: خیابان بارانی یک شهر آینده‌نگر، ساختمان‌های بلند، تابلوهای نئونی بدون نوشته، انعکاس نور روی آسفالت..."></textarea>
   <div class="note">
     <strong>تصویر مرجع برای هماهنگی سبک</strong>
-    <small>یک تصویر نمونه بده تا موتور، رنگ‌بندی و زبان بصری آن را در پس‌زمینه‌های جدید دنبال کند. این حالت بازسازی موضعی با ماسک نیست؛ تولید تصویر تازه با مرجع بصری است. مصرف آن از سهمیه Workers AI حساب Cloudflare کم می‌شود.</small>
+    <small>تصویر مرجع فقط برای استخراج رنگ‌های غالب استفاده می‌شود؛ فایل آن به هیچ سرویس بیرونی ارسال نمی‌شود و بازسازی دقیق تصویر یا انتقال خودکار سبک تضمین‌شده نیست.</small>
     <input id="backgroundReferenceFile" type="file" accept="image/png,image/jpeg,image/webp">
     <label><input id="backgroundUseReference" type="checkbox"> استفاده از تصویر مرجع در تولید این پس‌زمینه‌ها</label>
     <small id="backgroundReferenceStatus" aria-live="polite">تصویر مرجعی انتخاب نشده است.</small>
@@ -3231,7 +3231,7 @@ async function retryQueuedSceneImages(){
       }
       liveBuildUpdate(2,'در حال بازیابی تصویر '+(item.sceneIndex+1)+' از صف ذخیره‌شده.',76);
       try{
-        const url=await generateCloudflareBackground(item.prompt,status);
+        const url=await generateStudioBackground(item.storyText||item.prompt,status,{preset:'story',sceneIndex:item.sceneIndex,composition:'layered',palette:'consistent'});
         const frame=new Image();frame.src=url;
         if(typeof frame.decode==='function')await frame.decode();
         else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
@@ -3763,7 +3763,7 @@ $('backgroundReferenceFile').addEventListener('change',async event=>{
     const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,canvas.width,canvas.height);
     backgroundReferenceDataUrl=canvas.toDataURL('image/jpeg',0.84);
     $('backgroundUseReference').checked=true;
-    $('backgroundReferenceStatus').textContent='تصویر مرجع آماده شد · '+canvas.width+'×'+canvas.height+' · در درخواست‌های مرجع به مدل ارسال می‌شود.';
+    $('backgroundReferenceStatus').textContent='تصویر مرجع آماده شد · '+canvas.width+'×'+canvas.height+' · فقط رنگ‌های غالب آن در موتور داخلی استفاده می‌شوند.';
   }catch(error){backgroundReferenceDataUrl='';$('backgroundReferenceStatus').textContent='خواندن تصویر مرجع ناموفق بود: '+String(error?.message||error).slice(0,120);}
   finally{URL.revokeObjectURL(url);}
 });
@@ -3805,7 +3805,7 @@ function makeBackgroundPrompt(scene,index,total){
     'SCENE CONTEXT '+(index+1)+' OF '+total+': '+story,
     'COMPOSITION: '+compText+'. Full-frame 16:9 landscape environment artwork, coherent perspective, detailed painted background, clean readable shapes, consistent visual direction.',
     'LIGHT AND COLOR: '+moodText+', '+paletteText+'.',
-    hasReference?'VISUAL REFERENCE: use input image 0 as the visual art-direction reference. Preserve its illustration medium, line quality, shading approach, palette relationships, texture density and overall design language. Create the new location described above; do not simply copy the old scene or introduce its characters.':'',
+    hasReference?'VISUAL REFERENCE: use only the dominant sampled colors from the reference to guide the palette; do not copy its subjects or layout.':'',
     $('backgroundNoCharacters').checked?'BACKGROUND ONLY: absolutely no people, no characters, no animals, no silhouettes, no foreground subject. Leave clear usable space for separately animated characters.':'Environment-first composition with unobtrusive distant details only.',
     'Continuity: keep architecture, geography, weather, light direction, horizon height, perspective and visual motifs coherent with the same episode. No text, no letters, no watermark, no logo, no panels, no collage.'
   ].filter(Boolean).join('\n\n');
@@ -3815,7 +3815,7 @@ async function generatePreparedBackground(index){
   const useReference=$('backgroundUseReference').checked;
   if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
   const prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
-  status.textContent='در حال ساخت پس‌زمینه صحنه '+(index+1)+' با موتور Cloudflare...';
+  status.textContent='در حال تصویرسازی پس‌زمینه با موتور داخلی...';
   const generatedUrl=useReference
     ?await generateCloudflareReferenceBackground(prompt,status,backgroundReferenceDataUrl)
     :await generateCloudflareBackground(prompt,status);
@@ -5157,6 +5157,7 @@ $('cancel').addEventListener('click', cancelRequest);
 
 })();
 </script>
+<script src="./image-engine.js" defer>
 <script src="./production-rescue.js" defer></script>
 <script src="./manager.js" defer></script>
 <script src="./production-suite.js" defer></script>
