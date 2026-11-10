@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
   "Vary": "Origin"
 };
-const MODELS = { image: "fal-ai/flux/dev", video: "fal-ai/ovi" };
+const MODELS = { image: Deno.env.get("FAL_IMAGE_MODEL") || "fal-ai/flux/dev", video: Deno.env.get("FAL_VIDEO_MODEL") || "bytedance/seedance-2.5/us/text-to-video", "image-to-video": Deno.env.get("FAL_I2V_MODEL") || "alibaba/wan-3.0-prime/image-to-video" };
 
 function json(data: unknown, status = 200, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(data), {
@@ -98,6 +98,7 @@ Deno.serve(async (req: Request) => {
         paidProviderOptional: true,
         imageModel: MODELS.image,
         videoModel: MODELS.video,
+        imageToVideoModel: MODELS["image-to-video"],
         request_id: requestId
       });
     }
@@ -177,16 +178,45 @@ Deno.serve(async (req: Request) => {
 
     const task = String(body.task || "");
     const model = MODELS[task as keyof typeof MODELS];
-    if (!model) return json({ error: "Unsupported task. Use image or video.", code: "UNSUPPORTED_TASK", request_id: requestId }, 400);
+    if (!model) return json({ error: "Unsupported task. Use image, video or image-to-video.", code: "UNSUPPORTED_TASK", request_id: requestId }, 400);
 
     const headers = { "Authorization": "Key " + falKey, "Content-Type": "application/json" };
     let upstream: Response;
     if (action === "submit") {
       const prompt = String(body.prompt || "").trim();
       if (prompt.length < 4 || prompt.length > 5000) return json({ error: "Prompt must contain 4 to 5000 characters.", code: "INVALID_PROMPT" }, 400);
-      const input = task === "image"
-        ? { prompt, image_size: "landscape_16_9", num_images: 1, output_format: "png", enable_safety_checker: true }
-        : { prompt, resolution: "992x512", negative_prompt: "jitter, blur, flicker, distorted anatomy, unstable camera" };
+      let input: Record<string, unknown>;
+      if (task === "image") {
+        input = { prompt, image_size: "landscape_16_9", num_images: 1, output_format: "png", enable_safety_checker: true };
+      } else if (task === "video") {
+        const duration = String(body.duration || "5");
+        if (!/^(4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30)$/.test(duration)) {
+          return json({ error: "Video duration must be between 4 and 30 seconds.", code: "INVALID_DURATION", request_id: requestId }, 400);
+        }
+        const resolution = String(body.resolution || "720p");
+        if (!["480p", "720p", "1080p"].includes(resolution)) {
+          return json({ error: "Unsupported video resolution.", code: "INVALID_RESOLUTION", request_id: requestId }, 400);
+        }
+        const aspectRatio = String(body.aspect_ratio || "16:9");
+        if (!["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"].includes(aspectRatio)) {
+          return json({ error: "Unsupported aspect ratio.", code: "INVALID_ASPECT_RATIO", request_id: requestId }, 400);
+        }
+        input = { prompt, resolution, duration, aspect_ratio: aspectRatio, generate_audio: false, bitrate_mode: "standard", codec: "H264" };
+      } else {
+        const imageUrl = String(body.image_url || "").trim();
+        if (!/^https:\/\//i.test(imageUrl) || imageUrl.length > 4096) {
+          return json({ error: "A public HTTPS image_url is required for image-to-video.", code: "INVALID_IMAGE_URL", request_id: requestId }, 400);
+        }
+        const duration = Number(body.duration || 5);
+        if (!Number.isInteger(duration) || duration < 2 || duration > 30) {
+          return json({ error: "Image-to-video duration must be 2 to 30 seconds.", code: "INVALID_DURATION", request_id: requestId }, 400);
+        }
+        const resolution = String(body.resolution || "720p");
+        if (!["480p", "720p", "1080p"].includes(resolution)) {
+          return json({ error: "Unsupported image-to-video resolution.", code: "INVALID_RESOLUTION", request_id: requestId }, 400);
+        }
+        input = { start_image_url: imageUrl, prompt, resolution, aspect_ratio: "16:9", duration, audio: false, enable_safety_checker: true };
+      }
       try {
         upstream = await fetchWithTimeout("https://queue.fal.run/" + model, { method: "POST", headers, body: JSON.stringify(input) }, 30000);
       } catch (error) {
