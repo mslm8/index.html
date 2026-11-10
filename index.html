@@ -1987,7 +1987,7 @@ function openHistoryDb() {
 function imageSource(value) {
   if (typeof value !== 'string') return '';
   const source = value.trim();
-  if (/^https:\/\//i.test(source)) {
+  if (String(source).toLowerCase().startsWith('https://')) {
     try {
       const parsed = new URL(source);
       return parsed.protocol === 'https:' ? parsed.href : '';
@@ -3169,7 +3169,7 @@ async function generateFalBackground(prompt,status,options={}){
       const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'image',request_id:requestId}});
       if(result.error)throw result.error;
       const url=result.data?.images?.[0]?.url;
-      if(!/^https:\/\//i.test(String(url||'')))throw new Error('fal.ai نتیجه‌ای با نشانی HTTPS معتبر تصویر برنگرداند.');
+      if(!String(url||'').toLowerCase().startsWith('https://'))throw new Error('fal.ai نتیجه‌ای با نشانی HTTPS معتبر تصویر برنگرداند.');
       return url;
     }
     status.textContent='fal.ai در حال پردازش تصویر صحنه است؛ وضعیت: '+(state||'در صف');
@@ -3199,7 +3199,7 @@ async function restoreCharacterReferenceLibrary(){
       request.onsuccess=()=>resolve(request.result||[]);request.onerror=()=>reject(request.error||new Error('خواندن تصاویر مرجع ناموفق بود.'));
     });
     rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));
-    for(const row of rows.slice(-30))if(row?.key&&row?.url&&/^https:\/\//i.test(row.url))characterReferenceCache.set(row.name,row);
+    for(const row of rows.slice(-30))if(row?.key&&row?.url&&String(row.url).toLowerCase().startsWith('https://'))characterReferenceCache.set(row.name,row);
     renderCharacterReferenceLibrary();
   }catch(error){liveBuildLog('بازیابی کتابخانه شخصیت‌ها ممکن نشد: '+String(error?.message||error).slice(0,120));}
 }
@@ -3236,7 +3236,7 @@ async function generateCharacterReference(name,description,status){
 async function generateFalReferenceVideoScene(prompt,status,referenceRecords){
   const client=window.__aiAnimatorSupabaseClient;
   if(!client)throw new Error('اتصال امن Supabase برای مدل مرجع‌محور در دسترس نیست.');
-  const refs=(Array.isArray(referenceRecords)?referenceRecords:[]).filter(item=>item&&/^https:\/\//i.test(String(item.url||''))).slice(0,9);
+  const refs=(Array.isArray(referenceRecords)?referenceRecords:[]).filter(item=>item&&String(item.url||'').toLowerCase().startsWith('https://')).slice(0,9);
   if(!refs.length)throw new Error('برای تولید مرجع‌محور هیچ تصویر شخصیت معتبری پیدا نشد.');
   const imageDescriptions=refs.map((item,index)=>'Image '+(index+1)+' is the canonical design of character '+item.name+'. Preserve this exact face, hair, body proportions, costume and accessories.').join(' ');
   const submitted=await client.functions.invoke('fal-gateway',{body:{
@@ -3258,7 +3258,7 @@ async function generateFalReferenceVideoScene(prompt,status,referenceRecords){
       const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'reference-video',request_id:requestId}});
       if(result.error)throw result.error;
       const url=result.data?.video?.url||result.data?.video_url||result.data?.url||'';
-      if(!/^https:\/\//i.test(url))throw new Error('مدل H3 Max نشانی معتبر ویدیو برنگرداند.');
+      if(!String(url||'').toLowerCase().startsWith('https://'))throw new Error('مدل H3 Max نشانی معتبر ویدیو برنگرداند.');
       const video=document.createElement('video');video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;video.preload='auto';video.src=url;
       await new Promise((resolve,reject)=>{
         if(video.readyState>=2&&video.videoWidth){resolve();return;}
@@ -3295,7 +3295,7 @@ async function generateFalVideoScene(prompt,status){
       const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'video',request_id:requestId}});
       if(result.error)throw result.error;
       const url=result.data?.video?.url||result.data?.video_url||result.data?.url||'';
-      if(!/^https:\/\//i.test(url))throw new Error('مدل ویدیو نتیجه معتبر و قابل پخش برنگرداند.');
+      if(!String(url||'').toLowerCase().startsWith('https://'))throw new Error('مدل ویدیو نتیجه معتبر و قابل پخش برنگرداند.');
       const video=document.createElement('video');
       video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;video.preload='auto';video.src=url;
       await new Promise((resolve,reject)=>{
