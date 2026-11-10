@@ -3012,7 +3012,7 @@ async function requestAutomaticScreenplay(story,status,models){
       shotType:['wide','medium','close'].includes(item.shotType)?item.shotType:'medium',
       durationSeconds:Number.isFinite(duration)?Math.max(5,Math.min(14,Math.round(duration))):8,
       dialogues,action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
-      emotion:['none','happy','sad','angry','surprised'].includes(item.emotion)?item.emotion:'none',
+      emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(item.emotion)?item.emotion:'none',
       gesture:['neutral','wave','talk'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
       camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(item.camera)?item.camera:'zoom-in'};
   }).filter(Boolean).slice(0,8);
@@ -3603,7 +3603,7 @@ async function autoBuildEpisodeFromStory(){
       continuityNote:String(plan.continuityNote||'').slice(0,280),
       directorNotes:String(plan.directorNotes||''),characterFocus:Array.isArray(plan.characterFocus)?plan.characterFocus.slice(0,4):[],shotType:String(plan.shotType||'medium'),
       durationSeconds:Math.max(4,Math.min(18,Number(plan.durationSeconds)||8)),
-      autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
+      autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
     const automaticVoiceLines=nextScenes.flatMap(scene=>scene.dialogues||[]).filter(item=>item&&String(item.text||'').trim()).slice(0,24);
@@ -4556,46 +4556,83 @@ function getRigWorldTransform(layer,layers,progress,canvas){
   return resolve(layer,new Set(layer.rigId?[layer.rigId]:[]));
 }
 function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
-  const active=(dialogues||[]).some(item=>item.text&&(layer.characterId?item.speakerId===layer.characterId:(item.speaker===layer.characterName||item.speaker===layer.name))&&progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100);
+  const lines=(dialogues||[]).filter(item=>item.text&&(layer.characterId?item.speakerId===layer.characterId:(item.speaker===layer.characterName||item.speaker===layer.name)));
+  const activeLine=lines.find(item=>progress>=(item.startAt??0)/100&&progress<=(item.endAt??100)/100)||null;
   const expression=layer.faceExpression||'none';
+  const eyeY=(Number(layer.eyeY??43)/100-.5)*height;
+  const leftX=(Number(layer.leftEyeX??36)/100-.5)*width;
+  const rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
+  const eyeW=width*.19,eyeH=height*.23;
+  const blinkRate=Math.max(1,Math.min(10,Number(layer.blinkRate)||4));
+  const blinkPulse=Math.sin(progress*Math.PI*2*blinkRate);
+  const blinkPhase=(progress*blinkRate)%1;
+  const blinking=blinkPulse>.965||blinkPhase>.975;
+  const gaze= Math.sin(progress*Math.PI*2*1.7+(Number(layer.characterStyleIndex)||0)*1.31)*width*.012;
   if(layer.eyeAnimation){
-    const blinkRate=Math.max(1,Math.min(10,Number(layer.blinkRate)||4));
-    const blinkPulse=Math.sin(progress*Math.PI*2*blinkRate);
-    const blinking=blinkPulse>.965;
-    const eyeY=(Number(layer.eyeY??43)/100-.5)*height;
-    const leftX=(Number(layer.leftEyeX??36)/100-.5)*width;
-    const rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
-    const eyeW=width*.19,eyeH=height*.23;
     ctx.save();ctx.lineWidth=Math.max(1,width*.006);ctx.strokeStyle=layer.eyeColor||'#292536';ctx.fillStyle=layer.eyeFill||'#fff';
     for(const x of [leftX,rightX]){
       ctx.beginPath();
       if(blinking){ctx.moveTo(x-eyeW/2,eyeY);ctx.quadraticCurveTo(x,eyeY+height*.018,x+eyeW/2,eyeY);}
-      else{ctx.ellipse(x,eyeY,eyeW/2,eyeH/2,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.fillStyle=layer.pupilColor||'#25243a';ctx.ellipse(x,eyeY,eyeW*.2,eyeH*.28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=layer.eyeFill||'#fff';}
+      else{
+        const sleepy=expression==='sleepy';
+        ctx.ellipse(x,eyeY,eyeW/2,eyeH/2*(sleepy?.62:1),0,0,Math.PI*2);ctx.fill();ctx.stroke();
+        ctx.beginPath();ctx.fillStyle=layer.pupilColor||'#25243a';
+        ctx.ellipse(x+gaze,eyeY+height*.012,eyeW*(expression==='surprised'?.15:.2),eyeH*.28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=layer.eyeFill||'#fff';
+        if(sleepy){ctx.beginPath();ctx.fillStyle=layer.skinColor||'#e9a66f';ctx.rect(x-eyeW/2,eyeY-eyeH*.34,eyeW,eyeH*.43);ctx.fill();}
+      }
       if(blinking)ctx.stroke();
     }
     ctx.restore();
   }
   if(expression!=='none'){
-    const browY=(Number(layer.eyeY??43)/100-.5)*height-height*.075;
-    const leftX=(Number(layer.leftEyeX??36)/100-.5)*width,rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
+    const browY=eyeY-height*.075;
     ctx.save();ctx.strokeStyle=layer.browColor||'#30202a';ctx.lineWidth=Math.max(2,width*.012);ctx.lineCap='round';
-    [[leftX,-1],[rightX,1]].forEach(([x,side])=>{ctx.beginPath();const tilt=expression==='angry'?side*height*.035:expression==='sad'?-side*height*.025:expression==='surprised'?-side*height*.008:0;ctx.moveTo(x-width*.055,browY+tilt);ctx.lineTo(x+width*.055,browY-tilt);ctx.stroke();});
+    [[leftX,-1],[rightX,1]].forEach(([x,side])=>{
+      ctx.beginPath();
+      if(expression==='angry'||expression==='confused'){
+        ctx.moveTo(x-width*.055,browY+side*height*.025);ctx.quadraticCurveTo(x,browY-height*.018,x+width*.055,browY-side*height*.025);
+      }else if(expression==='sad'||expression==='worried'){
+        ctx.moveTo(x-width*.055,browY+height*.018);ctx.quadraticCurveTo(x,browY-height*.035,x+width*.055,browY+height*.005);
+      }else if(expression==='surprised'){
+        ctx.moveTo(x-width*.05,browY-height*.045);ctx.quadraticCurveTo(x,browY-height*.07,x+width*.05,browY-height*.045);
+      }else if(expression==='sleepy'){
+        ctx.moveTo(x-width*.05,browY+height*.025);ctx.lineTo(x+width*.05,browY+height*.025);
+      }else{
+        ctx.moveTo(x-width*.05,browY);ctx.quadraticCurveTo(x,browY-height*.018,x+width*.05,browY);
+      }
+      ctx.stroke();
+    });
+    if(expression==='worried'||expression==='sad'){
+      ctx.fillStyle='rgba(220,105,115,.24)';
+      ctx.beginPath();ctx.ellipse(leftX+width*.09,eyeY+height*.19,width*.045,height*.025,0,0,Math.PI*2);ctx.ellipse(rightX-width*.09,eyeY+height*.19,width*.045,height*.025,0,0,Math.PI*2);ctx.fill();
+    }
     ctx.restore();
   }
-  const mode=active?'talk':(layer.mouthMode||'off');
+  const mode=activeLine?'talk':(layer.mouthMode||'off');
   if(mode==='off')return;
   const x=(Number(layer.mouthX??50)/100-.5)*width;
   const y=(Number(layer.mouthY??72)/100-.5)*height;
-  const talkOpen=mode==='talk'&&(Math.sin(progress*Math.PI*24)>-.15);
-  const open=mode==='open'||talkOpen||expression==='surprised';
+  let viseme=0;
+  if(activeLine){
+    const from=(activeLine.startAt??0)/100,to=(activeLine.endAt??100)/100;
+    const local=to>from?Math.max(0,Math.min(.999,(progress-from)/(to-from))):0;
+    const syllableCount=Math.max(3,Math.min(24,String(activeLine.text).trim().length));
+    const syllable=(local*syllableCount*1.35+(Number(layer.characterStyleIndex)||0)*.23)%1;
+    viseme=syllable<.22?1:syllable<.43?.48:syllable<.67?.82:.18;
+  }else if(mode==='talk')viseme=(Math.sin(progress*Math.PI*24)>-.15)?1:.16;
+  const open=mode==='open'||(mode==='talk'&&viseme>.35)||expression==='surprised';
+  const mouthW=width*(expression==='surprised'?.052:expression==='worried'?.06:.07);
+  const mouthH=height*(expression==='surprised'?.065:expression==='worried'?.018:(.018+viseme*.034));
   ctx.save();ctx.lineWidth=Math.max(1,width*.008);ctx.strokeStyle=layer.mouthColor||'#30202a';ctx.fillStyle=layer.mouthFill||'#6e2638';
   ctx.beginPath();
-  if(mode==='smile'||expression==='happy'||expression==='smile'||mode==='frown'||expression==='sad'||expression==='angry'){
-    const smile=mode==='smile'||expression==='happy'||expression==='smile';
-    ctx.ellipse(x,y,width*.075,height*.025,0,smile?0:Math.PI,smile?Math.PI:Math.PI*2);
-  }else if(open){ctx.ellipse(x,y,width*.055,height*.045,0,0,Math.PI*2);}
-  else{ctx.moveTo(x-width*.07,y);ctx.quadraticCurveTo(x,y+height*.035,x+width*.07,y);}
+  if(expression==='happy'||expression==='smile'||mode==='smile'){
+    ctx.moveTo(x-mouthW,y-height*.006);ctx.quadraticCurveTo(x,y+height*.085,x+mouthW,y-height*.006);
+  }else if(expression==='sad'||expression==='worried'||expression==='confused'||expression==='angry'||mode==='frown'){
+    ctx.moveTo(x-mouthW,y+height*.025);ctx.quadraticCurveTo(x,y-height*(expression==='angry'?.018:.035),x+mouthW,y+height*.025);
+  }else if(open){ctx.ellipse(x,y,mouthW*(expression==='surprised'?.72:1),mouthH,0,0,Math.PI*2);}
+  else{ctx.moveTo(x-mouthW,y);ctx.quadraticCurveTo(x,y+height*.035,x+mouthW,y);}
   if(open){ctx.fill();ctx.stroke();}else ctx.stroke();
+  if(open&&viseme>.6&&activeLine){ctx.beginPath();ctx.fillStyle='#f5d9d2';ctx.ellipse(x,y+mouthH*.48,mouthW*.58,mouthH*.2,0,0,Math.PI*2);ctx.fill();}
   ctx.restore();
 }
 function renderMotionPreview() {
@@ -4764,7 +4801,7 @@ function renderMotionLayerList() {
     const faceExpressionWrap=document.createElement('label');faceExpressionWrap.className='motion-keyframe-control';
     const faceExpressionCaption=document.createElement('span');faceExpressionCaption.textContent='حالت چهره';
     const faceExpressionSelect=document.createElement('select');
-    [['none','بدون افکت اضافه'],['happy','شاد'],['sad','ناراحت'],['angry','عصبانی'],['surprised','متعجب']].forEach(([value,label])=>faceExpressionSelect.add(new Option(label,value)));
+    [['none','بدون افکت اضافه'],['happy','شاد'],['sad','ناراحت'],['angry','عصبانی'],['surprised','متعجب'],['worried','نگران'],['confused','گیج'],['sleepy','خواب‌آلود']].forEach(([value,label])=>faceExpressionSelect.add(new Option(label,value)));
     faceExpressionSelect.value=layer.faceExpression||'none';faceExpressionSelect.addEventListener('click',event=>event.stopPropagation());
     faceExpressionSelect.addEventListener('change',()=>{layer.faceExpression=faceExpressionSelect.value;renderMotionPreview();});
     faceExpressionWrap.append(faceExpressionCaption,faceExpressionSelect);mouthControls.appendChild(faceExpressionWrap);
