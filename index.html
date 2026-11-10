@@ -3697,11 +3697,13 @@ $('deleteMotionScene').addEventListener('click',()=>{
   selectedMotionLayer=scene.layers[scene.selectedIndex]||motionLayers[0]||null;
   renderMotionLayerList();renderMotionSceneList();
 });
+function visualFrameSize(image){return {width:Number(image?.videoWidth||image?.naturalWidth||0),height:Number(image?.videoHeight||image?.naturalHeight||0)};}
+function hasVisualFrame(image){const size=visualFrameSize(image);return size.width>0&&size.height>0;}
 function drawSceneBackground(ctx,image,progress,motion){
-  if(!image||!image.naturalWidth)return false;
-  const scale=Math.max(ctx.canvas.width/image.naturalWidth,ctx.canvas.height/image.naturalHeight);
+  const dimensions=visualFrameSize(image);if(!image||!dimensions.width||!dimensions.height)return false;
+  const scale=Math.max(ctx.canvas.width/dimensions.width,ctx.canvas.height/dimensions.height);
   const zoom=motion==='zoom-out'?1.12-.12*progress:1+.12*progress;
-  const width=image.naturalWidth*scale*zoom,height=image.naturalHeight*scale*zoom;
+  const width=dimensions.width*scale*zoom,height=dimensions.height*scale*zoom;
   let pan=0;if(motion==='pan-right')pan=(progress-.5)*64;if(motion==='pan-left')pan=(.5-progress)*64;
   ctx.drawImage(image,(ctx.canvas.width-width)/2+pan,(ctx.canvas.height-height)/2,width,height);
   return true;
@@ -4764,7 +4766,7 @@ function createMotionClip() {
   const exportSourceScenes=validMotionScenes.length?validMotionScenes:[{name:'صحنه اصلی',layers:Array.isArray(motionLayers)?motionLayers:[],dialogues:[],backgroundImage:null,cameraMotion:$('motion').value}];
   const exportScenes=exportSourceScenes.map(scene=>({layers:Array.isArray(scene.layers)?scene.layers.filter(Boolean):[],dialogues:(Array.isArray(scene.dialogues)?scene.dialogues:[]).filter(Boolean).map(item=>({...item})),backgroundImage:scene.backgroundImage||null,cameraMotion:scene.cameraMotion||$('motion').value}));
   // Automatic story episodes can use locally rendered scene backgrounds without any generated source image.
-  const sourceImage=source&&source.complete&&source.naturalWidth?source:exportScenes.find(scene=>scene.backgroundImage&&scene.backgroundImage.naturalWidth)?.backgroundImage;
+  const sourceImage=source&&source.complete&&source.naturalWidth?source:exportScenes.find(scene=>hasVisualFrame(scene.backgroundImage))?.backgroundImage;
   if(!sourceImage){const message='پس‌زمینه یا تصویر صحنه برای ساخت ویدیو آماده نیست؛ دوباره ساخت ویدیو را اجرا کن.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){const message='ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
@@ -4772,7 +4774,9 @@ function createMotionClip() {
   const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
   const ctx=canvas.getContext('2d');
   if(!ctx){button.disabled=false;const message='ساخت صحنه ناموفق بود؛ بوم گرافیکی در دسترس نیست.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
-  const stream=canvas.captureStream(24);
+  let stream;
+  try{stream=canvas.captureStream(24);}
+  catch(error){const message='مرورگر اجازه ضبط ویدیوی ابری را نداد؛ احتمالاً CDN هدر CORS مناسب ندارد. جزئیات: '+String(error?.message||error);setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   let audioContext=null,audioDestination=null,audioMaster=null,audioTrackAttached=false;
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
   const episodeSeconds=Math.max(1,Number($('motionDuration').value)||60);
@@ -4810,6 +4814,7 @@ function createMotionClip() {
   recorder.onstop=()=>{
     if(renderWatchdog)clearTimeout(renderWatchdog);
     stream.getTracks().forEach(track=>track.stop());
+    exportScenes.forEach(scene=>{if(scene.backgroundImage instanceof HTMLVideoElement){try{scene.backgroundImage.pause();scene.backgroundImage.currentTime=0;}catch(_){}}});
     if(audioContext)audioContext.close().catch(()=>{});
     const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
     if(renderFailure){button.disabled=false;setStatus('رندر متوقف شد: '+renderFailure,'var(--bad)');liveBuildFinish(false,'رندر متوقف شد: '+renderFailure);return;}
@@ -4828,8 +4833,9 @@ function createMotionClip() {
   const fallbackExportScene={layers:[],dialogues:[],backgroundImage:sourceImage,cameraMotion:$('motion').value};
   const baseMotion=$('motion').value;
   const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
-  const cameraScale=Math.max(canvas.width/sourceImage.naturalWidth,canvas.height/sourceImage.naturalHeight);
-  const baseFit=Math.min((canvas.width*.62)/sourceImage.naturalWidth,(canvas.height*.62)/sourceImage.naturalHeight);
+  const sourceDimensions=visualFrameSize(sourceImage);
+  const cameraScale=Math.max(canvas.width/sourceDimensions.width,canvas.height/sourceDimensions.height);
+  const baseFit=Math.min((canvas.width*.62)/sourceDimensions.width,(canvas.height*.62)/sourceDimensions.height);
   let start=0;
   function beginRecording(){
     if(recorder.state!=='inactive')return;
@@ -4890,7 +4896,12 @@ function createMotionClip() {
     const scene=safeExportScenes[sceneIndex]||fallbackExportScene;
     if(draw._lastScene!==sceneIndex){draw._lastScene=sceneIndex;liveBuildUpdate(4,'در حال رندر صحنه '+(sceneIndex+1)+' از '+safeExportScenes.length+'.',76+(elapsed/totalDuration)*20);}
     ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const sceneBackground=scene.backgroundImage&&scene.backgroundImage.naturalWidth?scene.backgroundImage:sourceImage;
+    const sceneBackground=hasVisualFrame(scene.backgroundImage)?scene.backgroundImage:sourceImage;
+    if(sceneBackground instanceof HTMLVideoElement&&draw._activeVideo!==sceneBackground){
+      if(draw._activeVideo&&draw._activeVideo!==sceneBackground)draw._activeVideo.pause();
+      try{sceneBackground.currentTime=0;const playResult=sceneBackground.play();if(playResult?.catch)playResult.catch(()=>{});}catch(_){}
+      draw._activeVideo=sceneBackground;
+    }
     if(sceneBackground===source&&baseIsSprite)drawSprite(source,baseMotion,sceneProgress,baseFit);
     else drawSceneBackground(ctx,sceneBackground,sceneProgress,scene.cameraMotion||baseMotion);
     const transitionDuration=Math.min(850,sceneDuration*.14);
@@ -4898,8 +4909,9 @@ function createMotionClip() {
     const remainingInScene=sceneDuration-sceneElapsed;
     if(sceneIndex<safeExportScenes.length-1&&remainingInScene<transitionDuration){
       const nextScene=safeExportScenes[sceneIndex+1];
-      const nextBackground=nextScene&&nextScene.backgroundImage&&nextScene.backgroundImage.naturalWidth?nextScene.backgroundImage:null;
+      const nextBackground=nextScene&&hasVisualFrame(nextScene.backgroundImage)?nextScene.backgroundImage:null;
       if(nextBackground){
+        if(nextBackground instanceof HTMLVideoElement&&nextBackground.paused){try{nextBackground.currentTime=0;const nextPlay=nextBackground.play();if(nextPlay?.catch)nextPlay.catch(()=>{});}catch(_){}}
         ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,1-remainingInScene/transitionDuration));
         const nextProgress=Math.max(0,Math.min(1,1-remainingInScene/transitionDuration));
         drawSceneBackground(ctx,nextBackground,nextProgress,nextScene.cameraMotion||'zoom-in');ctx.restore();
