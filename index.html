@@ -3514,7 +3514,7 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
       ? '<circle cx="58" cy="161" r="4" fill="#b75c52"/><circle cx="72" cy="168" r="4" fill="#b75c52"/><circle cx="154" cy="166" r="4" fill="#b75c52"/><circle cx="168" cy="159" r="4" fill="#b75c52"/>'
       : '<path d="M45 157 Q61 165 77 158 M143 158 Q159 165 175 157" fill="none" stroke="#d98c79" stroke-width="5" stroke-linecap="round"/>';
   const head=await make('سر '+characterName,220,220,
-    '<path d="'+face+'" fill="'+p.skin+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M25 116 Q10 116 15 145 Q19 161 42 157 L42 127 Z M178 127 L178 157 Q201 161 205 145 Q210 116 195 116 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9"/><path d="'+hair+'" fill="'+p.hair+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M57 101 Q77 88 96 101 M125 101 Q145 88 164 101" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/><ellipse cx="77" cy="126" rx="'+eyeRx+'" ry="'+eyeRy+'" fill="#fff" stroke="#28283b" stroke-width="5"/><ellipse cx="146" cy="126" rx="'+eyeRx+'" ry="'+eyeRy+'" fill="#fff" stroke="#28283b" stroke-width="5"/><circle cx="83" cy="130" r="10" fill="#27334a"/><circle cx="140" cy="130" r="10" fill="#27334a"/><circle cx="86" cy="126" r="4" fill="#fff"/><circle cx="143" cy="126" r="4" fill="#fff"/><path d="M105 143 Q96 159 111 161" fill="none" stroke="#7c4943" stroke-width="7" stroke-linecap="round"/><path d="M83 180 Q110 197 140 177" fill="none" stroke="#713d3c" stroke-width="8" stroke-linecap="round"/>'+accessory,
+    '<path d="'+face+'" fill="'+p.skin+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M25 116 Q10 116 15 145 Q19 161 42 157 L42 127 Z M178 127 L178 157 Q201 161 205 145 Q210 116 195 116 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9"/><path d="'+hair+'" fill="'+p.hair+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M57 101 Q77 88 96 101 M125 101 Q145 88 164 101" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/><path d="M109 130 Q96 150 108 156 Q116 160 124 153" fill="none" stroke="#9a5d4e" stroke-width="7" stroke-linecap="round"/><ellipse cx="104" cy="157" rx="5" ry="3" fill="#7c4943"/><path d="M83 180 Q110 197 140 177" fill="none" stroke="#713d3c" stroke-width="8" stroke-linecap="round"/>'+accessory,
     'head',0,-58,.92);
   head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
   head.eyeAnimation=true;head.blinkRate=2+characterIndex;head.eyeY=57;head.leftEyeX=35;head.rightEyeX=66;
@@ -4565,12 +4565,12 @@ function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
     const eyeY=(Number(layer.eyeY??43)/100-.5)*height;
     const leftX=(Number(layer.leftEyeX??36)/100-.5)*width;
     const rightX=(Number(layer.rightEyeX??64)/100-.5)*width;
-    const eyeW=width*.105,eyeH=height*.075;
+    const eyeW=width*.19,eyeH=height*.23;
     ctx.save();ctx.lineWidth=Math.max(1,width*.006);ctx.strokeStyle=layer.eyeColor||'#292536';ctx.fillStyle=layer.eyeFill||'#fff';
     for(const x of [leftX,rightX]){
       ctx.beginPath();
       if(blinking){ctx.moveTo(x-eyeW/2,eyeY);ctx.quadraticCurveTo(x,eyeY+height*.018,x+eyeW/2,eyeY);}
-      else{ctx.ellipse(x,eyeY,eyeW/2,eyeH/2,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.fillStyle=layer.pupilColor||'#25243a';ctx.ellipse(x,eyeY,eyeW*.17,eyeH*.29,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=layer.eyeFill||'#fff';}
+      else{ctx.ellipse(x,eyeY,eyeW/2,eyeH/2,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.fillStyle=layer.pupilColor||'#25243a';ctx.ellipse(x,eyeY,eyeW*.2,eyeH*.28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=layer.eyeFill||'#fff';}
       if(blinking)ctx.stroke();
     }
     ctx.restore();
