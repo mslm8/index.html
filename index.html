@@ -3498,13 +3498,17 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   const leftForearm=await make('ساعد و دست چپ '+characterName,70,124,forearmArtwork,'forearm-left',0,0,.94);
   const rightForearm=await make('ساعد و دست راست '+characterName,70,124,'<g transform="translate(70 0) scale(-1 1)">'+forearmArtwork+'</g>','forearm-right',0,0,.94);
   const handArtwork='<path d="M17 70 Q10 66 12 56 L15 31 Q16 24 22 26 Q27 27 26 34 L26 48 L28 13 Q29 5 35 6 Q41 6 40 14 L39 44 L43 18 Q44 10 50 12 Q56 14 53 22 L49 47 L56 31 Q60 25 65 30 Q70 34 65 43 L55 67 Q51 77 39 78 L27 78 Q20 77 17 70 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="6" stroke-linejoin="round"/><path d="M25 54 Q38 60 54 52" fill="none" stroke="#b97861" stroke-width="3" stroke-linecap="round"/><path d="M18 72 Q38 84 57 70" fill="none" stroke="'+p.accent+'" stroke-width="5" stroke-linecap="round"/>';
-  const leftHand=await make('مچ و دست چپ '+characterName,76,86,handArtwork,'hand-left',0,0,.94);
-  const rightHand=await make('مچ و دست راست '+characterName,76,86,'<g transform="translate(76 0) scale(-1 1)">'+handArtwork+'</g>','hand-right',0,0,.94);
-  for(const [hand,forearm,side] of [[leftHand,leftForearm,'left'],[rightHand,rightForearm,'right']]){
-    hand.parentLayerId=forearm.rigId;
-    hand.jointX=50;hand.jointY=70;
-    hand.jointOffsetX=0;hand.jointOffsetY=26;
-    hand.rigRole='hand-'+side;
+  const fistArtwork='<path d="M15 70 Q8 60 15 48 L18 28 Q20 20 27 24 L30 40 L31 23 Q33 15 40 18 L43 40 L47 25 Q51 19 57 24 L57 43 L62 35 Q69 31 71 40 L67 65 Q64 79 49 81 L29 80 Q19 79 15 70 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="6" stroke-linejoin="round"/><path d="M23 48 Q38 54 58 47 M28 61 Q43 67 60 59" fill="none" stroke="#b97861" stroke-width="3" stroke-linecap="round"/><path d="M18 73 Q39 83 60 71" fill="none" stroke="'+p.accent+'" stroke-width="5" stroke-linecap="round"/>';
+  const pointArtwork='<path d="M18 70 Q10 65 13 55 L17 39 Q19 32 25 35 L30 51 L31 10 Q32 2 39 4 Q45 6 43 14 L42 48 L48 34 Q53 28 59 34 L68 46 Q73 54 66 66 L55 76 L30 79 Q22 78 18 70 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="6" stroke-linejoin="round"/><path d="M24 57 Q39 65 56 56" fill="none" stroke="#b97861" stroke-width="3" stroke-linecap="round"/><path d="M18 73 Q39 83 60 71" fill="none" stroke="'+p.accent+'" stroke-width="5" stroke-linecap="round"/>';
+  const handLayers=[];
+  for(const [pose,artwork] of [['open',handArtwork],['fist',fistArtwork],['point',pointArtwork]]){
+    for(const [forearm,side,mirror] of [[leftForearm,'left',false],[rightForearm,'right',true]]){
+      const svg=mirror?'<g transform="translate(76 0) scale(-1 1)">'+artwork+'</g>':artwork;
+      const hand=await make('دست '+pose+' '+side+' '+characterName,76,86,svg,'hand-'+pose+'-'+side,0,0,.94);
+      hand.parentLayerId=forearm.rigId;hand.jointX=50;hand.jointY=70;
+      hand.jointOffsetX=0;hand.jointOffsetY=26;hand.rigRole='hand-'+pose+'-'+side;
+      hand.handPose=pose;handLayers.push(hand);
+    }
   }
   for(const [forearm,upper,side] of [[leftForearm,leftArm,'left'],[rightForearm,rightArm,'right']]){
     forearm.parentLayerId=upper.rigId;
@@ -3540,7 +3544,7 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
   head.eyeAnimation=true;head.blinkRate=2+characterIndex;head.eyeY=57;head.leftEyeX=35;head.rightEyeX=66;
   head.characterStyleIndex=characterIndex%4;
-  return [leftArm,rightArm,leftForearm,rightForearm,leftHand,rightHand,leftLeg,rightLeg,body,head];
+  return [leftArm,rightArm,leftForearm,rightForearm,...handLayers,leftLeg,rightLeg,body,head];
 }
 
 async function autoBuildEpisodeFromStory(){
