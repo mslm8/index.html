@@ -2968,6 +2968,7 @@ async function requestAutomaticScreenplay(story,status,models){
     '{"characters":[{"name":"...","description":"..."}],"scenes":[{"visual":"...","location":"...","timeOfDay":"...","continuityNote":"...","shotType":"wide|medium|close","durationSeconds":8,"dialogues":[{"speaker":"...","text":"..."}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}',
     'Create 4 to 8 scenes according to story length. Preserve the actual plot in chronological order: beginning, cause-and-effect progression, turning point, climax and resolution when present. Do not force missing beats into very short stories.',
     'Every scene must advance the plot or reveal a necessary reaction. Never add unrelated establishing clips, random scenery, filler, new subplots, invented events or a changed ending.',
+    'CAST COMPLETENESS IS REQUIRED: identify every distinct named person or creature who participates in the supplied story. When the plot contains an interaction, conversation, conflict, teamwork or reaction between multiple participants, include at least two distinct characters in the characters array and show the relevant participants together in the appropriate scenes. Do not collapse a multi-character story into one protagonist. Do not invent extra characters when the source truly has only one.',
     'Keep exact character names and stable visual identity throughout. Character descriptions must specify recognizable visual traits, clothing and signature colors; repeat essential identity anchors in scene visuals when a character appears.',
     'Each visual must describe one drawable moment: who is present, what they are doing, where they are, and the relevant background. Avoid vague phrases such as "the story continues".',
     'Use shotType and camera intentionally: wide for geography/action, medium for interaction, close for emotion or details. Vary shots only when the story supports it.',
@@ -3049,8 +3050,15 @@ function buildLocalFallbackScreenplay(seed){
   const actions=['idle','walk','run','jump'];
   const emotions=['none','surprised','happy','happy'];
   const cameras=['zoom-in','pan-right','zoom-in','zoom-out'];
+  const namedSpeakers=Array.from(new Set(
+    story.split(/\\n+/u).map(line=>line.trim().match(/^([^:：]{1,36})[:：]\\s*\\S/u)?.[1]?.trim()).filter(name=>name&&!/^(?:راوی|narrator)$/iu.test(name))
+  )).slice(0,4);
+  const fallbackCharacters=(namedSpeakers.length?namedSpeakers:['قهرمان']).map((name,index)=>({
+    name,
+    description:index===0?'شخصیت کارتونی دوبعدی اصلی با ظاهر ثابت در تمام صحنه‌ها':'شخصیت مکمل کارتونی دوبعدی با ظاهر متمایز و ثابت در تمام صحنه‌ها'
+  }));
   return {
-    characters:[{name:'قهرمان',description:'شخصیت کارتونی دوبعدی اصلی با ظاهر ثابت در تمام صحنه‌ها'}],
+    characters:fallbackCharacters,
     scenes:beats.map((beat,index)=>({
       visual:'نمایش وفادارانه این بخش از داستان، بدون افزودن رویداد تازه: '+beat,
       dialogues:String(beat).split(/\n+/u).map(line=>{const match=line.trim().match(/^([^:：]{1,36})[:：]\s*(.{2,180})$/u);return match?{speaker:match[1].trim(),text:match[2].trim()}:null;}).filter(Boolean).slice(0,6),
