@@ -324,3 +324,13 @@ test('one-input ToonVerse workflow hides paid switches and internal production d
   assert.match(html, /#storyToScenesPanel #liveProduction[\s\S]*display:none !important/);
   assert.match(html, /#storyToScenesPanel #autoEpisodeButton[\s\S]*min-height:56px/);
 });
+
+
+test('story workflow exposes the rendered video and a phone-download link in the same creator panel', () => {
+  assert.match(html, /id="storyVideoOutput"/);
+  assert.match(html, /id="storyVideoPreview"/);
+  assert.match(html, /id="storyDownloadVideo"[^>]*download="toonverse-episode\.webm"/);
+  assert.match(html, /\$\('storyVideoPreview'\)\.src=url/);
+  assert.match(html, /\$\('storyDownloadVideo'\)\.href=url/);
+  assert.match(html, /\$\('storyVideoOutput'\)\.hidden=false/);
+});
