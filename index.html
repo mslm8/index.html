@@ -4029,6 +4029,56 @@ $('addMotionCharacter').addEventListener('click',async()=>{
   catch(error){motionCharacters.splice(motionCharacters.indexOf(character),1);setStatus('ذخیره شخصیت ناموفق بود: '+error.message,'var(--warn)');}
 });
 
+let faTtsEnginePromise=null;
+let faTtsScriptPromise=null;
+async function getPersianTtsEngine(){
+  if(!faTtsScriptPromise){
+    faTtsScriptPromise=new Promise((resolve,reject)=>{
+      if(window.Spellophone?.createEspeak){resolve();return;}
+      const script=document.createElement('script');
+      script.src='https://cdn.jsdelivr.net/npm/@spelling-creator/spellophone@0.2.1/dist/legacy/spellophone.iife.js';
+      script.async=true;
+      script.onload=()=>window.Spellophone?.createEspeak?resolve():reject(new Error('کتابخانه گویندگی بارگذاری شد اما آماده نیست.'));
+      script.onerror=()=>reject(new Error('دریافت موتور گویندگی ناموفق بود؛ اتصال اینترنت را بررسی کن.'));
+      document.head.appendChild(script);
+    }).catch(error=>{faTtsScriptPromise=null;throw error;});
+  }
+  await faTtsScriptPromise;
+  if(!faTtsEnginePromise){
+    faTtsEnginePromise=window.Spellophone.createEspeak({cdn:'jsdelivr'})
+      .then(async engine=>{await engine.loadVoice('fa');engine.setVoice('fa');return engine;})
+      .catch(error=>{faTtsEnginePromise=null;throw error;});
+  }
+  return faTtsEnginePromise;
+}
+async function generatePersianDialogueAudio(item){
+  const text=String(item.text||'').trim();
+  if(!text)throw new Error('ابتدا متن دیالوگ را وارد کن.');
+  const engine=await getPersianTtsEngine();
+  const result=engine.synthesize(text,{rate:165,pitch:50,volume:100,endPause:true});
+  if(!result.samples?.length||!result.sampleRate)throw new Error('موتور برای این متن صدایی تولید نکرد.');
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)throw new Error('مرورگر از پردازش صدا پشتیبانی نمی‌کند.');
+  const context=new AudioCtx();
+  try{
+    const buffer=context.createBuffer(1,result.samples.length,result.sampleRate);
+    const samples=window.Spellophone.toFloat32(result.samples);
+    buffer.copyToChannel(samples,0);
+    item.audioBuffer=buffer;
+    item.audioName='گویندگی فارسی eSpeak NG';
+    return result.duration;
+  }finally{await context.close().catch(()=>{});}
+}
+function previewGeneratedDialogueAudio(item){
+  if(!item.audioBuffer){setStatus('ابتدا صدای فارسی این دیالوگ را تولید کن.','var(--warn)');return;}
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)return;
+  const context=new AudioCtx();
+  const source=context.createBufferSource();
+  source.buffer=item.audioBuffer;source.connect(context.destination);
+  source.onended=()=>context.close().catch(()=>{});
+  context.resume().then(()=>source.start()).catch(error=>{context.close().catch(()=>{});setStatus('پخش صدا ناموفق بود: '+error.message,'var(--warn)');});
+}
 function renderMotionDialogueEditor(){
   const host=$('motionDialogueList');if(!host)return;
   host.replaceChildren();
@@ -4037,7 +4087,7 @@ function renderMotionDialogueEditor(){
   scene.dialogues.forEach((item,index)=>{
     const card=document.createElement('div');card.style.cssText='padding:9px;border:1px solid var(--border);border-radius:9px;display:grid;gap:6px';
     const input=document.createElement('textarea');input.rows=2;input.maxLength=180;input.value=item.text||'';input.setAttribute('aria-label','متن دیالوگ '+(index+1));
-    input.addEventListener('input',()=>{item.text=input.value;renderMotionPreview();});
+    input.addEventListener('input',()=>{item.text=input.value;item.audioBuffer=null;item.audioName='';renderMotionPreview();});
     const speakerLabel=document.createElement('label');speakerLabel.textContent='شخصیت گوینده';
     const speakerSelect=document.createElement('select');speakerSelect.style.width='100%';speakerSelect.add(new Option('بدون انتخاب شخصیت',''));
     motionCharacters.forEach(character=>speakerSelect.add(new Option(character.name,character.id)));
@@ -4061,6 +4111,18 @@ function renderMotionDialogueEditor(){
       utterance.lang=chosen?.lang||'fa-IR';
       window.speechSynthesis.cancel();window.speechSynthesis.speak(utterance);
     });
+    const generateTtsButton=document.createElement('button');generateTtsButton.type='button';generateTtsButton.className='secondary';generateTtsButton.textContent='تولید صدای فارسی برای خروجی ویدیو';
+    generateTtsButton.addEventListener('click',async()=>{
+      if(!item.text?.trim()){setStatus('ابتدا متن دیالوگ را وارد کن.','var(--warn)');return;}
+      generateTtsButton.disabled=true;generateTtsButton.textContent='در حال آماده‌سازی گویندگی فارسی...';
+      try{
+        const duration=await generatePersianDialogueAudio(item);
+        setStatus('گویندگی فارسی تولید شد ('+duration.toFixed(1)+' ثانیه) و برای خروجی ویدیو آماده است.');
+        renderMotionDialogueEditor();
+      }catch(error){setStatus('تولید صدای فارسی ناموفق بود: '+(error?.message||error),'var(--warn)');generateTtsButton.disabled=false;generateTtsButton.textContent='تلاش دوباره برای تولید صدای فارسی';}
+    });
+    const previewTtsButton=document.createElement('button');previewTtsButton.type='button';previewTtsButton.className='secondary';previewTtsButton.textContent='پخش صدای تولیدشده';
+    previewTtsButton.disabled=!item.audioBuffer;previewTtsButton.addEventListener('click',()=>previewGeneratedDialogueAudio(item));
     const audioLabel=document.createElement('label');audioLabel.textContent=item.audioName?'فایل صدا: '+item.audioName:'افزودن صدای ضبط‌شده (اولویت با این فایل است)';
     const audioInput=document.createElement('input');audioInput.type='file';audioInput.accept='audio/*';audioInput.setAttribute('aria-label','فایل صدای دیالوگ '+(index+1));
     audioInput.addEventListener('change',async()=>{
@@ -4084,7 +4146,7 @@ function renderMotionDialogueEditor(){
       wrap.appendChild(range);timing.appendChild(wrap);
     });
     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='حذف دیالوگ';remove.addEventListener('click',()=>{scene.dialogues.splice(index,1);renderMotionDialogueEditor();renderMotionPreview();});
-    card.append(input,speakerLabel,voiceLabel,speakButton,audioLabel,timing,remove);host.appendChild(card);
+    card.append(input,speakerLabel,voiceLabel,speakButton,generateTtsButton,previewTtsButton,audioLabel,timing,remove);host.appendChild(card);
   });
 }
 $('addMotionDialogue').addEventListener('click',()=>{
