@@ -64,7 +64,7 @@
     if(type==='checkbox'&&/random seed|تصادفی/u.test(label))return options.seed==null;
     if((type==='slider'||type==='number')&&/height/u.test(label))return clampDimension(options.height,props);
     if((type==='slider'||type==='number')&&/width/u.test(label))return clampDimension(options.width,props);
-    if((type==='slider'||type==='number')&&/inference steps|steps/u.test(label))return 9;
+    if((type==='slider'||type==='number')&&/inference steps|steps/u.test(label))return clampNumber(options.steps,props,9);
     if(type==='number'&&/seed/u.test(label))return Number.isSafeInteger(options.seed)?options.seed:(Number.isFinite(props.value)?props.value:42);
     return defaultInput(component);
   }
@@ -74,6 +74,13 @@
     const min=Number.isFinite(props.minimum)?props.minimum:512;
     const max=Number.isFinite(props.maximum)?props.maximum:2048;
     const step=Number.isFinite(props.step)?props.step:64;
+    return Math.max(min,Math.min(max,Math.round(number/step)*step));
+  }
+  function clampNumber(value,props,fallback){
+    const number=Number.isFinite(value)?value:(Number.isFinite(props.value)?props.value:fallback);
+    const min=Number.isFinite(props.minimum)?props.minimum:1;
+    const max=Number.isFinite(props.maximum)?props.maximum:20;
+    const step=Number.isFinite(props.step)?props.step:1;
     return Math.max(min,Math.min(max,Math.round(number/step)*step));
   }
   function parseSse(body){
