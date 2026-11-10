@@ -2879,6 +2879,9 @@ function inferSceneDirection(scene,index){
     has(/\b(walk|walking|راه\s*می\s*رود|قدم|وارد|نزدیک\s*می\s*شود)\b/u)?'walk':
     has(/\b(fly|flying|پرواز|شناور)\b/u)?'sway':'idle';
   const emotion=has(/\b(angry|anger|عصبانی|خشم|داد\s*زد)\b/u)?'angry':
+    has(/\b(worried|anxious|نگران|دلواپس|مضطرب)\b/u)?'worried':
+    has(/\b(confused|puzzled|گیج|سردرگم|متوجه\s*نشد)\b/u)?'confused':
+    has(/\b(sleepy|tired|خواب\s*آلود|خسته|چرت)\b/u)?'sleepy':
     has(/\b(sad|cry|ناراحت|غمگین|گریه)\b/u)?'sad':
     has(/\b(surprise|surprised|shocked|تعجب|ناگهان|باور\s*نکردنی)\b/u)?'surprised':
     has(/\b(happy|laugh|خوشحال|خنده|شاد)\b/u)?'happy':'none';
