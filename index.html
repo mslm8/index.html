@@ -3014,7 +3014,7 @@ function buildLocalFallbackScreenplay(seed){
     characters:[{name:'قهرمان',description:'شخصیت کارتونی دوبعدی اصلی با ظاهر ثابت در تمام صحنه‌ها'}],
     scenes:beats.map((beat,index)=>({
       visual:'نمایش وفادارانه این بخش از داستان، بدون افزودن رویداد تازه: '+beat,
-      dialogues:String(beat).split(/\\n+/u).map(line=>{const match=line.trim().match(/^([^:：]{1,36})[:：]\\s*(.{2,180})$/u);return match?{speaker:match[1].trim(),text:match[2].trim()}:null;}).filter(Boolean).slice(0,6),
+      dialogues:String(beat).split(/\n+/u).map(line=>{const match=line.trim().match(/^([^:：]{1,36})[:：]\s*(.{2,180})$/u);return match?{speaker:match[1].trim(),text:match[2].trim()}:null;}).filter(Boolean).slice(0,6),
       action:actions[index],
       emotion:emotions[index],
       gesture:index===1?'wave':'neutral',
