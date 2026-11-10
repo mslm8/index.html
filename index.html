@@ -4697,13 +4697,13 @@ function createMotionClip() {
       };
       // Original low-volume ambient score and scene-change chimes.
       const chords=[[130.81,164.81,196.00],[110.00,146.83,174.61],[123.47,155.56,185.00],[98.00,130.81,164.81]];
-      chords.forEach((chord,index)=>{
-        const when=audioStart+index*sceneDuration/1000;
-        if(when>=audioStart+totalDuration/1000)return;
+      for(let index=0;index<safeExportScenes.length;index++){
+        const chord=chords[index%chords.length],when=audioStart+index*sceneDuration/1000;
+        if(when>=audioStart+totalDuration/1000)break;
         const length=Math.min(sceneDuration/1000,totalDuration/1000-index*sceneDuration/1000);
         chord.forEach((frequency,noteIndex)=>scheduleTone(frequency,when,length,.012/(noteIndex+1),'sine'));
         if(index>0)scheduleTone(659.25,when,.42,.022,'sine');
-      });
+      }
       dialogueAudio.forEach(clip=>{try{if(clip.playDuration>0&&clip.when<totalDuration/1000)clip.node.start(audioStart+clip.when,0,clip.playDuration);}catch(error){liveBuildLog('پخش دیالوگ در خروجی ناموفق بود: '+error.message);}});
     }
     requestAnimationFrame(draw);
