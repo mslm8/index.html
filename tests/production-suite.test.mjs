@@ -208,7 +208,7 @@ test('automatic character rigs use separate upper-arm and forearm joints', () =>
   assert.match(rig, /ساعد و دست چپ/);
   assert.match(rig, /forearm\.parentLayerId=upper\.rigId/);
   assert.match(rig, /forearm\.jointY=78/);
-  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,leftLeg,rightLeg,body,head\]/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,\.\.\.propLayers,leftLeg,rightLeg,body,head\]/);
 });
 
 test('forearms receive independent gesture and gait articulation', () => {
@@ -230,7 +230,7 @@ test('automatic character rigs use separate wrist and hand joints', () => {
   assert.match(rig, /hand\.parentLayerId=forearm\.rigId/);
   assert.match(rig, /hand\.jointY=70/);
   assert.match(rig, /hand\.jointOffsetY=26/);
-  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,leftLeg,rightLeg,body,head\]/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,\.\.\.propLayers,leftLeg,rightLeg,body,head\]/);
 });
 
 test('wrist articulation responds deterministically to scene gestures', () => {
@@ -238,7 +238,7 @@ test('wrist articulation responds deterministically to scene gestures', () => {
   const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
   const build = html.slice(start, end);
   assert.match(build, /const hand=role\.startsWith\('hand-'\)/);
-  assert.match(build, /gesture==='wave'\?sign\*24:gesture==='talk'\?sign\*12:gesture==='point'\?sign\*8:sign\*3/);
+  assert.match(build, /gesture==='wave'\?sign\*24:gesture==='talk'\?sign\*12:gesture==='point'\?sign\*8:gesture==='hold'\?sign\*2:sign\*3/);
   assert.match(build, /if\(hand\)\{/);
 });
 
@@ -256,7 +256,7 @@ test('scene gestures select one visible hand pose and render opacity in preview 
   const start = html.indexOf('async function autoBuildEpisodeFromStory');
   const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
   const build = html.slice(start, end);
-  assert.match(build, /const desiredPose=gesture==='fist'\?'fist':gesture==='point'\?'point':'open'/);
+  assert.match(build, /const desiredPose=gesture==='fist'\|\|gesture==='hold'\?'fist':gesture==='point'\?'point':'open'/);
   assert.match(build, /layer\.opacity=base\.handPose===desiredPose\?1:0/);
   assert.match(html, /alpha=Math\.max\(0,Math\.min\(1,Number\(layer\.opacity\?\?1\)\)\)/);
 });
