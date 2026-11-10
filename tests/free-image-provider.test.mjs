@@ -21,11 +21,15 @@ test("free image adapter submits a text prompt to a Gradio image endpoint and pa
   const calls = [];
   const config = {
     components: [
-      { id: 1, type: "textbox", props: { value: "" } },
-      { id: 2, type: "slider", props: { value: 6 } },
-      { id: 3, type: "image", props: {} }
+      { id: 1, type: "textbox", props: { value: "", label: "Your prompt" } },
+      { id: 2, type: "slider", props: { value: 1024, minimum: 512, maximum: 2048, step: 64, label: "Height" } },
+      { id: 3, type: "slider", props: { value: 1024, minimum: 512, maximum: 2048, step: 64, label: "Width" } },
+      { id: 4, type: "slider", props: { value: 9, minimum: 1, maximum: 20, step: 1, label: "Inference Steps" } },
+      { id: 5, type: "number", props: { value: 42, label: "Seed" } },
+      { id: 6, type: "checkbox", props: { value: true, label: "Random seed" } },
+      { id: 7, type: "image", props: { label: "Generated Image" } }
     ],
-    dependencies: [{ api_name: "/generate", inputs: [1, 2], outputs: [3] }]
+    dependencies: [{ api_name: "generate_image", inputs: [1, 2, 3, 4, 5, 6], outputs: [7] }]
   };
   const responses = [
     { ok: true, json: async () => config },
@@ -42,9 +46,9 @@ test("free image adapter submits a text prompt to a Gradio image endpoint and pa
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.runInNewContext(source, sandbox, { filename: "free-image-provider.js" });
-  const result = await sandbox.ToonVerseFreeImage.generate("a colorful cartoon planet");
+  const result = await sandbox.ToonVerseFreeImage.generate("a colorful cartoon planet", { seed: 123, width: 1024, height: 576 });
   assert.equal(result, "data:image/png;base64,AAAA");
   assert.equal(calls.length, 3);
   assert.match(calls[1].url, /gradio_api\/call\/generate$/);
-  assert.deepEqual(JSON.parse(calls[1].options.body).data, ["a colorful cartoon planet", 6]);
+  assert.deepEqual(JSON.parse(calls[1].options.body).data, ["a colorful cartoon planet", 576, 1024, 9, 123, false]);
 });
