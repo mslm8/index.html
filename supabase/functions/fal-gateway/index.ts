@@ -202,6 +202,7 @@ Deno.serve(async (req: Request) => {
         input = {
           prompt, num_images: 1, aspect_ratio: aspectRatio, output_format: "png",
           resolution, thinking_level: "high", limit_generations: true,
+          system_prompt: "You are a senior animation background and visual-development artist. Translate the user's scene description into a richly detailed, production-ready image. Preserve every named subject and spatial relationship. Build clear foreground, midground, and background separation; physically coherent perspective; precise silhouettes; nuanced material textures; controlled edge detail; believable environmental lighting; soft contact shadows; atmospheric depth; and a deliberate cinematic composition. Prioritize readable storytelling and specific details over decorative clutter. Do not invent characters, text, logos, watermarks, panels, or unrelated objects. Keep the requested art style consistent and make the final image visually coherent at both full size and thumbnail size.",
           safety_tolerance: "4", ...(seed === undefined ? {} : { seed })
         };
       } else if (task === "reference-video") {
