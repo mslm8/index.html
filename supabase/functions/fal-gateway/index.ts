@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
   "Vary": "Origin"
 };
-const MODELS = { image: Deno.env.get("FAL_IMAGE_MODEL") || "fal-ai/flux/dev", video: Deno.env.get("FAL_VIDEO_MODEL") || "bytedance/seedance-2.5/us/text-to-video", "image-to-video": Deno.env.get("FAL_I2V_MODEL") || "alibaba/wan-3.0-prime/image-to-video" };
+const MODELS = { image: Deno.env.get("FAL_IMAGE_MODEL") || "google/nano-banana-2.1", video: Deno.env.get("FAL_VIDEO_MODEL") || "bytedance/seedance-2.5/us/text-to-video", "image-to-video": Deno.env.get("FAL_I2V_MODEL") || "alibaba/wan-3.0-prime/image-to-video" };
 
 function json(data: unknown, status = 200, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(data), {
@@ -184,10 +184,26 @@ Deno.serve(async (req: Request) => {
     let upstream: Response;
     if (action === "submit") {
       const prompt = String(body.prompt || "").trim();
-      if (prompt.length < 4 || prompt.length > 5000) return json({ error: "Prompt must contain 4 to 5000 characters.", code: "INVALID_PROMPT" }, 400);
+      if (prompt.length < 4 || prompt.length > (task === "image" ? 12000 : 5000)) return json({ error: "Prompt length is outside the supported range.", code: "INVALID_PROMPT" }, 400);
       let input: Record<string, unknown>;
       if (task === "image") {
-        input = { prompt, image_size: "landscape_16_9", num_images: 1, output_format: "png", enable_safety_checker: true };
+        const resolution = String(body.resolution || "2K");
+        if (!["1K", "2K", "4K"].includes(resolution)) {
+          return json({ error: "Unsupported image resolution.", code: "INVALID_IMAGE_RESOLUTION", request_id: requestId }, 400);
+        }
+        const aspectRatio = String(body.aspect_ratio || "16:9");
+        if (!["16:9", "9:16", "1:1", "4:3", "3:2", "21:9"].includes(aspectRatio)) {
+          return json({ error: "Unsupported image aspect ratio.", code: "INVALID_IMAGE_ASPECT_RATIO", request_id: requestId }, 400);
+        }
+        const seed = body.seed == null ? undefined : Number(body.seed);
+        if (seed !== undefined && (!Number.isSafeInteger(seed) || seed < 0 || seed > 2147483647)) {
+          return json({ error: "Invalid image seed.", code: "INVALID_IMAGE_SEED", request_id: requestId }, 400);
+        }
+        input = {
+          prompt, num_images: 1, aspect_ratio: aspectRatio, output_format: "png",
+          resolution, thinking_level: "high", limit_generations: true,
+          safety_tolerance: "4", ...(seed === undefined ? {} : { seed })
+        };
       } else if (task === "video") {
         const duration = String(body.duration || "5");
         if (!/^(4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30)$/.test(duration)) {
