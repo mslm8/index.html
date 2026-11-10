@@ -154,9 +154,10 @@ test('high-detail cloud image generation is explicit opt-in and supports 2K/4K',
   assert.ok(html.includes('id="enablePaidCharacterReferences"'));
   assert.match(html, /generateFalReferenceVideoScene/);
   assert.match(html, /professional CHARACTER MODEL SHEET/);
-  assert.match(html, /front view, side profile and back view/);
+  assert.match(html, /matching front, side and back turnarounds/);
   assert.match(html, /neutral, happy, worried, surprised/);
-  assert.match(html, /identical facial geometry, hairstyle, body proportions, costume, colors and accessories/);
+  assert.match(html, /same identity, not alternate redesigns/);
+  assert.match(html, /hands must be compact and proportionate to the forearms and face, never oversized/i);
   assert.match(html, /characterReferences/);
   assert.match(gateway, /minimax\/h3-max\/reference-to-video/);
   assert.match(gateway, /INVALID_REFERENCE_IMAGES/);
