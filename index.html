@@ -620,9 +620,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="خالی = تصادفی">
     </div>
   </div>
-  <button id="generateLocalImage" class="primary" type="button">تولید تصویر با موتور داخلی</button>
+  <button id="generateLocalImage" class="primary" type="button">تولید تصویر با مدل رایگان</button>
   <button id="generate" class="secondary" type="button" disabled hidden>تولید خارجی غیرفعال</button>
-  <small>گزینهٔ اصلی، موتور برداری داخلی است: بدون اینترنت و کلید API. این موتور برای پس‌زمینه و طرح مفهومی مناسب است و جایگزین مدل عصبیِ تولید تصویر واقع‌گرا نیست.</small>
+  <small>مدل مولد متن‌باز Z-Image Turbo از Hugging Face استفاده می‌شود. برای تولید به اینترنت نیاز دارد و ممکن است صف یا سهمیهٔ رایگان روزانه محدود باشد.</small>
   <button id="generateVariation" class="secondary" type="button" hidden>ساخت نسخه متفاوت با همین تنظیمات</button>
   <div class="row">
     <button id="cancel" class="danger" type="button" disabled>لغو درخواست</button>
@@ -719,17 +719,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 
 <section class="card" id="backgroundStudioCard">
   <h2>استودیوی آماده‌سازی هوشمند پس‌زمینه‌ها</h2>
-  <p>برای هر صحنه پس‌زمینه مستقل بساز، از تصویر مرجع برای حفظ سبک استفاده کن، چند تصویر را یک‌جا وارد کن و کتابخانه را در همین مرورگر نگه دار. تولید تصویر با موتور برداری داخلی برنامه انجام می‌شود؛ بدون کلید API، سرویس ابری یا هزینه هر تصویر.</p>
-  <div class="note" style="margin:12px 0">
-    <strong>موتور تصویر هوش مصنوعی با جزئیات بالا</strong>
-    <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="backgroundUseCloudAI" type="checkbox"> استفاده از تولید تصویر ابری Nano Banana 2.1 (ممکن است هزینه داشته باشد)</label>
-    <label for="backgroundImageResolution">وضوح تصویر هنگام فعال بودن موتور ابری</label>
-    <select id="backgroundImageResolution">
-      <option value="2K" selected>۲K · پیشنهادشده</option>
-      <option value="4K">۴K · جزئیات بیشتر و مصرف بالاتر</option>
-    </select>
-    <small>این گزینه به‌صورت پیش‌فرض خاموش است. تا وقتی خودت فعالش نکنی، هیچ درخواست پولی تصویر ارسال نمی‌شود. موتور برداری رایگان همچنان در دسترس است.</small>
-  </div>
+  <p>برای هر صحنه پس‌زمینه مستقل بساز و چند تصویر را یک‌جا وارد کن. تولید تصویر با مدل مولد متن‌باز Z-Image Turbo در فضای عمومی Hugging Face انجام می‌شود؛ دسترسی رایگان تابع صف و سهمیهٔ سرویس است.</p>
   <label for="backgroundSceneSelect">صحنه مقصد</label>
   <select id="backgroundSceneSelect"></select>
   <label for="backgroundPrompt">شرح محیط و پس‌زمینه</label>
@@ -837,10 +827,6 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     
     <label for="storyToScenesInput">داستان کاملت را همین‌جا بنویس؛ لازم نیست صحنه، شخصیت، حرکت یا دیالوگ را جداگانه مشخص کنی</label>
     <textarea id="storyToScenesInput" maxlength="12000" rows="5" placeholder="داستان انیمیشنت را اینجا بنویس..."></textarea>
-    <label class="cloud-video-optin"><input id="enablePaidCloudVideo" type="checkbox"> استفاده از موتور ویدیوساز ابری (کیفیت بالاتر، هزینه‌دار)</label>
-    <small class="cloud-video-notice">در حالت عادی ساخت محلی و رایگان استفاده می‌شود. با فعال‌کردن این گزینه و زدن «ساخت ویدیو»، برای هر صحنه یک کلیپ ۵ ثانیه‌ای 720p با مدل Seedance ساخته می‌شود و هزینه آن از اعتبار حساب Fal کسر می‌شود. هزینه دقیق به تنظیمات و نرخ حساب بستگی دارد. بدون فعال‌کردن این گزینه هیچ درخواست پولی ارسال نمی‌شود.</small>
-    <label class="cloud-video-optin"><input id="enablePaidCharacterReferences" type="checkbox"> ساخت تصویر مرجع هوش مصنوعی برای شخصیت‌ها (هزینه‌دار)</label>
-    <small class="cloud-video-notice">در صورت فعال‌سازی، برای هر شخصیت اصلی یک تصویر مرجع ۲K ساخته و در کتابخانه همین مرورگر ذخیره می‌شود. اگر تولید ویدیوی ابری هم روشن باشد، این تصاویر به مدل مرجع‌محور H3 Max داده می‌شوند تا ثبات چهره و لباس بهتر حفظ شود. این گزینه پیش‌فرض خاموش است و تا وقتی خودت روشنش نکنی هزینه‌ای ایجاد نمی‌کند.</small>
     <div id="characterReferenceLibrary" class="character-reference-library" aria-live="polite"></div>
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
@@ -1267,7 +1253,7 @@ const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای 
 "انتخاب ناحیه تصویر":"Select image area",
 "مثلاً: انیمیشن اژدها":"Example: Dragon animation",
 "صفحه‌های برنامه":"App sections"
-," از ۱۸۰۰ نویسه":" of 1800 characters","در حال بررسی...":"Checking...","در حال بررسی مدل‌های فعال و انتخاب سریع‌ترین گزینه...":"Checking active models and selecting the fastest option...","فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.":"No active model with an online worker was found. Please try again shortly.","مدل فعال در دسترس نیست.":"No active model is available.","زمان تخمینی صف: ":"Estimated queue time: "," دقیقه":" minutes","صف نسبی: ":"Relative queue: "," درخواست برای ":" requests for "," پردازشگر":" workers"," گزینه جایگزین هم آماده است.":" fallback options are also ready.","موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.":"The smart engine is ready; models will be checked again before generation.","بررسی مدل‌ها ناموفق بود: ":"Model check failed: ","ابتدا یک قالب انتخاب کن.":"Choose a template first.","متن فعلی طولانی است؛ ابتدا کمی آن را کوتاه کن.":"The current text is too long. Shorten it first.","قالب اضافه شد. عبارت‌های داخل [کروشه] را با جزئیات دلخواه جایگزین کن.":"Template added. Replace the text inside [brackets] with your own details.","متن به حالت اولیه برگشت.":"Text restored to its original version.","بازگردانی متن اولیه":"Restore original text","سرویس ترجمه پاسخ نداد (HTTP ":"Translation service did not respond (HTTP ","ترجمه متن انجام نشد؛ لطفاً کمی بعد دوباره تلاش کن.":"Text translation failed. Please try again shortly.","در حال بررسی صف و ترجمه متن به‌صورت هم‌زمان...":"Checking the queue and translating the text...","ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ":"Translation failed, so generation was stopped to avoid sending incorrect text: ","\\nگزینه‌های جایگزین هم آماده‌اند.":"\\nFallback options are also ready.","\\nاندازه خروجی: ":"\\nOutput size: "," · مراحل: ":" · Steps: ","\\nدر حال ارسال درخواست به موتور رایگان...":"\\nSending request to the free engine...","شناسه درخواست از سرویس دریافت نشد.":"The service did not return a request ID.","ارتباط با سرویس چند بار پیاپی قطع شد؛ درخواست متوقف شد: ":"The service connection failed repeatedly; the request was stopped: ","درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.":"The service stopped the request; no compatible model or worker was available.","درخواست تمام شد اما تصویر در پاسخ وجود نداشت.":"The request finished, but the response contained no image.","فیلتر ایمنی سرویس تصویر را مسدود کرد. این تشخیص ممکن است اشتباه باشد؛ متن درخواست را ساده‌تر و کاملاً غیرحساس بنویس و دوباره امتحان کن.":"The image service safety filter blocked the request. This may be a false positive; simplify the prompt and try again with clearly non-sensitive content.","در حال ساخت تصویر روی رایانه داوطلب...":"Generating the image on a volunteer's computer...","در صف انتظار برای رایانه داوطلب...":"Waiting in the queue for a volunteer computer...","\\nزمان سپری‌شده: ":"\\nElapsed time: ","\\nجایگاه صف: ":"\\nQueue position: ","\\nزمان تخمینی صف: حدود ":"\\nEstimated queue time: about ","درخواست بیش از ۲ ساعت منتظر ماند و به پایان مهلت رسید. احتمالاً پردازشگر سازگار آزاد نبوده است؛ مدل‌های فعال را دوباره بررسی کن.":"The request waited for more than 30 minutes and was stopped. A compatible worker may not have been available; check active models again.","ذخیره‌سازی محلی در این مرورگر پشتیبانی نمی‌شود.":"Local storage is not supported in this browser.","حجم فایل پروژه بیش از حد مجاز است.":"The project file is too large.","ساختار فایل پروژه معتبر نیست.":"The project file structure is invalid.","تصویر ذخیره‌شده":"Saved image","ذخیره":"Save","حذف":"Delete","همه تصاویر ذخیره‌شده در این مرورگر پاک شوند؟":"Delete all images saved in this browser?","ساخت تصویر خروجی ممکن نشد.":"Could not create the output image.","خروجی WebP ساخته نشد.":"Could not create WebP output.","برش و چرخش":"Crop and rotate","آماده‌سازی تصویر در این مرورگر ممکن نشد.":"Could not prepare the image in this browser.","تبدیل تصویر به فرمت WebP ناموفق بود.":"Converting the image to WebP failed.","تصویر بارگذاری‌شده":"Uploaded image","تبدیل تصویر به WebP ناموفق بود.":"Converting the image to WebP failed.","ساخت ماسک WebP ممکن نشد.":"Could not create the WebP mask.","هیچ مدل فعالی برای پردازش پیدا نشد.":"No active model was found for processing.",
+," از ۱۸۰۰ نویسه":" of 1800 characters","در حال بررسی...":"Checking...","در حال بررسی مدل‌های فعال و انتخاب سریع‌ترین گزینه...":"Checking active models and selecting the fastest option...","فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.":"No active model with an online worker was found. Please try again shortly.","مدل فعال در دسترس نیست.":"No active model is available.","زمان تخمینی صف: ":"Estimated queue time: "," دقیقه":" minutes","صف نسبی: ":"Relative queue: "," درخواست برای ":" requests for "," پردازشگر":" workers"," گزینه جایگزین هم آماده است.":" fallback options are also ready.","موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.":"The smart engine is ready; models will be checked again before generation.","بررسی مدل‌ها ناموفق بود: ":"Model check failed: ","ابتدا یک قالب انتخاب کن.":"Choose a template first.","متن فعلی طولانی است؛ ابتدا کمی آن را کوتاه کن.":"The current text is too long. Shorten it first.","قالب اضافه شد. عبارت‌های داخل [کروشه] را با جزئیات دلخواه جایگزین کن.":"Template added. Replace the text inside [brackets] with your own details.","متن به حالت اولیه برگشت.":"Text restored to its original version.","بازگردانی متن اولیه":"Restore original text","سرویس ترجمه پاسخ نداد (HTTP ":"Translation service did not respond (HTTP ","ترجمه متن انجام نشد؛ لطفاً کمی بعد دوباره تلاش کن.":"Text translation failed. Please try again shortly.","در حال آماده‌سازی درخواست برای مدل تصویر رایگان Hugging Face...":"Checking the queue and translating the text...","ترجمه انجام نشد و برای جلوگیری از ارسال متن اشتباه، تولید متوقف شد: ":"Translation failed, so generation was stopped to avoid sending incorrect text: ","\\nگزینه‌های جایگزین هم آماده‌اند.":"\\nFallback options are also ready.","\\nاندازه خروجی: ":"\\nOutput size: "," · مراحل: ":" · Steps: ","\\nدر حال ارسال درخواست به موتور رایگان...":"\\nSending request to the free engine...","شناسه درخواست از سرویس دریافت نشد.":"The service did not return a request ID.","ارتباط با سرویس چند بار پیاپی قطع شد؛ درخواست متوقف شد: ":"The service connection failed repeatedly; the request was stopped: ","درخواست توسط سرویس متوقف شد؛ مدل یا کارگر مناسب در دسترس نبود.":"The service stopped the request; no compatible model or worker was available.","درخواست تمام شد اما تصویر در پاسخ وجود نداشت.":"The request finished, but the response contained no image.","فیلتر ایمنی سرویس تصویر را مسدود کرد. این تشخیص ممکن است اشتباه باشد؛ متن درخواست را ساده‌تر و کاملاً غیرحساس بنویس و دوباره امتحان کن.":"The image service safety filter blocked the request. This may be a false positive; simplify the prompt and try again with clearly non-sensitive content.","در حال ساخت تصویر روی رایانه داوطلب...":"Generating the image on a volunteer's computer...","در صف انتظار برای رایانه داوطلب...":"Waiting in the queue for a volunteer computer...","\\nزمان سپری‌شده: ":"\\nElapsed time: ","\\nجایگاه صف: ":"\\nQueue position: ","\\nزمان تخمینی صف: حدود ":"\\nEstimated queue time: about ","درخواست بیش از ۲ ساعت منتظر ماند و به پایان مهلت رسید. احتمالاً پردازشگر سازگار آزاد نبوده است؛ مدل‌های فعال را دوباره بررسی کن.":"The request waited for more than 30 minutes and was stopped. A compatible worker may not have been available; check active models again.","ذخیره‌سازی محلی در این مرورگر پشتیبانی نمی‌شود.":"Local storage is not supported in this browser.","حجم فایل پروژه بیش از حد مجاز است.":"The project file is too large.","ساختار فایل پروژه معتبر نیست.":"The project file structure is invalid.","تصویر ذخیره‌شده":"Saved image","ذخیره":"Save","حذف":"Delete","همه تصاویر ذخیره‌شده در این مرورگر پاک شوند؟":"Delete all images saved in this browser?","ساخت تصویر خروجی ممکن نشد.":"Could not create the output image.","خروجی WebP ساخته نشد.":"Could not create WebP output.","برش و چرخش":"Crop and rotate","آماده‌سازی تصویر در این مرورگر ممکن نشد.":"Could not prepare the image in this browser.","تبدیل تصویر به فرمت WebP ناموفق بود.":"Converting the image to WebP failed.","تصویر بارگذاری‌شده":"Uploaded image","تبدیل تصویر به WebP ناموفق بود.":"Converting the image to WebP failed.","ساخت ماسک WebP ممکن نشد.":"Could not create the WebP mask.","هیچ مدل فعالی برای پردازش پیدا نشد.":"No active model was found for processing.",
 "انتخاب فایل":"Choose File",
 "فایلی انتخاب نشده است":"No file selected"};
 Object.assign(uiEnglish,{
@@ -1498,7 +1484,7 @@ if (refreshModelsButton) refreshModelsButton.addEventListener('click', async () 
 async function loadModels(silent = false) {
   smartModelChoices = [];
   const info = $('autoModelInfo');
-  if (info) info.textContent = 'موتور تصویر داخلی فعال است؛ تولید بدون Cloudflare، AI Horde، کلید API یا سرویس ابری انجام می‌شود.';
+  if (info) info.textContent = 'مدل تصویر رایگان Hugging Face ZeroGPU برای تولید انتخاب شده است.';
   const button = $('generate');
   if (button) button.disabled = true;
   const refresh = $('refreshModels');
@@ -1664,6 +1650,8 @@ async function generateLocalPromptImageUnlocked(){
   const seed=seedText===''?Math.floor(Math.random()*4294967295):Number(seedText);
   if(!Number.isSafeInteger(seed)||seed<0||seed>4294967295){setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.','var(--warn)');return;}
   const settings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id)?.value||'']));
+  const aspectDimensions={square:[1024,1024],landscape:[1024,768],portrait:[768,1024],wide:[1024,576],tall:[576,1024]};
+  const dimensions=aspectDimensions[$('aspect')?.value]||aspectDimensions.wide;
   const styleMap={none:'original polished animated illustration',photorealistic:'photorealistic cinematic image',cinematic:'cinematic animated feature-film concept art',anime:'high-quality anime illustration','3d':'polished 3D animated cartoon render',watercolor:'watercolor illustration',oil:'painterly oil illustration',pixel:'detailed pixel art',fantasy:'whimsical fantasy illustration'};
   const framingMap={close:'close-up composition',medium:'medium shot',full:'full shot',wide:'wide establishing shot',top:'high-angle overhead view'};
   const lightingMap={natural:'soft natural daylight',golden:'warm golden-hour sunlight',soft:'soft diffused lighting',dramatic:'dramatic directional lighting',neon:'colorful neon lighting',moon:'cool moonlight'};
@@ -1672,7 +1660,7 @@ async function generateLocalPromptImageUnlocked(){
   button.disabled=true;generationInProgress=true;$('generate').disabled=true;$('editImage').disabled=true;
   setStatus('در حال اتصال به مدل تصویر رایگان Hugging Face ZeroGPU...');
   try{
-    const image=await window.ToonVerseFreeImage.generate(prompt,{seed,onStatus:message=>setStatus(message,'var(--muted)')});
+    const image=await window.ToonVerseFreeImage.generate(prompt,{seed,width:dimensions[0],height:dimensions[1],onStatus:message=>setStatus(message,'var(--muted)')});
     displayImage(image,String(seed),'Hugging Face ZeroGPU · Z-Image Turbo',settings);
     setStatus('تصویر با مدل متن‌باز Z-Image Turbo تولید شد. محدودیت سهمیهٔ رایگان سرویس ممکن است اعمال شود.');
   }catch(error){
@@ -3073,6 +3061,8 @@ async function generateStudioBackground(prompt,status,options={}){
   liveBuildLog('درخواست تصویر به فضای عمومی ZeroGPU در Hugging Face ارسال می‌شود؛ بدون API پولی.');
   if(status)status.textContent='در صف مدل تصویر متن‌باز Hugging Face ZeroGPU...';
   const result=await window.ToonVerseFreeImage.generate(cleanPrompt,{
+    width:Number.isFinite(options.width)?options.width:1024,
+    height:Number.isFinite(options.height)?options.height:576,
     seed:Number.isSafeInteger(options.seed)?options.seed:undefined,
     onStatus:message=>{if(status)status.textContent=message;liveBuildLog(message);}
   });
@@ -3317,7 +3307,7 @@ async function autoBuildEpisodeFromStory(){
     }
     // Free-first mode: no remote model queue and no paid inference are invoked.
     freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.ToonVerseFreeImage;
-    if(!freeEngineManagerState.image)throw new Error('موتور تصویر داخلی بارگذاری نشده است.');
+    if(!freeEngineManagerState.image)throw new Error('اتصال مدل تصویر رایگان بارگذاری نشده است.');
     liveBuildLog('موتور کارگردان محلی ToonVerse فعال شد؛ تحلیل داستان بدون API و بدون هزینه انجام می‌شود.');
     liveBuildLog('پس‌زمینه‌ها از مدل مولد تصویر رایگان Hugging Face ZeroGPU دریافت می‌شوند؛ مدل تصویر مولد رایگان حذف شده است.');
     liveBuildUpdate(0,'کارگردان محلی در حال تحلیل داستان و ساخت فیلمنامه است.',8);
@@ -3483,7 +3473,7 @@ async function autoBuildEpisodeFromStory(){
     $('negative').value='text, subtitles, captions, watermark, logo, extra limbs, duplicate characters, inconsistent costume, photorealism, blurry, low quality';
     for(let index=0;index<nextScenes.length;index++){
       const scene=nextScenes[index];
-      liveBuildUpdate(2,cloudVideoEnabled?'در حال تولید کلیپ هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+'.':'در حال ساخت تصویر برداری صحنه '+(index+1)+' از '+nextScenes.length+'.',22+(index/nextScenes.length)*48);
+      liveBuildUpdate(2,cloudVideoEnabled?'در حال تولید کلیپ هوش مصنوعی صحنه '+(index+1)+' از '+nextScenes.length+'.':'در حال تولید تصویر با مدل رایگان صحنه '+(index+1)+' از '+nextScenes.length+'.',22+(index/nextScenes.length)*48);
       const scenePrompt=buildSceneImagePrompt(scene,index,nextScenes.length);
       $('prompt').value=scenePrompt;
       let generatedUrl='';
@@ -3523,7 +3513,7 @@ async function autoBuildEpisodeFromStory(){
             generatedVideo=await generateFalVideoScene(cloudPrompt,status);
           }
         }else{
-          status.textContent='در حال تصویرسازی صحنه '+(index+1)+' با موتور برداری داخلی...';
+          status.textContent='در حال تولید تصویر مولد صحنه '+(index+1)+' با موتور برداری داخلی...';
           const localScenePrompt=[
             scene.storyText||scenePrompt,
             scene.location?'مکان داستان: '+scene.location:'',
@@ -3591,29 +3581,25 @@ updateSceneRetryButton();
 let freeEngineManagerCheckedAt=0;
 let freeEngineManagerState={text:false,image:false,canvas:false,voicePreview:false};
 async function refreshFreeEngineManager(status){
-  if(status)status.textContent='مدیر هوشمند در حال بررسی موتورهای رایگان است؛ حداکثر ۱۲ ثانیه...';
-  const [textResult]=await Promise.allSettled([
-    apiFetch('/status/models?type=text',{timeoutMs:12000})
-  ]);
-  const active=list=>Array.isArray(list)?list.filter(model=>model&&model.name&&Number(model.count||model.worker_count||0)>0).sort((a,b)=>modelScore(a)-modelScore(b)):[];
-  const textModels=textResult.status==='fulfilled'?active(textResult.value):[];
-  const imageModels=[];
-  smartTextModelChoices=textModels.slice(0,12).map(model=>model.name);
-  smartModelChoices=imageModels.slice(0,40).map(model=>model.name);
+  if(status)status.textContent='در حال بررسی دسترسی به مدل مولد تصویر رایگان...';
+  let imageHealth={ok:false,error:'درگاه تصویر بارگذاری نشده است.'};
+  try{imageHealth=window.ToonVerseFreeImage?await window.ToonVerseFreeImage.health():imageHealth;}
+  catch(error){imageHealth={ok:false,error:String(error?.message||error)};}
+  smartTextModelChoices=[];smartModelChoices=[];
   freeEngineManagerState={
-    text:smartTextModelChoices.length>0,
-    image:!!window.ToonVerseFreeImage,
+    text:!!window.AIAnimatorDirector,image:!!imageHealth.ok,
     canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',
     voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'
   };
   freeEngineManagerCheckedAt=Date.now();
-  const labels=[];
-  labels.push(freeEngineManagerState.text?'موتور متن آماده':'موتور متن فعلاً غیرفعال؛ تقسیم‌بندی داخلی جایگزین می‌شود');
-  labels.push(freeEngineManagerState.image?'مدل تصویر رایگان Hugging Face آماده':'اتصال مدل تصویر رایگان در دسترس نیست');
-  labels.push(freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود');
-  labels.push(freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست');
-  if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ');
-  if(!freeEngineManagerState.image&&status)status.textContent+=' · تولید پس‌زمینه فعلاً غیرفعال است';
+  const labels=[
+    freeEngineManagerState.text?'کارگردان داستان محلی آماده':'کارگردان داستان در دسترس نیست',
+    freeEngineManagerState.image?'مدل تصویر رایگان Hugging Face آماده':'مدل تصویر رایگان فعلاً در دسترس نیست',
+    freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود',
+    freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست'
+  ];
+  if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ')+(imageHealth.ok?'':' · '+String(imageHealth.error||'').slice(0,120));
+  if(!freeEngineManagerState.image&&status)status.textContent+=' · تولید پس‌زمینه تا بازگشت سرویس متوقف است';
   if(!freeEngineManagerState.canvas)throw new Error('این مرورگر از ضبط ویدیوی Canvas با MediaRecorder پشتیبانی نمی‌کند.');
   return {...freeEngineManagerState};
 }
