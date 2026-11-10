@@ -3494,11 +3494,31 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   const rightLeg=await make('پای راست '+characterName,82,184,
     '<path d="M18 8 Q58 -2 66 25 L57 132 Q51 153 34 151 L13 140 Q8 132 12 116 Z" fill="'+p.pants+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M15 132 Q-7 150 7 169 Q34 186 70 165 Q79 151 54 139 L34 147" fill="#f4e5c9" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/>',
     'leg-right',13,35,.92);
+  const faceShapes=[
+    'M28 112 Q14 25 110 14 Q207 23 192 112 L181 166 Q151 211 110 211 Q69 211 39 166 Z',
+    'M24 101 Q30 18 110 18 Q190 18 196 101 L185 169 Q166 207 110 211 Q54 207 35 169 Z',
+    'M20 104 Q18 28 110 12 Q202 28 200 104 L174 174 Q145 214 110 214 Q75 214 46 174 Z',
+    'M30 91 Q40 16 110 16 Q180 16 190 91 L180 163 Q160 207 110 212 Q60 207 40 163 Z'
+  ];
+  const hairShapes=[
+    'M25 91 Q-2 34 57 25 Q73 -4 112 18 Q156 -5 181 34 Q222 54 194 101 Q167 75 143 75 Q110 57 79 76 Q48 70 25 91 Z',
+    'M23 92 Q8 42 44 23 Q69 2 99 22 Q132 -4 163 21 Q203 20 198 89 Q172 68 150 73 Q115 53 84 76 Q48 64 23 92 Z',
+    'M21 95 Q-4 56 29 35 Q12 2 60 17 Q80 -9 110 17 Q143 -8 162 22 Q211 5 199 61 Q224 83 192 103 Q163 75 139 81 Q104 57 75 82 Q47 70 21 95 Z',
+    'M25 91 Q12 31 57 25 Q83 -8 111 19 Q148 -1 171 31 Q208 43 194 99 Q169 76 144 77 Q111 58 80 77 Q49 68 25 91 Z'
+  ];
+  const face=faceShapes[characterIndex%faceShapes.length],hair=hairShapes[characterIndex%hairShapes.length];
+  const eyeRx=[23,19,25,21][characterIndex%4],eyeRy=[29,25,27,31][characterIndex%4];
+  const accessory=characterIndex%4===1
+    ? '<path d="M52 119 Q78 103 99 120 M122 120 Q145 103 170 119 M99 120 L122 120" fill="none" stroke="#28283b" stroke-width="7" stroke-linecap="round"/><circle cx="77" cy="127" r="25" fill="none" stroke="#28283b" stroke-width="6"/><circle cx="146" cy="127" r="25" fill="none" stroke="#28283b" stroke-width="6"/>'
+    : characterIndex%4===2
+      ? '<circle cx="58" cy="161" r="4" fill="#b75c52"/><circle cx="72" cy="168" r="4" fill="#b75c52"/><circle cx="154" cy="166" r="4" fill="#b75c52"/><circle cx="168" cy="159" r="4" fill="#b75c52"/>'
+      : '<path d="M45 157 Q61 165 77 158 M143 158 Q159 165 175 157" fill="none" stroke="#d98c79" stroke-width="5" stroke-linecap="round"/>';
   const head=await make('سر '+characterName,220,220,
-    '<path d="M28 112 Q14 25 110 14 Q207 23 192 112 L181 166 Q151 211 110 211 Q69 211 39 166 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M25 91 Q-2 34 57 25 Q73 -4 112 18 Q156 -5 181 34 Q222 54 194 101 Q167 75 143 75 Q110 57 79 76 Q48 70 25 91 Z" fill="'+p.hair+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M59 105 Q78 91 94 105" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/><path d="M126 105 Q145 91 164 105" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/><ellipse cx="77" cy="126" rx="23" ry="29" fill="#fff" stroke="#28283b" stroke-width="5"/><ellipse cx="146" cy="126" rx="23" ry="29" fill="#fff" stroke="#28283b" stroke-width="5"/><circle cx="83" cy="130" r="10" fill="#27334a"/><circle cx="140" cy="130" r="10" fill="#27334a"/><circle cx="86" cy="126" r="4" fill="#fff"/><circle cx="143" cy="126" r="4" fill="#fff"/><path d="M105 143 Q96 159 111 161" fill="none" stroke="#7c4943" stroke-width="7" stroke-linecap="round"/><path d="M83 180 Q110 197 140 177" fill="none" stroke="#713d3c" stroke-width="8" stroke-linecap="round"/>',
+    '<path d="'+face+'" fill="'+p.skin+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M25 116 Q10 116 15 145 Q19 161 42 157 L42 127 Z M178 127 L178 157 Q201 161 205 145 Q210 116 195 116 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9"/><path d="'+hair+'" fill="'+p.hair+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M57 101 Q77 88 96 101 M125 101 Q145 88 164 101" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/><ellipse cx="77" cy="126" rx="'+eyeRx+'" ry="'+eyeRy+'" fill="#fff" stroke="#28283b" stroke-width="5"/><ellipse cx="146" cy="126" rx="'+eyeRx+'" ry="'+eyeRy+'" fill="#fff" stroke="#28283b" stroke-width="5"/><circle cx="83" cy="130" r="10" fill="#27334a"/><circle cx="140" cy="130" r="10" fill="#27334a"/><circle cx="86" cy="126" r="4" fill="#fff"/><circle cx="143" cy="126" r="4" fill="#fff"/><path d="M105 143 Q96 159 111 161" fill="none" stroke="#7c4943" stroke-width="7" stroke-linecap="round"/><path d="M83 180 Q110 197 140 177" fill="none" stroke="#713d3c" stroke-width="8" stroke-linecap="round"/>'+accessory,
     'head',0,-58,.92);
   head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
   head.eyeAnimation=true;head.blinkRate=2+characterIndex;head.eyeY=57;head.leftEyeX=35;head.rightEyeX=66;
+  head.characterStyleIndex=characterIndex%4;
   return [leftArm,rightArm,leftLeg,rightLeg,body,head];
 }
 
