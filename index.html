@@ -608,7 +608,9 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="خالی = تصادفی">
     </div>
   </div>
-  <button id="generate" class="primary" type="button" disabled>تولید تصویر</button>
+  <button id="generate" class="primary" type="button" disabled>تولید تصویر مدل‌محور</button>
+  <button id="generateLocalImage" class="secondary primary" type="button">ساخت با موتور داخلی (بدون اینترنت)</button>
+  <small>موتور داخلی تصویرسازی برداری می‌سازد و برای پس‌زمینه و طرح‌های مفهومی مناسب است؛ مدل عصبی عکس‌ساز نیست.</small>
   <button id="generateVariation" class="secondary" type="button" hidden>ساخت نسخه متفاوت با همین تنظیمات</button>
   <div class="row">
     <button id="cancel" class="danger" type="button" disabled>لغو درخواست</button>
@@ -1649,6 +1651,40 @@ async function generateImage() {
 async function editCurrentImage() {
   return runWithGenerationLock(editCurrentImageUnlocked);
 }
+async function generateLocalPromptImage(){
+  const button=$('generateLocalImage');
+  const source=$('prompt').value.trim();
+  if(!source){setStatus('ابتدا شرح تصویر را بنویس.','var(--warn)');$('prompt').focus();return;}
+  if(generationInProgress||activeRequestId||polling){setStatus('درخواست تصویر دیگری در حال اجراست؛ پس از پایان دوباره تلاش کن.','var(--warn)');return;}
+  const engine=window.AIAnimatorImageEngine;
+  if(!engine){setStatus('موتور تصویر داخلی بارگذاری نشده است. صفحه را تازه‌سازی کن.','var(--bad)');return;}
+  const seedText=$('seed').value.trim();
+  const seed=seedText===''?Math.floor(Math.random()*4294967295):Number(seedText);
+  if(!Number.isSafeInteger(seed)||seed<0||seed>4294967295){setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.','var(--warn)');return;}
+  const moodMap={natural:'day',golden:'sunset',soft:'soft',dramatic:'dramatic',neon:'night',moon:'night'};
+  const paletteMap={natural:'consistent',warm:'warm',cool:'cool',pastel:'pastel',vivid:'vivid',mono:'muted'};
+  const compositionMap={wide:'establishing',medium:'medium',full:'layered',top:'layered',close:'minimal'};
+  const historySettings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id).value]));
+  button.disabled=true;
+  setStatus('موتور تصویر داخلی در حال ساخت تصویر برداری در همین مرورگر است...');
+  try{
+    const result=await engine.generateBackground({
+      prompt:source,
+      sceneText:source,
+      preset:'story',
+      mood:moodMap[$('lighting').value]||'match',
+      composition:compositionMap[$('framing').value]||'layered',
+      palette:paletteMap[$('palette').value]||'consistent',
+      seed
+    });
+    if(!result||typeof result.dataUrl!=='string'||!/^data:image\/(?:png|svg\+xml)/i.test(result.dataUrl))throw new Error('موتور داخلی خروجی معتبر تولید نکرد.');
+    displayImage(result.dataUrl,String(seed),'موتور برداری داخلی · '+result.environment,historySettings);
+    setStatus('تصویر برداری ساخته شد · محیط: '+result.environment+' · '+result.width+'×'+result.height+' · بدون API و بدون ارسال داده به سرور.');
+  }catch(error){
+    setStatus('ساخت تصویر داخلی ناموفق بود: '+String(error?.message||error),'var(--bad)');
+  }finally{button.disabled=false;}
+}
+
 
 async function generateImageUnlocked() {
   const prompt = $('prompt').value.trim();
@@ -1960,6 +1996,7 @@ function imageSource(value) {
       return parsed.protocol === 'https:' ? parsed.href : '';
     } catch (_) { return ''; }
   }
+  if (/^data:image\/svg\+xml;charset=utf-8,/i.test(source) && source.length <= 2 * 1024 * 1024) return source;
   if (/^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+=*$/i.test(source)) return source;
   if (/^[a-z0-9+/]+={0,2}$/i.test(source) && source.length % 4 === 0) return 'data:image/webp;base64,' + source;
   return '';
@@ -3153,7 +3190,7 @@ async function generateStudioBackground(prompt,status,options={}){
     seed:Number.isSafeInteger(options.seed)?options.seed:undefined,
     sceneIndex:Number.isInteger(options.sceneIndex)?options.sceneIndex:0
   });
-  if(!result||typeof result.dataUrl!=='string'||!result.dataUrl.startsWith('data:image/svg+xml'))throw new Error('موتور داخلی خروجی برداری معتبر تولید نکرد.');
+  if(!result||typeof result.dataUrl!=='string'||!/^data:image\/(?:png|svg\+xml)/i.test(result.dataUrl))throw new Error('موتور داخلی خروجی تصویری معتبر تولید نکرد.');
   liveBuildLog('پس‌زمینه با موتور داخلی ساخته شد · محیط: '+result.environment+' · بوم: '+result.width+'×'+result.height+' · بدون API خارجی.');
   if(status)status.textContent='تصویرسازی داخلی کامل شد · '+result.environment+' · '+result.width+'×'+result.height+' · بدون اینترنت و کلید API.';
   return result.dataUrl;
@@ -4845,6 +4882,7 @@ const languageObserver=new MutationObserver(records=>{
 languageObserver.observe(document.body,{childList:true,subtree:true});
 $('prompt').addEventListener('input',updatePromptCounter);
 $('generate').addEventListener('click', generateImage);
+ $('generateLocalImage').addEventListener('click', generateLocalPromptImage);
 $('generateVariation').addEventListener('click', () => {
   if (!lastGenerationSettings || generationInProgress) return;
   Object.entries(lastGenerationSettings).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
