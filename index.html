@@ -2998,9 +2998,9 @@ async function requestAutomaticScreenplay(story,status,models){
 }
 function buildLocalFallbackScreenplay(seed){
   const story=String(seed||'').trim();
-  const sentences=story.split(/(?<=[.!؟?])\\s+|\\n+/u).map(part=>part.trim()).filter(Boolean);
+  const sentences=story.split(/(?<=[.!؟?])\s+|\n+/u).map(part=>part.trim()).filter(Boolean);
   const source=sentences.length>=2?sentences:story.split(/،|؛|,/u).map(part=>part.trim()).filter(Boolean);
-  const words=story.split(/\\s+/u).filter(Boolean);
+  const words=story.split(/\s+/u).filter(Boolean);
   const beats=Array.from({length:4},(_,index)=>{
     const from=Math.floor(index*(source.length||words.length)/4);
     const to=Math.max(from+1,Math.floor((index+1)*(source.length||words.length)/4));
@@ -3014,7 +3014,7 @@ function buildLocalFallbackScreenplay(seed){
     characters:[{name:'قهرمان',description:'شخصیت کارتونی دوبعدی اصلی با ظاهر ثابت در تمام صحنه‌ها'}],
     scenes:beats.map((beat,index)=>({
       visual:'نمایش وفادارانه این بخش از داستان، بدون افزودن رویداد تازه: '+beat,
-      dialogues:[],
+      dialogues:String(beat).split(/\\n+/u).map(line=>{const match=line.trim().match(/^([^:：]{1,36})[:：]\\s*(.{2,180})$/u);return match?{speaker:match[1].trim(),text:match[2].trim()}:null;}).filter(Boolean).slice(0,6),
       action:actions[index],
       emotion:emotions[index],
       gesture:index===1?'wave':'neutral',
@@ -3387,6 +3387,23 @@ async function autoBuildEpisodeFromStory(){
       autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
+    const automaticVoiceLines=nextScenes.flatMap(scene=>scene.dialogues||[]).filter(item=>item&&String(item.text||'').trim()).slice(0,24);
+    if(automaticVoiceLines.length){
+      liveBuildUpdate(1,'در حال تولید گویندگی فارسی محلی برای '+automaticVoiceLines.length+' دیالوگ.',20);
+      let voiceReady=0,voiceFailed=0;
+      for(const item of automaticVoiceLines){
+        try{
+          await generatePersianDialogueAudio(item);
+          voiceReady++;
+        }catch(error){
+          voiceFailed++;
+          liveBuildLog('گویندگی این دیالوگ آماده نشد؛ متن حفظ شد و خروجی بدون صدای آن دیالوگ ادامه می‌یابد: '+String(error?.message||error).slice(0,180));
+        }
+      }
+      liveBuildLog('گویندگی فارسی eSpeak NG: '+voiceReady+' آماده، '+voiceFailed+' ناموفق.');
+    }else{
+      liveBuildLog('در فیلمنامه دیالوگ مشخصی پیدا نشد؛ خروجی شامل موسیقی و افکت‌های اصلی خواهد بود.');
+    }
     nextScenes.forEach((scene,sceneIndex)=>{
       const positions=speakerNames.length===1?[50]:speakerNames.length===2?[35,65]:[25,50,75];
       scene.layers=autoCharacterRigs.flatMap((rig,characterIndex)=>rig.map(base=>{
