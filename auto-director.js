@@ -26,8 +26,8 @@
     {words:['حرکت به چپ','سمت چپ'],value:'pan-left'}
   ];
   function enrichScreenplay(screenplay, story) {
-    const scenes = Array.isArray(screenplay?.scenes) ? screenplay.scenes.slice(0, 8) : [];
-    const cast = Array.isArray(screenplay?.characters) ? screenplay.characters.slice(0, 4) : [];
+    const scenes = Array.isArray(screenplay?.scenes) ? screenplay.scenes.slice(0, 30) : [];
+    const cast = Array.isArray(screenplay?.characters) ? screenplay.characters.slice(0, 20) : [];
     const continuity = new Map();
     scenes.forEach((scene, index) => {
       const source = clean([scene.visual, scene.action, ...(Array.isArray(scene.dialogues) ? scene.dialogues.map(d => d?.text) : [])].join(' '));
