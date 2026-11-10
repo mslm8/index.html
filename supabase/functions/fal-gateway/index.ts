@@ -28,19 +28,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 2500
   try { return await fetch(url, { ...init, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
-// Keep the abort timer alive until the complete response body has been consumed.
-// A headers-only timeout leaves streamed image bodies able to hang indefinitely.
-async function fetchTextWithTimeout(url: string, init: RequestInit, timeoutMs = 45000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort("response-body-timeout"), timeoutMs);
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    const text = await response.text();
-    return { response, text };
-  } finally {
-    clearTimeout(timer);
-  }
-}
 async function authenticate(req: Request) {
   const authorization = req.headers.get("authorization") || "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -104,8 +91,6 @@ Deno.serve(async (req: Request) => {
 
     const action = String(body.action || "");
     const falKey = Deno.env.get("FAL_KEY");
-    const cloudflareAccountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID") || "";
-    const cloudflareToken = Deno.env.get("CLOUDFLARE_API_TOKEN") || "";
     if (action === "health") {
       return json({
         ok: true,
@@ -113,111 +98,79 @@ Deno.serve(async (req: Request) => {
         paidProviderOptional: true,
         imageModel: MODELS.image,
         videoModel: MODELS.video,
-        cloudflareImageConfigured: Boolean(cloudflareAccountId && cloudflareToken),
-        cloudflareImageCredentialState: cloudflareAccountId && cloudflareToken ? "configured_unverified" : "missing",
-        cloudflareImageHealthNote: "Secret presence is checked here; actual token permissions are verified only by a real image request.",
-        cloudflareImageModel: "@cf/black-forest-labs/flux-1-schnell",
-        cloudflareReferenceEditModel: "@cf/black-forest-labs/flux-2-klein-4b",
-        cloudflareReferenceEditConfigured: Boolean(cloudflareAccountId && cloudflareToken),
         request_id: requestId
       });
     }
-    if (action === "cloudflare-image") {
-      if (!cloudflareAccountId || !cloudflareToken) {
-        return json({ error: "Cloudflare Workers AI is not configured. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN as Supabase Edge Function secrets.", code: "CLOUDFLARE_NOT_CONFIGURED", request_id: requestId }, 503);
+    if (action === "huggingface-image") {
+      const hfToken = Deno.env.get("HF_TOKEN") || "";
+      if (!hfToken) {
+        return json({
+          error: "Hugging Face is not configured yet. Add HF_TOKEN as a Supabase Edge Function secret.",
+          code: "HUGGINGFACE_NOT_CONFIGURED",
+          request_id: requestId
+        }, 503);
       }
       const prompt = String(body.prompt || "").trim();
-      if (prompt.length < 4 || prompt.length > 2048) {
-        return json({ error: "Prompt must contain 4 to 2048 characters.", code: "INVALID_PROMPT", request_id: requestId }, 400);
+      if (prompt.length < 4 || prompt.length > 3000) {
+        return json({ error: "Prompt must contain 4 to 3000 characters.", code: "INVALID_PROMPT", request_id: requestId }, 400);
       }
       try {
-        const { response: upstream, text: raw } = await fetchTextWithTimeout(
-          "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(cloudflareAccountId) + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
+        const upstream = await fetchWithTimeout(
+          "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-dev",
           {
             method: "POST",
-            headers: { "Authorization": "Bearer " + cloudflareToken, "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt, steps: 4, seed: Math.floor(Math.random() * 2147483647) })
+            headers: {
+              "Authorization": "Bearer " + hfToken,
+              "Content-Type": "application/json",
+              "Accept": "image/png"
+            },
+            body: JSON.stringify({
+              inputs: prompt,
+              parameters: { width: 1024, height: 576, num_inference_steps: 25 }
+            })
           },
-          45000
+          90000
         );
-        let payload: Record<string, unknown>;
-        try { payload = raw ? JSON.parse(raw) : {}; }
-        catch {
-          console.error("fal-gateway Cloudflare invalid JSON", { requestId, status: upstream.status, bodyPreview: raw.slice(0, 240) });
-          return json({ error: "Cloudflare returned an invalid response.", code: "CLOUDFLARE_INVALID_RESPONSE", request_id: requestId }, 502);
-        }
-        const result = payload.result && typeof payload.result === "object" ? payload.result as Record<string, unknown> : {};
-        const image = typeof result.image === "string" ? result.image.trim() : "";
-        const validBase64Image = image.length >= 1000 && image.length <= 8 * 1024 * 1024 &&
-          image.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(image);
-        if (!upstream.ok || payload.success === false || !validBase64Image) {
-          const errors = Array.isArray(payload.errors) ? payload.errors : [];
-          const detail = String((errors[0] as Record<string, unknown> | undefined)?.message || payload.message || upstream.statusText || "No image returned").slice(0, 400);
-          console.warn("fal-gateway Cloudflare image failed", { requestId, status: upstream.status, detail });
-          const responseStatus = !upstream.ok ? (upstream.status >= 500 ? 502 : upstream.status) : 502;
-          const retryAfter = upstream.headers.get("retry-after");
-          return json({ error: "Cloudflare image generation failed.", code: upstream.status === 401 || upstream.status === 403 ? "CLOUDFLARE_AUTH" : upstream.status === 429 ? "CLOUDFLARE_RATE_LIMIT" : upstream.status >= 500 ? "CLOUDFLARE_UPSTREAM" : "CLOUDFLARE_GENERATION_FAILED", detail: validBase64Image ? detail : detail + " (image payload missing, invalid, or oversized)", upstream_status: upstream.status, request_id: requestId }, responseStatus, retryAfter ? { "Retry-After": retryAfter } : {});
-        }
-        return json({ ok: true, engine: "Cloudflare Workers AI · FLUX.1 Schnell", image_data_url: "data:image/jpeg;base64," + image, request_id: requestId });
-      } catch (error) {
-        const detail = String(error instanceof Error ? error.message : error).slice(0, 300);
-        console.error("fal-gateway Cloudflare network failure", { requestId, detail });
-        return json({ error: "Cloudflare image request failed.", code: /abort|timeout/i.test(detail) ? "CLOUDFLARE_TIMEOUT" : "CLOUDFLARE_NETWORK", detail, request_id: requestId }, 502);
-      }
-    }
-    if (action === "cloudflare-reference-background") {
-      if (!cloudflareAccountId || !cloudflareToken) {
-        return json({ error: "Cloudflare Workers AI is not configured.", code: "CLOUDFLARE_NOT_CONFIGURED", request_id: requestId }, 503);
-      }
-      const prompt = String(body.prompt || "").trim();
-      const reference = String(body.reference_image || "");
-      const match = reference.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
-      if (prompt.length < 4 || prompt.length > 2048) {
-        return json({ error: "Prompt must contain 4 to 2048 characters.", code: "INVALID_PROMPT", request_id: requestId }, 400);
-      }
-      if (!match || match[2].length > 1800000 || match[2].length % 4 !== 0) {
-        return json({ error: "Reference image must be a valid, resized base64 image.", code: "INVALID_REFERENCE_IMAGE", request_id: requestId }, 400);
-      }
-      try {
-        const binary = atob(match[2]);
-        if (binary.length < 256 || binary.length > 1024 * 1024) {
-          return json({ error: "Reference image size is outside the allowed range.", code: "REFERENCE_IMAGE_SIZE", request_id: requestId }, 413);
-        }
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const form = new FormData();
-        form.append("prompt", prompt);
-        form.append("width", "1024");
-        form.append("height", "576");
-        form.append("input_image_0", new Blob([bytes], { type: "image/" + match[1].toLowerCase() }), "background-reference." + (match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase()));
-        const { response: upstream, text: raw } = await fetchTextWithTimeout(
-          "https://api.cloudflare.com/client/v4/accounts/" + encodeURIComponent(cloudflareAccountId) + "/ai/run/@cf/black-forest-labs/flux-2-klein-4b",
-          { method: "POST", headers: { "Authorization": "Bearer " + cloudflareToken }, body: form },
-          60000
-        );
-        let payload: Record<string, unknown>;
-        try { payload = raw ? JSON.parse(raw) : {}; }
-        catch {
-          return json({ error: "Cloudflare reference model returned invalid JSON.", code: "CLOUDFLARE_INVALID_RESPONSE", request_id: requestId }, 502);
-        }
-        const result = payload.result && typeof payload.result === "object" ? payload.result as Record<string, unknown> : {};
-        const image = typeof result.image === "string" ? result.image.trim() : "";
-        const validImage = image.length >= 1000 && image.length <= 16 * 1024 * 1024 && image.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(image);
-        if (!upstream.ok || payload.success === false || !validImage) {
-          const errors = Array.isArray(payload.errors) ? payload.errors : [];
-          const detail = String((errors[0] as Record<string, unknown> | undefined)?.message || payload.message || upstream.statusText || "No valid image returned").slice(0, 400);
-          const status = !upstream.ok ? (upstream.status >= 500 ? 502 : upstream.status) : 502;
+        const contentType = upstream.headers.get("content-type") || "";
+        if (!upstream.ok || !contentType.startsWith("image/")) {
+          const detail = (await upstream.text()).slice(0, 500);
+          const status = upstream.status === 401 || upstream.status === 403 ? 502 :
+            upstream.status === 429 ? 429 :
+            upstream.status === 402 ? 402 :
+            upstream.status >= 500 ? 502 : 502;
           return json({
-            error: "Cloudflare reference image generation failed.",
-            code: upstream.status === 401 || upstream.status === 403 ? "CLOUDFLARE_AUTH" : upstream.status === 429 ? "CLOUDFLARE_RATE_LIMIT" : upstream.status >= 500 ? "CLOUDFLARE_UPSTREAM" : "CLOUDFLARE_REFERENCE_FAILED",
-            detail: detail.slice(0, 400), upstream_status: upstream.status, request_id: requestId
-          }, status, upstream.headers.get("retry-after") ? { "Retry-After": upstream.headers.get("retry-after")! } : {});
+            error: "Hugging Face image generation failed.",
+            code: upstream.status === 401 || upstream.status === 403 ? "HUGGINGFACE_AUTH" :
+              upstream.status === 402 ? "HUGGINGFACE_CREDITS_EXHAUSTED" :
+              upstream.status === 429 ? "HUGGINGFACE_RATE_LIMIT" : "HUGGINGFACE_UPSTREAM",
+            upstream_status: upstream.status,
+            detail,
+            request_id: requestId
+          }, status);
         }
-        return json({ ok: true, engine: "Cloudflare Workers AI · FLUX.2 Klein 4B (reference guided)", image_data_url: "data:image/png;base64," + image, request_id: requestId });
+        const bytes = new Uint8Array(await upstream.arrayBuffer());
+        if (bytes.length < 1000 || bytes.length > 12 * 1024 * 1024) {
+          return json({ error: "Hugging Face returned an invalid image size.", code: "HUGGINGFACE_INVALID_IMAGE", request_id: requestId }, 502);
+        }
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+        }
+        const base64 = btoa(binary);
+        return json({
+          ok: true,
+          engine: "Hugging Face Inference · FLUX.1-dev",
+          image_data_url: "data:" + contentType + ";base64," + base64,
+          request_id: requestId
+        });
       } catch (error) {
         const detail = String(error instanceof Error ? error.message : error).slice(0, 300);
-        console.error("fal-gateway Cloudflare reference image failed", { requestId, detail });
-        return json({ error: "Cloudflare reference image request failed.", code: /abort|timeout/i.test(detail) ? "CLOUDFLARE_TIMEOUT" : "CLOUDFLARE_NETWORK", detail, request_id: requestId }, 502);
+        return json({
+          error: "Hugging Face request failed.",
+          code: /abort|timeout/i.test(detail) ? "HUGGINGFACE_TIMEOUT" : "HUGGINGFACE_NETWORK",
+          detail,
+          request_id: requestId
+        }, 502);
       }
     }
     if (!falKey) return json({ error: "Optional FAL_KEY is not configured; the free animation path does not require it.", code: "OPTIONAL_PROVIDER_NOT_CONFIGURED", request_id: requestId }, 503);
