@@ -3653,6 +3653,11 @@ async function autoBuildEpisodeFromStory(){
       autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk','point','fist','hold'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
+    nextScenes.forEach((scene,index)=>{
+      const inferred=inferSceneDirection(scene,index);
+      scene.autoDirection.propType=inferred.propType;
+      if(inferred.gesture==='hold')scene.autoDirection.gesture='hold';
+    });
     const automaticVoiceLines=nextScenes.flatMap(scene=>scene.dialogues||[]).filter(item=>item&&String(item.text||'').trim()).slice(0,24);
     if(automaticVoiceLines.length){
       liveBuildUpdate(1,'در حال تولید گویندگی فارسی محلی برای '+automaticVoiceLines.length+' دیالوگ.',20);
