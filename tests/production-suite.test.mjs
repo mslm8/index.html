@@ -185,7 +185,7 @@ test('rig world transforms propagate the full parent rotation and use parent-loc
   const transform = html.slice(start, end);
   assert.match(transform, /const worldDelta=inheritedDelta\+localDelta/);
   assert.match(transform, /delta:worldDelta/);
-  assert.match(transform, /parentProgress=Math\.max\(0,Math\.min\(1,\(progress-parentFrom\)\/\(parentTo-parentFrom\)\)\)/);
+  assert.ok(transform.includes('parentProgress=parentTo<=parentFrom?0:Math.max(0,Math.min(1,(progress-parentFrom)/(parentTo-parentFrom)))'));
   assert.match(transform, /Math\.sin\(parentProgress\*Math\.PI/);
 });
 
