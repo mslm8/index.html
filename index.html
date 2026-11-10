@@ -846,6 +846,11 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <button id="storyToScenesButton" type="button" class="secondary" hidden>تقسیم داستان به صحنه‌ها</button>
     <button id="aiStoryEngineButton" type="button" class="secondary" hidden>ساخت فیلمنامه با موتور متن رایگان</button>
     <small id="aiStoryEngineStatus" aria-live="polite">آمادهٔ ساخت ویدیو. متن داستان را وارد کن و دکمهٔ ساخت را بزن.</small>
+    <section id="storyVideoOutput" hidden aria-live="polite" style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(8,14,29,.45)">
+      <strong>ویدیوی نهایی آماده است</strong>
+      <video id="storyVideoPreview" controls playsinline style="display:block;width:100%;margin-top:10px;border-radius:10px;background:#080d19"></video>
+      <a id="storyDownloadVideo" download="toonverse-episode.webm" style="display:inline-block;margin-top:12px;font-weight:700">ذخیره ویدیو در گوشی</a>
+    </section>
     <small>گویندگی دیالوگ‌ها در پیش‌نمایش با صدای داخلی مرورگر انجام می‌شود؛ این صدا فعلاً در فایل ویدیوی خروجی ضبط نمی‌شود.</small>
 <section id="liveProduction" class="live-production" hidden aria-live="polite"><div class="live-head"><span class="live-dot"></span><strong>پشت‌صحنهٔ زندهٔ ساخت انیمیشن</strong><span id="liveElapsed">۰۰:۰۰</span></div><div class="live-visual"><div class="live-orbit"><i></i><i></i><i></i><b>AI</b></div><div class="live-visual-copy"><strong id="liveStageTitle">آماده‌سازی پروژه</strong><small id="liveStageDetail">در حال آماده‌سازی...</small></div></div><div class="live-progress"><div><span>پیشرفت واقعی ساخت</span><strong id="livePercent">۰٪</strong></div><div class="live-track"><i id="liveProgressBar"></i></div></div><ol id="liveSteps" class="live-steps"><li>تحلیل داستان و تقسیم صحنه‌ها</li><li>ساخت شخصیت‌ها و ریگ</li><li>آماده‌سازی پس‌زمینه‌ها</li><li>متحرک‌سازی و زمان‌بندی</li><li>رندر و ضبط ویدیو</li><li>آماده‌سازی فایل نهایی</li></ol><div class="live-log-title">گزارش زندهٔ عملیات</div><div id="liveLog" class="live-log"><p>هنوز ساختی شروع نشده است.</p></div></section>
     <section id="rigEditorPanel" class="rig-editor-panel">
@@ -5160,7 +5165,7 @@ function createMotionClip() {
   const sourceImage=source&&source.complete&&source.naturalWidth?source:exportScenes.find(scene=>hasVisualFrame(scene.backgroundImage))?.backgroundImage;
   if(!sourceImage){const message='پس‌زمینه یا تصویر صحنه برای ساخت ویدیو آماده نیست؛ دوباره ساخت ویدیو را اجرا کن.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
   if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){const message='ضبط ویدئو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
-  const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;
+  const button=$('animate');button.disabled=true;$('videoPreview').hidden=true;$('downloadVideo').hidden=true;if($('storyVideoOutput'))$('storyVideoOutput').hidden=true;if($('storyVideoPreview'))$('storyVideoPreview').removeAttribute('src');if($('storyDownloadVideo'))$('storyDownloadVideo').removeAttribute('href');
   setStatus('در حال ساخت قسمت چندصحنه‌ای...');
   const canvas=document.createElement('canvas');
   const videoAspect=String($('aspect')?.value||'wide');
@@ -5217,7 +5222,11 @@ function createMotionClip() {
     if(!blob.size){button.disabled=false;const message='فایل ویدئو خالی ساخته شد؛ دوباره امتحان کن.';setStatus(message,'var(--bad)');liveBuildFinish(false,message);return;}
     liveBuildUpdate(5,'فریم‌ها ضبط شدند؛ فایل WebM در حال آماده‌سازی است.',98);
     const url=URL.createObjectURL(blob);$('videoPreview').src=url;$('videoPreview').hidden=false;
-    $('downloadVideo').href=url;$('downloadVideo').hidden=false;button.disabled=false;
+    $('downloadVideo').href=url;$('downloadVideo').hidden=false;
+    if($('storyVideoPreview')){$('storyVideoPreview').src=url;$('storyVideoPreview').load();}
+    if($('storyDownloadVideo'))$('storyDownloadVideo').href=url;
+    if($('storyVideoOutput'))$('storyVideoOutput').hidden=false;
+    button.disabled=false;
     const audioSummary=!audioTrackAttached?'مسیر صوتی در این مرورگر فعال نشد؛ خروجی ممکن است بی‌صدا باشد.':missingDialogueCount>0?'موسیقی زمینه و افکت انتقال اضافه شدند؛ '+dialogueAudio.length+' دیالوگ از '+allDialogues.length+' دیالوگ فایل صوتی دارند و '+missingDialogueCount+' دیالوگ بدون گفتار باقی ماندند.':'موسیقی زمینه، افکت انتقال و '+dialogueAudio.length+' فایل گفتار دیالوگ در خروجی قرار گرفتند.';
     const audioStatusColor=(!audioTrackAttached||missingDialogueCount>0)?'var(--warn)':'var(--good)';
     setStatus('قسمت چندصحنه‌ای آماده شد. خروجی WebM است. '+audioSummary,audioStatusColor);liveBuildFinish(true,'پیش‌نمایش و لینک ذخیره فایل آماده شد. '+audioSummary);
