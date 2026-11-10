@@ -3016,7 +3016,7 @@ async function requestAutomaticScreenplay(story,status,models){
       durationSeconds:Number.isFinite(duration)?Math.max(5,Math.min(14,Math.round(duration))):8,
       dialogues,action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
       emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(item.emotion)?item.emotion:'none',
-      gesture:['neutral','wave','talk'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
+      gesture:['neutral','wave','talk','point','fist'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
       camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(item.camera)?item.camera:'zoom-in'};
   }).filter(Boolean).slice(0,8);
   if(!scenes.length)throw new Error('مدل متن صحنهٔ معتبر تولید نکرد؛ تقسیم‌بندی داخلی فعال می‌شود.');
@@ -3628,7 +3628,7 @@ async function autoBuildEpisodeFromStory(){
       continuityNote:String(plan.continuityNote||'').slice(0,280),
       directorNotes:String(plan.directorNotes||''),characterFocus:Array.isArray(plan.characterFocus)?plan.characterFocus.slice(0,4):[],shotType:String(plan.shotType||'medium'),
       durationSeconds:Math.max(4,Math.min(18,Number(plan.durationSeconds)||8)),
-      autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
+      autoDirection:{action:['idle','walk','run','jump','sway'].includes(plan.action)?plan.action:'idle',emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(plan.emotion)?plan.emotion:'none',gesture:['neutral','wave','talk','point','fist'].includes(plan.gesture)?plan.gesture:'neutral',camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(plan.camera)?plan.camera:'zoom-in'}
     }));
     nextScenes.forEach(autoScheduleSceneDialogues);
     const automaticVoiceLines=nextScenes.flatMap(scene=>scene.dialogues||[]).filter(item=>item&&String(item.text||'').trim()).slice(0,24);
@@ -3693,7 +3693,9 @@ async function autoBuildEpisodeFromStory(){
         if(hand){
           const sign=role.endsWith('left')?-1:1;
           const gesture=scene.autoDirection.gesture;
-          const wristSwing=gesture==='wave'?sign*24:gesture==='talk'?sign*12:sign*3;
+          const desiredPose=gesture==='fist'?'fist':gesture==='point'?'point':'open';
+          layer.opacity=base.handPose===desiredPose?1:0;
+          const wristSwing=gesture==='wave'?sign*24:gesture==='talk'?sign*12:gesture==='point'?sign*8:sign*3;
           layer.motionKeys=[
             {at:0,x,y:65,rotation:0},
             {at:25,x,y:65+(gesture==='wave'?-2:0),rotation:wristSwing},
@@ -4741,7 +4743,7 @@ function renderMotionPreview() {
     const motionState=getLayerMotionState(layer,p);
     let x=motionState.x*canvas.width/100;
     let y=motionState.y*canvas.height/100;
-    let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=1,dynamicScale=1;
+    let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=Math.max(0,Math.min(1,Number(layer.opacity??1))),dynamicScale=1;
     x=rigTransform.x;y=rigTransform.y;angle+=rigTransform.delta;
     if(layer.motion==='pulse')dynamicScale=1+Math.sin(p*Math.PI*4)*.055;
     if(layer.motion==='fade')alpha=Math.sin(p*Math.PI);
@@ -5261,7 +5263,7 @@ function createMotionClip() {
       const motionState=getLayerMotionState(layer,localProgress);
       let x=motionState.x*canvas.width/100;
       let y=motionState.y*canvas.height/100;
-      let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=1,dynamicScale=1;
+      let angle=((Number(layer.rotation)||0)+motionState.rotation)*Math.PI/180,alpha=Math.max(0,Math.min(1,Number(layer.opacity??1))),dynamicScale=1;
       x=rigTransform.x;y=rigTransform.y;angle+=rigTransform.delta;
       // Character animation pass: secondary motion keeps the cast alive between key poses.
       if(layer.characterId){
