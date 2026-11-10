@@ -37,8 +37,9 @@ jobs:
           const ids = [...html.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]);
           const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
           if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + [...new Set(duplicates)].join(', '));
-          const required = ['requestAutomaticScreenplay', 'extractScreenplayObject', 'generateCloudflareBackground', 'renderMotionPreview', 'pollRequest'];
+          const required = ['requestAutomaticScreenplay', 'extractScreenplayObject', 'generateStudioBackground', 'renderMotionPreview', 'pollRequest'];
           for (const name of required) if (!html.includes(name)) throw new Error('Required animation pipeline component missing: ' + name);
+          if (!html.includes('./image-engine.js')) throw new Error('Built-in image engine script is not loaded by the app.');
           const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
           let checked = 0;
           for (const [, attrs, source] of scripts) {
@@ -65,8 +66,10 @@ jobs:
         run: |
           node --check analytics.js
           node --test tests/posthog.test.mjs
-      - name: Check Cloudflare Worker JavaScript
-        run: node --input-type=module --check < worker.js
+      - name: Check built-in image engine
+        run: |
+          node --check image-engine.js
+          node --test tests/image-engine.test.mjs
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
