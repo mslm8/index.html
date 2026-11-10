@@ -3815,19 +3815,25 @@ async function generatePreparedBackground(index){
   const useReference=$('backgroundUseReference').checked;
   if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
   const prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
-  status.textContent='در حال تصویرسازی پس‌زمینه با موتور داخلی...';
-  const generatedUrl=useReference
-    ?await generateCloudflareReferenceBackground(prompt,status,backgroundReferenceDataUrl)
-    :await generateCloudflareBackground(prompt,status);
+  const generatedUrl=await generateStudioBackground(prompt,status,{
+    sceneText:scene.storyText||scene.name,
+    preset:$('backgroundPreset').value,
+    mood:$('backgroundMood').value,
+    composition:$('backgroundComposition').value,
+    palette:$('backgroundPalette').value,
+    referenceDataUrl:useReference?backgroundReferenceDataUrl:'',
+    sceneIndex:index
+  });
   const image=new Image();image.src=generatedUrl;
   if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
   const report=inspectBackgroundImage(image);
-  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه صحنه '+(index+1),useReference?'cloudflare-flux2-reference':'cloudflare-flux1');
+  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه داخلی صحنه '+(index+1),'studio-image-engine');
   await asset.persistPromise;
   if(!applyPreparedBackgroundToScene(asset,index))throw new Error('تصویر ساخته شد اما اختصاص آن به صحنه ناموفق بود.');
-  status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):' · بررسی اولیه کیفیت مناسب بود');
+  status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):' · موتور داخلی آماده است');
   return asset;
 }
+
 async function runBackgroundBatch(indices){
   if(backgroundBatchRunning||generationInProgress||activeRequestId||polling){$('backgroundStudioStatus').textContent='یک درخواست تصویر دیگر در حال اجراست؛ پس از پایان دوباره تلاش کن.';return;}
   if(!document.body.classList.contains('authenticated')){setStatus('برای تولید پس‌زمینه ابتدا با گوگل وارد برنامه شو.','var(--warn)');return;}
@@ -3860,7 +3866,7 @@ async function runBackgroundBatch(indices){
         try{await generatePreparedBackground(index);success=true;break;}
         catch(error){
           lastError=error;
-          if(attempt===0&&error?.retryable!==false&&!['CLOUDFLARE_AUTH','CLOUDFLARE_NOT_CONFIGURED','INVALID_PROMPT','INVALID_REFERENCE_IMAGE'].includes(error?.code)){
+          if(attempt===0&&error?.retryable!==false&&error?.code!=='INVALID_PROMPT'){
             $('backgroundBatchProgress').textContent='خطای موقت صحنه '+(index+1)+'؛ یک بار دیگر با مکث کوتاه تلاش می‌شود.';
             await new Promise(resolve=>setTimeout(resolve,1300));
           }else break;
