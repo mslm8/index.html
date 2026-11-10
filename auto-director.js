@@ -40,11 +40,26 @@
       scene.gesture = inferredGesture || (['neutral','wave','talk'].includes(scene.gesture) ? scene.gesture : (Array.isArray(scene.dialogues) && scene.dialogues.length ? 'talk' : 'neutral'));
       scene.camera = inferredCamera || (['zoom-in','zoom-out','pan-left','pan-right'].includes(scene.camera) ? scene.camera : (index % 3 === 0 ? 'zoom-in' : index % 3 === 1 ? 'pan-right' : 'zoom-out'));
       scene.durationSeconds = Math.max(4, Math.min(18, Number(scene.durationSeconds) || (scene.dialogues?.length ? 8 + Math.min(6, scene.dialogues.length * 2) : 7)));
-      scene.shotType = scene.camera === 'zoom-in' ? 'نمای نزدیک' : scene.camera === 'zoom-out' ? 'نمای باز' : 'نمای متحرک';
+      const requestedShot = String(scene.shotType || '').toLowerCase();
+      scene.shotType = ['wide','medium','close'].includes(requestedShot)
+        ? requestedShot
+        : scene.camera === 'zoom-in' ? 'close' : scene.camera === 'zoom-out' ? 'wide' : 'medium';
       scene.visual = clean(scene.visual || source || story).slice(0, 900);
-      scene.directorNotes = 'تداوم طراحی و رنگ شخصیت‌ها حفظ شود؛ کنش اصلی واضح باشد؛ پس‌زمینه با محل و زمان داستان سازگار باشد؛ از افزودن شخصیت یا رویداد تازه خودداری شود.';
-      const names = new Set((Array.isArray(scene.dialogues) ? scene.dialogues : []).map(d => clean(d?.speaker)).filter(Boolean));
-      scene.characterFocus = names.size ? [...names] : cast.slice(0, 2).map(c => clean(c.name)).filter(Boolean);
+      const visualLower = scene.visual.toLocaleLowerCase();
+      const mentioned = cast.map(c => clean(c.name)).filter(name => name && visualLower.includes(name.toLocaleLowerCase()));
+      const spoken = (Array.isArray(scene.dialogues) ? scene.dialogues : []).map(d => clean(d?.speaker)).filter(Boolean);
+      scene.characterFocus = [...new Set([...mentioned, ...spoken])].slice(0, 4);
+      if (!scene.characterFocus.length) scene.characterFocus = cast.slice(0, 2).map(c => clean(c.name)).filter(Boolean);
+      scene.location = clean(scene.location || scene.environment || '').slice(0, 180);
+      scene.timeOfDay = clean(scene.timeOfDay || '').slice(0, 80);
+      scene.continuityNote = clean(scene.continuityNote || '').slice(0, 280);
+      scene.directorNotes = [
+        'هویت، چهره، لباس و رنگ مرجع شخصیت‌ها در تمام نماها ثابت بماند.',
+        scene.continuityNote,
+        scene.location ? 'مکان: ' + scene.location : '',
+        scene.timeOfDay ? 'زمان: ' + scene.timeOfDay : '',
+        'قاب ' + scene.shotType + '؛ کنش اصلی واضح؛ هیچ شخصیت یا رویداد تازه‌ای اضافه نشود.'
+      ].filter(Boolean).join(' ');
       scene.continuityIndex = index;
       continuity.set(index, scene.characterFocus);
     });
