@@ -321,7 +321,7 @@ test('one-input ToonVerse workflow hides paid switches and internal production d
   assert.match(html, /id="storyToScenesInput"/);
   assert.match(html, /id="autoEpisodeButton"/);
   assert.match(html, /#storyToScenesPanel \.cloud-video-optin[\s\S]*display:none !important/);
-  assert.match(html, /#storyToScenesPanel #liveProduction \{ display:block; \}/);
+  assert.match(html, /#storyToScenesPanel #liveProduction:not\(\[hidden\]\) \{ display:block; \}/);
   assert.doesNotMatch(html, /#liveProduction \{ display:none !important; \}/);
   assert.match(html, /#storyToScenesPanel #autoEpisodeButton[\s\S]*min-height:56px/);
 });
@@ -340,5 +340,5 @@ test('story workflow exposes the rendered video and a phone-download link in the
 test('live production progress panel remains visible during automatic story builds', () => {
   assert.match(html, /<section id="liveProduction" class="live-production" hidden/);
   assert.match(html, /function liveBuildStart\(\)[\s\S]*?\$\('liveProduction'\)\.hidden=false/);
-  assert.match(html, /#storyToScenesPanel #liveProduction \{ display:block; \}/);
+  assert.match(html, /#storyToScenesPanel #liveProduction:not\(\[hidden\]\) \{ display:block; \}/);
 });
