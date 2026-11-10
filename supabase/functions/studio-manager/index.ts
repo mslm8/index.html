@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
       return {
         title: "نیاز به بررسی: " + name,
         evidence: detail,
-        impact: /cloudflare/i.test(name) ? "تولید تصویر ممکن است در دسترس نباشد." : /github/i.test(name) ? "وضعیت تست یا انتشار برنامه قابل تأیید نیست." : "بخشی از عملکرد برنامه ممکن است محدود باشد.",
+        impact: /موتور تصویر داخلی/i.test(name) ? "تصویرسازی برداری داخلی ممکن است در دسترس نباشد." : /github/i.test(name) ? "وضعیت تست یا انتشار برنامه قابل تأیید نیست." : "بخشی از عملکرد برنامه ممکن است محدود باشد.",
         priority: critical ? "high" : "medium"
       };
     });
@@ -70,7 +70,6 @@ Deno.serve(async (req: Request) => {
     }
     const recommendations = [];
     if (failed.some((item: any) => /نشست کاربر|supabase auth/i.test(String(item.name)))) recommendations.push("ابتدا وضعیت ورود و دسترسی Supabase را بررسی کن؛ سپس دوباره گزارش بگیر.");
-    if (failed.some((item: any) => /cloudflare/i.test(String(item.name)))) recommendations.push("در Cloudflare وضعیت Worker، اتصال AI binding و مجازبودن مدل‌های تصویری را بررسی کن؛ پاسخ /health به‌تنهایی دسترسی مدل را اثبات نمی‌کند.");
     if (failed.some((item: any) => /fal-gateway/i.test(String(item.name)))) recommendations.push("گزارش Edge Function مربوط به fal-gateway را در Supabase بررسی کن؛ خطای health لزوماً به معنی شکست تولید تصویر نیست.");
     if (failed.some((item: any) => /github/i.test(String(item.name)))) recommendations.push("آخرین اجرای GitHub Actions را باز کن و مرحله ناموفق را بررسی کن؛ وضعیت queued یا in_progress را خطا تلقی نکن.");
     if (recentErrors.length) recommendations.push("گزارش خطاهای مرورگر را با نام فایل و شماره خط بررسی کن؛ پیش از تغییر کد، خطا را بازتولید و تست مرتبط اضافه کن.");
