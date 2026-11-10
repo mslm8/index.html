@@ -208,7 +208,7 @@ test('automatic character rigs use separate upper-arm and forearm joints', () =>
   assert.match(rig, /ساعد و دست چپ/);
   assert.match(rig, /forearm\.parentLayerId=upper\.rigId/);
   assert.match(rig, /forearm\.jointY=78/);
-  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,leftHand,rightHand,leftLeg,rightLeg,body,head\]/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,leftLeg,rightLeg,body,head\]/);
 });
 
 test('forearms receive independent gesture and gait articulation', () => {
@@ -225,11 +225,12 @@ test('automatic character rigs use separate wrist and hand joints', () => {
   const start = html.indexOf('async function createAutomaticCharacterRig');
   const end = html.indexOf('async function autoBuildEpisodeFromStory', start);
   const rig = html.slice(start, end);
-  assert.match(rig, /مچ و دست چپ/);
+  assert.match(rig, /handLayers=\[\]/);
+  assert.match(rig, /hand\.handPose=pose/);
   assert.match(rig, /hand\.parentLayerId=forearm\.rigId/);
   assert.match(rig, /hand\.jointY=70/);
   assert.match(rig, /hand\.jointOffsetY=26/);
-  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,leftHand,rightHand,leftLeg,rightLeg,body,head\]/);
+  assert.match(rig, /return \[leftArm,rightArm,leftForearm,rightForearm,\.\.\.handLayers,leftLeg,rightLeg,body,head\]/);
 });
 
 test('wrist articulation responds deterministically to scene gestures', () => {
@@ -237,7 +238,7 @@ test('wrist articulation responds deterministically to scene gestures', () => {
   const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
   const build = html.slice(start, end);
   assert.match(build, /const hand=role\.startsWith\('hand-'\)/);
-  assert.match(build, /gesture==='wave'\?sign\*24:gesture==='talk'\?sign\*12:sign\*3/);
+  assert.match(build, /gesture==='wave'\?sign\*24:gesture==='talk'\?sign\*12:gesture==='point'\?sign\*8:sign\*3/);
   assert.match(build, /if\(hand\)\{/);
 });
 
