@@ -710,6 +710,16 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 <section class="card" id="backgroundStudioCard">
   <h2>استودیوی آماده‌سازی هوشمند پس‌زمینه‌ها</h2>
   <p>برای هر صحنه پس‌زمینه مستقل بساز، از تصویر مرجع برای حفظ سبک استفاده کن، چند تصویر را یک‌جا وارد کن و کتابخانه را در همین مرورگر نگه دار. تولید تصویر با موتور برداری داخلی برنامه انجام می‌شود؛ بدون کلید API، سرویس ابری یا هزینه هر تصویر.</p>
+  <div class="note" style="margin:12px 0">
+    <strong>موتور تصویر هوش مصنوعی با جزئیات بالا</strong>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="backgroundUseCloudAI" type="checkbox"> استفاده از تولید تصویر ابری Nano Banana 2.1 (ممکن است هزینه داشته باشد)</label>
+    <label for="backgroundImageResolution">وضوح تصویر هنگام فعال بودن موتور ابری</label>
+    <select id="backgroundImageResolution">
+      <option value="2K" selected>۲K · پیشنهادشده</option>
+      <option value="4K">۴K · جزئیات بیشتر و مصرف بالاتر</option>
+    </select>
+    <small>این گزینه به‌صورت پیش‌فرض خاموش است. تا وقتی خودت فعالش نکنی، هیچ درخواست پولی تصویر ارسال نمی‌شود. موتور برداری رایگان همچنان در دسترس است.</small>
+  </div>
   <label for="backgroundSceneSelect">صحنه مقصد</label>
   <select id="backgroundSceneSelect"></select>
   <label for="backgroundPrompt">شرح محیط و پس‌زمینه</label>
@@ -3130,15 +3140,19 @@ async function isFalGatewayReady(){
     return {ok:false,category,detail};
   }
 }
-async function generateFalBackground(prompt,status){
+async function generateFalBackground(prompt,status,options={}){
   const client=window.__aiAnimatorSupabaseClient;
   if(!client)throw new Error('نشست Supabase برای اتصال fal.ai در دسترس نیست.');
-  status.textContent='ارسال تصویر به موتور fal.ai (FLUX.1 dev)...';
-  const submitted=await client.functions.invoke('fal-gateway',{body:{action:'submit',task:'image',prompt}});
+  const resolution=['2K','4K'].includes(options.resolution)?options.resolution:'2K';
+  status.textContent='ارسال تصویر با جزئیات بالا به Nano Banana 2.1 · '+resolution+'...';
+  const submitted=await client.functions.invoke('fal-gateway',{body:{
+    action:'submit',task:'image',prompt:String(prompt||'').slice(0,12000),
+    resolution,aspect_ratio:'16:9',seed:Number.isSafeInteger(options.seed)?options.seed:undefined
+  }});
   if(submitted.error)throw submitted.error;
   const requestId=submitted.data?.request_id;
   if(!requestId)throw new Error('شناسه درخواست fal.ai دریافت نشد.');
-  liveBuildLog('درخواست تصویر fal.ai ثبت شد؛ شناسه '+requestId);
+  liveBuildLog('درخواست تصویر Nano Banana 2.1 با وضوح '+resolution+' ثبت شد؛ شناسه '+requestId);
   const started=Date.now();
   while(Date.now()-started<300000){
     await new Promise(resolve=>setTimeout(resolve,3000));
@@ -3933,8 +3947,11 @@ function makeBackgroundPrompt(scene,index,total){
   return [
     'Create a standalone background plate for an original polished 2D animated television episode. '+presetText+'.',
     'SCENE CONTEXT '+(index+1)+' OF '+total+': '+story,
-    'COMPOSITION: '+compText+'. Full-frame 16:9 landscape environment artwork, coherent perspective, detailed painted background, clean readable shapes, consistent visual direction.',
-    'LIGHT AND COLOR: '+moodText+', '+paletteText+'.',
+    'COMPOSITION: '+compText+'. Full-frame 16:9 landscape environment artwork, coherent perspective, professional animated feature-film background painting.',
+    'ENVIRONMENT DETAIL: design a believable, richly specified location with distinct architectural or natural forms, foreground props, midground structures, distant background landmarks, small story-relevant objects, surface textures, material variation, fine edges, controlled wear, reflections, foliage or environmental particles where appropriate. Every detail must support this exact scene; do not add random decoration.',
+    'DEPTH AND LAYOUT: clearly separate foreground, midground and background with atmospheric perspective, accurate scale relationships, consistent vanishing points, readable silhouettes, balanced negative space for character animation and parallax layers.',
+    'LIGHT AND COLOR: '+moodText+', '+paletteText+'. Use physically coherent light direction, soft contact shadows, bounce light, ambient occlusion, nuanced highlights, reflected light and subtle atmospheric depth. Keep color grading consistent across the episode.',
+    'RENDER QUALITY: crisp intentional linework, refined painted textures, clean anti-aliased edges, nuanced color transitions, high detail without noise, no muddy surfaces, no blurry focal elements.',
     hasReference?'VISUAL REFERENCE: use only the dominant sampled colors from the reference to guide the palette; do not copy its subjects or layout.':'',
     $('backgroundNoCharacters').checked?'BACKGROUND ONLY: absolutely no people, no characters, no animals, no silhouettes, no foreground subject. Leave clear usable space for separately animated characters.':'Environment-first composition with unobtrusive distant details only.',
     'Continuity: keep architecture, geography, weather, light direction, horizon height, perspective and visual motifs coherent with the same episode. No text, no letters, no watermark, no logo, no panels, no collage.'
@@ -3945,22 +3962,28 @@ async function generatePreparedBackground(index){
   const useReference=$('backgroundUseReference').checked;
   if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
   const prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
-  const generatedUrl=await generateStudioBackground(prompt,status,{
-    sceneText:scene.storyText||scene.name,
-    preset:$('backgroundPreset').value,
-    mood:$('backgroundMood').value,
-    composition:$('backgroundComposition').value,
-    palette:$('backgroundPalette').value,
-    referenceDataUrl:useReference?backgroundReferenceDataUrl:'',
-    sceneIndex:index
-  });
+  const useCloudAI=$('backgroundUseCloudAI')?.checked===true;
+  const generatedUrl=useCloudAI
+    ?await generateFalBackground(prompt,status,{
+      resolution:$('backgroundImageResolution')?.value||'2K',
+      seed:stableStorySceneSeed(scene.storyText||scene.name,String(index))
+    })
+    :await generateStudioBackground(prompt,status,{
+      sceneText:scene.storyText||scene.name,
+      preset:$('backgroundPreset').value,
+      mood:$('backgroundMood').value,
+      composition:$('backgroundComposition').value,
+      palette:$('backgroundPalette').value,
+      referenceDataUrl:useReference?backgroundReferenceDataUrl:'',
+      sceneIndex:index
+    });
   const image=new Image();image.src=generatedUrl;
   if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
   const report=inspectBackgroundImage(image);
-  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه داخلی صحنه '+(index+1),'studio-image-engine');
+  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه '+(useCloudAI?'هوش مصنوعی':'داخلی')+' صحنه '+(index+1),useCloudAI?'nano-banana-2.1':'studio-image-engine');
   await asset.persistPromise;
   if(!applyPreparedBackgroundToScene(asset,index))throw new Error('تصویر ساخته شد اما اختصاص آن به صحنه ناموفق بود.');
-  status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):' · موتور داخلی آماده است');
+  status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):useCloudAI?' · Nano Banana 2.1':' · موتور داخلی');
   return asset;
 }
 
