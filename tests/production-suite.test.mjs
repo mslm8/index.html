@@ -151,29 +151,13 @@ test('Fal gateway exposes controlled Seedance and image-to-video routes', () => 
   assert.match(gateway, /FAL_KEY/);
 });
 
-test('high-detail cloud image generation is explicit opt-in and supports 2K/4K', () => {
-  assert.ok(html.includes('id="backgroundUseCloudAI"'));
-  assert.ok(html.includes('id="backgroundImageResolution"'));
-  assert.match(html, /value="2K" selected/);
-  assert.match(html, /value="4K"/);
-  assert.match(html, /useCloudAI=\$\('backgroundUseCloudAI'\)\?\.checked===true/);
-  assert.match(html, /generateFalBackground\(prompt,status/);
+test('paid image inference is disabled and scene backgrounds use the free external provider', () => {
+  assert.match(html, /const useCloudAI=false/);
+  assert.doesNotMatch(html, /const useCloudAI=\$\('backgroundUseCloudAI'\)/);
+  assert.match(html, /window\.ToonVerseFreeImage\.generate/);
   assert.match(html, /backgroundImageToBlob\(image,maxEdge=4096,quality=0\.94\)/);
-  assert.match(html, /REFERENCE PALETTE \(sampled locally; no reference image is uploaded\)/);
-  const gateway = readFileSync(new URL('../supabase/functions/fal-gateway/index.ts', import.meta.url), 'utf8');
-  assert.match(gateway, /google\/nano-banana-2\.1/);
-  assert.match(gateway, /thinking_level: "high"/);
-  assert.match(gateway, /"1K", "2K", "4K"/);
-  assert.ok(html.includes('id="enablePaidCharacterReferences"'));
-  assert.match(html, /generateFalReferenceVideoScene/);
-  assert.match(html, /professional CHARACTER MODEL SHEET/);
-  assert.match(html, /matching front, side and back turnarounds/);
-  assert.match(html, /neutral, happy, worried, surprised/);
-  assert.match(html, /same identity, not alternate redesigns/);
-  assert.match(html, /hands must be compact and proportionate to the forearms and face, never oversized/i);
-  assert.match(html, /characterReferences/);
-  assert.match(gateway, /minimax\/h3-max\/reference-to-video/);
-  assert.match(gateway, /INVALID_REFERENCE_IMAGES/);
+  assert.match(html, /Hugging Face ZeroGPU/);
+  assert.match(html, /const cloudVideoEnabled=false/);
 });
 
 
