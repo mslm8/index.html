@@ -482,7 +482,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
   <label for="negative">مواردی که نباید در تصویر باشند (اختیاری)</label>
   <input id="negative" maxlength="500" placeholder="مثلاً: انسان، اسب، متن، واترمارک">
   <div class="note" id="autoModelInfo">موتور هوشمند در حال پیدا کردن سریع‌ترین مدل فعال است؛ انتخاب مدل به‌صورت خودکار انجام می‌شود.</div>
-  <button id="refreshModels" class="secondary" type="button">بررسی دوباره مدل‌های سریع</button>
+  <button id="refreshModels" class="secondary" type="button" hidden>بررسی دوباره مدل‌های سریع</button>
   <div class="grid">
     <div>
       <label for="size">اندازه تصویر</label>
@@ -608,8 +608,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <input id="seed" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="خالی = تصادفی">
     </div>
   </div>
-  <button id="generateLocalImage" class="primary" type="button">تولید تصویر با موتور داخلی (آفلاین)</button>
-  <button id="generate" class="secondary" type="button" disabled>مدل خارجی اختیاری (وابسته به دسترسی و سهمیه)</button>
+  <button id="generateLocalImage" class="primary" type="button">تولید تصویر با موتور داخلی</button>
+  <button id="generate" class="secondary" type="button" disabled hidden>تولید خارجی غیرفعال</button>
   <small>گزینهٔ اصلی، موتور برداری داخلی است: بدون اینترنت و کلید API. این موتور برای پس‌زمینه و طرح مفهومی مناسب است و جایگزین مدل عصبیِ تولید تصویر واقع‌گرا نیست.</small>
   <button id="generateVariation" class="secondary" type="button" hidden>ساخت نسخه متفاوت با همین تنظیمات</button>
   <div class="row">
@@ -623,7 +623,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     <small>فرمت‌های JPG، PNG و WebP؛ حداکثر حجم فایل ۱۲ مگابایت. تصویر در مرورگر کوچک‌سازی و در تاریخچه محلی ذخیره می‌شود.</small>
   </div>
   <div class="outputHeading"><h2>پیش‌نمایش خروجی</h2><span class="pill">نتیجه زنده</span></div>
-  <div id="status" role="status" aria-live="polite">در حال بررسی سرویس رایگان...</div>
+  <div id="status" role="status" aria-live="polite">موتور تصویر داخلی آماده است؛ توضیح صحنه را وارد کن.</div>
   <div id="resultFrame"><div id="outputEmpty"><span class="outputSpark">✦</span><strong>تصویر ساخته‌شده اینجا نمایش داده می‌شود</strong><small>پس از تولید، می‌توانی نتیجه را ذخیره یا ویرایش کنی.</small></div><img id="result" hidden alt="تصویر تولیدشده"></div>
   <p class="row"><a id="download" hidden download="ai-animator.webp">ذخیره تصویر</a><button id="undoImage" class="secondary" type="button" hidden>بازگشت به تصویر قبلی</button><button id="sendImageToAnimation" class="primary" type="button" hidden>استفاده در انیمیشن‌ساز</button></p>
 
@@ -673,7 +673,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 
 <section class="card" id="editCard" hidden>
   <h2>ویرایش هوشمند تصویر</h2>
-  <p>با استفاده از تصویر فعلی، نسخه‌ای تازه بساز. شدت تغییر کمتر، تصویر اصلی را بیشتر حفظ می‌کند؛ نتیجه به مدل و پردازشگر داوطلب بستگی دارد.</p>
+  <p>ویرایش مولد ابری در این نسخه غیرفعال است. برای تغییر تصویر از ابزارهای محلی برش، چرخش و تنظیم لایه‌ها استفاده کن.</p>
   <label for="editPrompt">چه چیزی تغییر کند؟</label>
   <textarea id="editPrompt" maxlength="1200" placeholder="مثلاً: نورپردازی را گرم‌تر کن و پس‌زمینه را به یک باغ پاییزی تغییر بده."></textarea>
   <div class="grid">
@@ -687,7 +687,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
     </div>
   </div>
   <button id="editImage" class="primary" type="button">ساخت نسخه ویرایش‌شده</button>
-  <div class="note"><strong>ویرایش موضعی</strong><br><small>روی بخشی که می‌خواهی عوض شود نقاشی کن. قسمت قرمز برای بازسازی انتخاب می‌شود؛ بقیه تصویر حفظ خواهد شد.</small></div>
+  <div class="note"><strong>ویرایش موضعی</strong><br><small>انتخاب ناحیه برای بازسازی مولد در نسخه فعلی غیرفعال است.</small></div>
   <div id="maskEditor" aria-label="انتخاب ناحیه تصویر">
     <canvas id="maskPreview"></canvas>
     <canvas id="maskOverlay"></canvas>
@@ -702,7 +702,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
       <button id="clearMask" class="secondary" type="button">پاک‌کردن انتخاب</button>
     </div>
   </div>
-  <small id="editHint">تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.</small>
+  <small id="editHint">ویرایش مولد ابری غیرفعال است؛ ابزارهای برش، چرخش و اصلاح محلی در دسترس‌اند.</small>
 </section>
 
 <section class="card" id="backgroundStudioCard">
@@ -1083,8 +1083,8 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 </main>
 
 <script>
-const API = 'https://aihorde.net/api/v2';
-const ANON_KEY = '0000000000';
+const API = '';
+const ANON_KEY = '';
 const CLIENT_AGENT = 'AI-Animator-Studio:1.0:github.com/mslm8';
 const $ = id => document.getElementById(id);
 const currentLanguageKey='aiAnimatorLanguageV1';
@@ -1462,48 +1462,14 @@ if (refreshModelsButton) refreshModelsButton.addEventListener('click', async () 
 });
 
 async function loadModels(silent = false) {
-  if (!silent) {
-    setStatus('در حال بررسی مدل‌های فعال و انتخاب سریع‌ترین گزینه...');
-  }
-  try {
-    const models = await apiFetch('/status/models?type=image');
-    const available = Array.isArray(models)
-      ? models.filter(m => m && m.name && Number(m.count || m.worker_count || 0) > 0)
-      : [];
-    available.sort((a,b) => modelScore(a) - modelScore(b));
-    // Keep up to 500 currently worker-backed models so Horde can route around unavailable or unsuitable workers.
-    smartModelChoices = [...new Set(available.map(m => String(m.name).trim()).filter(Boolean))].slice(0, 500);
-    if (!smartModelChoices.length) {
-      if (!generationInProgress) $('generate').disabled = true;
-      $('autoModelInfo').textContent = 'فعلاً هیچ مدل فعالی با پردازشگر آنلاین پیدا نشد. کمی بعد دوباره امتحان کن.';
-      if (!silent) setStatus('مدل فعال در دسترس نیست.', 'var(--warn)');
-      return [];
-    }
-    const first = available[0];
-    const workers = Number(first.count || first.worker_count || 0);
-    const queued = Number(first.queued || first.queued_requests || 0);
-    const etaValue = first.eta;
-    const hasEta = etaValue !== null && etaValue !== undefined &&
-      Number.isFinite(Number(etaValue)) && Number(etaValue) >= 0;
-    const eta = hasEta ? Number(etaValue) : NaN;
-    const waitText = Number.isFinite(eta) && eta >= 0
-      ? 'زمان تخمینی صف: ' + Math.ceil(eta / 60) + ' دقیقه'
-      : 'صف نسبی: ' + queued + ' درخواست برای ' + workers + ' پردازشگر';
-    $('autoModelInfo').textContent =
-      'انتخاب خودکار فعال است. سریع‌ترین گزینه فعلی: ' + first.name +
-      ' · ' + waitText +
-      (smartModelChoices.length > 1 ? ' · ' + (smartModelChoices.length - 1) + ' مدل جایگزین فعال هم آماده است.' : '');
-    if (!generationInProgress) $('generate').disabled = false;
-    if (!silent) setStatus('موتور هوشمند آماده است؛ مدل‌ها درست پیش از تولید دوباره بررسی می‌شوند.');
-    return smartModelChoices;
-  } catch (error) {
-    smartModelChoices = [];
-    if (!generationInProgress) $('generate').disabled = true;
-    $('autoModelInfo').textContent = 'اتصال به فهرست مدل‌های فعال برقرار نشد. انتخاب خودکار فعلاً ممکن نیست.';
-    if (!silent) setStatus('بررسی مدل‌ها ناموفق بود: ' + error.message, 'var(--warn)');
-    return [];
-  } finally {
-  }
+  smartModelChoices = [];
+  const info = $('autoModelInfo');
+  if (info) info.textContent = 'موتور تصویر داخلی فعال است؛ تولید بدون Cloudflare، AI Horde، کلید API یا سرویس ابری انجام می‌شود.';
+  const button = $('generate');
+  if (button) button.disabled = true;
+  const refresh = $('refreshModels');
+  if (refresh) refresh.hidden = true;
+  return [];
 }
 
 
@@ -4892,7 +4858,7 @@ const languageObserver=new MutationObserver(records=>{
 });
 languageObserver.observe(document.body,{childList:true,subtree:true});
 $('prompt').addEventListener('input',updatePromptCounter);
-$('generate').addEventListener('click', generateImage);
+$('generate').addEventListener('click', () => generateLocalPromptImage());
  $('generateLocalImage').addEventListener('click', generateLocalPromptImage);
 $('generateVariation').addEventListener('click', () => {
   if (!lastGenerationSettings || generationInProgress) return;
@@ -4901,7 +4867,7 @@ $('generateVariation').addEventListener('click', () => {
   if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(randomSeed);
   else randomSeed[0] = Math.floor(Math.random() * 4294967296);
   $('seed').value = String(randomSeed[0]);
-  generateImage();
+  generateLocalPromptImage();
 });
 $('cancel').addEventListener('click', cancelRequest);
 </script>
