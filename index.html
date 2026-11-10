@@ -3164,7 +3164,7 @@ async function generateFalBackground(prompt,status,options={}){
       const result=await client.functions.invoke('fal-gateway',{body:{action:'result',task:'image',request_id:requestId}});
       if(result.error)throw result.error;
       const url=result.data?.images?.[0]?.url;
-      if(!/^https:\\/\\//i.test(String(url||'')))throw new Error('fal.ai نتیجه‌ای با نشانی HTTPS معتبر تصویر برنگرداند.');
+      if(!/^https:\/\//i.test(String(url||'')))throw new Error('fal.ai نتیجه‌ای با نشانی HTTPS معتبر تصویر برنگرداند.');
       return url;
     }
     status.textContent='fal.ai در حال پردازش تصویر صحنه است؛ وضعیت: '+(state||'در صف');
