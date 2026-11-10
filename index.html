@@ -1091,10 +1091,10 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 
 <section class="card">
   <h2>ساخت دارایی تصویری برای انیمیشن</h2>
-  <div class="note"><small>این سرویس با رایانه‌های داوطلبان کار می‌کند؛ درخواست ناشناس اولویت پایین‌تری دارد و ممکن است در صف بماند یا به‌دلیل نبود کارگر مناسب منقضی شود. هزینه پولی ندارد، اما سرعت و دسترس‌پذیری تضمین‌شده نیست.</small></div>
-  <p><small>برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. درخواست‌ها روی رایانه داوطلبان پردازش می‌شوند و اپراتور آن رایانه ممکن است به متن و تصویر دسترسی داشته باشد.</small></p>
+  <div class="note"><small>مدل تصویر روی فضای عمومی Hugging Face ZeroGPU اجرا می‌شود. سهمیهٔ رایگان روزانه و صف اشتراکی محدود است؛ سرعت و دسترس‌پذیری تضمین‌شده نیست.</small></div>
+  <p><small>برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. متن درخواست برای پردازش به سرویس عمومی Hugging Face ارسال می‌شود؛ اطلاعات شخصی یا خصوصی را در آن وارد نکن.</small></p>
   <p><small>برای نتیجه دقیق‌تر، تعداد سوژه‌ها، نوع هر سوژه و کاری که انجام می‌دهد را روشن و جداگانه بنویس. هیچ مدل تصویری پیروی کامل از متن را تضمین نمی‌کند.</small></p>
-  <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://api.stablehorde.net/generate/image/" target="_blank" rel="noopener">مستندات مدل مولد تصویر Hugging Face</a> در دسترس است.</small></p>
+  <p><small>اگر اتصال مستقیم از مرورگر مسدود بود، <a href="https://huggingface.co/spaces/mrfakename/Z-Image-Turbo" target="_blank" rel="noopener">مستندات مدل مولد تصویر Hugging Face</a> در دسترس است.</small></p>
 </section>
 <footer><small>AI Animator Studio</small></footer>
 <section class="card" id="aboutStudioCard"><h2>AI Animator Studio</h2><p>این بخش فقط برای ساخت سوژه، شخصیت و پس‌زمینه است؛ خروجی آن با یک دکمه مستقیماً وارد لایه‌های استودیوی انیمیشن می‌شود. تولید تصویر به‌تنهایی انیمیشن نیست.</p></section>
@@ -1230,7 +1230,7 @@ const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای 
 "برش از مرکز تصویر انجام می‌شود؛ نسخه اصلی با امکان بازگشت حفظ می‌شود.":"Cropping is centered; the original is preserved and can be restored.",
 "با استفاده از تصویر فعلی، نسخه‌ای تازه بساز. شدت تغییر کمتر، تصویر اصلی را بیشتر حفظ می‌کند؛ نتیجه به مدل و پردازشگر داوطلب بستگی دارد.":"Create a new version using the current image. Lower edit strength preserves more of the original; results depend on the model and volunteer worker.",
 "روی بخشی که می‌خواهی عوض شود نقاشی کن. قسمت قرمز برای بازسازی انتخاب می‌شود؛ بقیه تصویر حفظ خواهد شد.":"Paint over the area you want to change. The red area is selected for regeneration; the rest of the image should be preserved.",
-"تصویر برای پردازش به سرویس داوطلبانه AI Horde ارسال می‌شود.":"The image is sent to the volunteer-based AI Horde service for processing.",
+"تصویر برای پردازش به سرویس داوطلبانه Hugging Face ZeroGPU ارسال می‌شود.":"The image is sent to the volunteer-based AI Horde service for processing.",
 "این ابزار فقط حرکت دوربین روی تصویر ثابت ایجاد می‌کند؛ حرکت تازه‌ای با هوش مصنوعی تولید نمی‌کند.":"This tool only creates camera movement over a still image; it does not generate new AI motion.",
 "ذخیره، بازیابی و مدیریت تنظیمات پروژه‌ها":"Save, restore, and manage project settings",
 "تنظیمات و متن‌های پروژه در یک فایل JSON ذخیره می‌شوند؛ تصویر فعلی داخل این فایل قرار نمی‌گیرد.":"Project settings and prompts are saved in a JSON file; the current image is not included.",
@@ -1241,7 +1241,7 @@ const uiEnglish={"ورود به AI Animator":"Sign in to AI Animator","برای 
 "برای حفظ حریم خصوصی، نام، شماره تلفن، نشانی، عکس خصوصی یا اطلاعات شخصی را در متن یا تصویر وارد نکن. درخواست‌ها روی رایانه داوطلبان پردازش می‌شوند و اپراتور آن رایانه ممکن است به متن و تصویر دسترسی داشته باشد.":"For privacy, do not include names, phone numbers, addresses, private photos, or personal information in prompts or images. Requests are processed on volunteers’ computers, and the computer operator may be able to access the prompt and image.",
 "برای نتیجه دقیق‌تر، تعداد سوژه‌ها، نوع هر سوژه و کاری که انجام می‌دهد را روشن و جداگانه بنویس. هیچ مدل تصویری پیروی کامل از متن را تضمین نمی‌کند.":"For more accurate results, clearly describe the number and type of subjects and what each is doing. No image model guarantees perfect prompt adherence.",
 "اگر اتصال مستقیم از مرورگر مسدود بود،":"If direct browser access is blocked, ",
-"صفحه رسمی تولید تصویر AI Horde":"the official AI Horde image-generation page",
+"صفحه مدل رایگان Z-Image Turbo":"the official AI Horde image-generation page",
 "در دسترس است.":"is available.",
 "ساخت تصویر از متن با استفاده از توان پردازشی داوطلبان؛ بدون ثبت‌نام و خرید اعتبار برای شروع.":"Generate images from text using volunteer computing power, with no sign-up or credits required to start.",
 "مثلاً: یک الاغ خاکستری روی پشت یک گوسفند سفید نشسته است. هر دو حیوان کامل دیده شوند و در یک مزرعه سرسبز باشند.":"Example: A gray donkey is sitting on a white sheep’s back. Show both animals fully in a green meadow.",
@@ -2672,83 +2672,12 @@ $('autoTimeDialoguesButton').addEventListener('click',()=>{
   renderMotionDialogueEditor();renderMotionPreview();
   setStatus(scheduled?'زمان‌بندی '+scheduled+' دیالوگ در '+motionScenes.length+' صحنه انجام شد. زمان‌ها را می‌توانی دستی اصلاح کنی.':'هنوز دیالوگی برای زمان‌بندی وجود ندارد.','var(--b)');
 });
-async function requestAutomaticScreenplay(story,status,models){
-  const available=Array.isArray(models)?models.filter(Boolean).slice(0,12):[];
-  if(!available.length)throw new Error('مدل متن رایگان فعالی پیدا نشد.');
-  const prompt=[
-    'You are the lead screenwriter, animation director and storyboard supervisor for an original family-friendly 2D science-fiction comedy.',
-    'Adapt the story into a coherent, production-ready sequence of animated scenes. This is one continuous story, NOT a collection of unrelated video prompts.',
-    'Return ONLY valid JSON with this schema:',
-    '{"characters":[{"name":"...","description":"..."}],"scenes":[{"visual":"...","location":"...","timeOfDay":"...","continuityNote":"...","shotType":"wide|medium|close","durationSeconds":8,"dialogues":[{"speaker":"...","text":"..."}],"action":"idle|walk|run|jump|sway","emotion":"none|happy|sad|angry|surprised","gesture":"neutral|wave|talk","camera":"zoom-in|zoom-out|pan-left|pan-right"}]}',
-    'Create 4 to 8 scenes according to story length. Preserve the actual plot in chronological order: beginning, cause-and-effect progression, turning point, climax and resolution when present. Do not force missing beats into very short stories.',
-    'Every scene must advance the plot or reveal a necessary reaction. Never add unrelated establishing clips, random scenery, filler, new subplots, invented events or a changed ending.',
-    'CAST COMPLETENESS IS REQUIRED: identify every distinct named person or creature who participates in the supplied story. When the plot contains an interaction, conversation, conflict, teamwork or reaction between multiple participants, include at least two distinct characters in the characters array and show the relevant participants together in the appropriate scenes. Do not collapse a multi-character story into one protagonist. Do not invent extra characters when the source truly has only one.',
-    'Keep exact character names and stable visual identity throughout. Character descriptions must specify recognizable visual traits, clothing and signature colors; repeat essential identity anchors in scene visuals when a character appears.',
-    'Each visual must describe one drawable moment: who is present, what they are doing, where they are, and the relevant background. Avoid vague phrases such as "the story continues".',
-    'Use shotType and camera intentionally: wide for geography/action, medium for interaction, close for emotion or details. Vary shots only when the story supports it.',
-    'Dialogue must be assigned only to listed characters, remain concise and natural, and relate directly to the scene. Do not invent dialogue that changes the plot. No more than 4 speaking characters.',
-    'Write all descriptions, continuity notes and dialogue in Persian. Set durationSeconds between 5 and 14 based on action/dialogue. Return valid JSON with no markdown or commentary.',
-    'STORY:\n'+String(story||'').slice(0,12000)
-  ].join('\n\n');
-  const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
-    prompt,
-    params:{max_length:1800,temperature:0.42,top_p:0.88,top_k:40,rep_pen:1.12},
-    models:available,
-    trusted_workers:false,
-    slow_workers:false,
-    extra_slow_workers:false,
-    allow_downgrade:true
-  })});
-  if(!submitted?.id)throw new Error('موتور متن شناسهٔ درخواست برنگرداند.');
-  liveBuildLog('درخواست فیلمنامه ثبت شد؛ در حال انتظار برای پاسخ مدل متن.');
-  const started=Date.now(),deadline=90000;
-  let result=null;
-  while(Date.now()-started<deadline){
-    await new Promise(resolve=>setTimeout(resolve,5000));
-    const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),2);
-    if(check?.faulted)throw new Error('پردازشگر متن درخواست فیلمنامه را ناموفق اعلام کرد.');
-    if(check?.done){result=check;break;}
-    const elapsed=Math.floor((Date.now()-started)/1000);
-    if(status)status.textContent='در حال تحلیل و تقسیم داستان؛ '+elapsed+' ثانیه سپری شد...';
-  }
-  if(!result)throw new Error('پاسخ مدل متن در ۹۰ ثانیه نرسید؛ تقسیم‌بندی سریع داخلی فعال می‌شود.');
-  const generations=Array.isArray(result.generations)?result.generations:[];
-  const generated=generations.find(item=>item&&[item.text,item.content,item.output,item.response].some(value=>typeof value==='string'&&value.trim()));
-  if(!generated)throw new Error('مدل متن پاسخ قابل استفاده‌ای برنگرداند.');
-  const rawText=String(generated.text||generated.content||generated.output||generated.response||'').trim();
-  let parsed=extractScreenplayObject(rawText);
-  if(!parsed)throw new Error('ساختار فیلمنامه از پاسخ مدل استخراج نشد.');
-  const sceneSource=parsed.scenes||parsed.shots||parsed.segments||parsed.storyboard||parsed.صحنه‌ها||parsed['صحنه ها'];
-  const characterSource=parsed.characters||parsed.cast||parsed.شخصیت‌ها||parsed['شخصیت ها'];
-  const scenes=(Array.isArray(sceneSource)?sceneSource:[]).map((item,index)=>{
-    if(typeof item==='string')return {visual:item,dialogues:[],action:'walk',emotion:'none',gesture:'talk',camera:index%2?'pan-right':'zoom-in'};
-    if(!item||typeof item!=='object')return null;
-    const visual=String(item.visual||item.description||item.scene||item.environment||item.action_description||item.شرح||item.تصویر||'').trim();
-    const rawDialogue=item.dialogues||item.dialogue||item.lines||item.دیالوگ||[];
-    const dialogues=(Array.isArray(rawDialogue)?rawDialogue:[rawDialogue]).map(line=>{
-      if(typeof line==='string')return {speaker:String(item.speaker||'شخصیت اصلی'),text:line.trim()};
-      if(!line||typeof line!=='object')return null;
-      return {speaker:String(line.speaker||line.character||line.name||'شخصیت اصلی').trim(),text:String(line.text||line.line||line.dialogue||line.متن||'').trim()};
-    }).filter(line=>line&&line.text).slice(0,6);
-    const duration=Number(item.durationSeconds||item.duration||8);
-    return {visual:visual||String(item.storyText||item.text||('رویداد داستان در صحنه '+(index+1))),
-      location:String(item.location||item.environment||'').trim().slice(0,180),
-      timeOfDay:String(item.timeOfDay||item.time||'').trim().slice(0,80),
-      continuityNote:String(item.continuityNote||item.continuity||'').trim().slice(0,280),
-      shotType:['wide','medium','close'].includes(item.shotType)?item.shotType:'medium',
-      durationSeconds:Number.isFinite(duration)?Math.max(5,Math.min(14,Math.round(duration))):8,
-      dialogues,action:['idle','walk','run','jump','sway'].includes(item.action)?item.action:'walk',
-      emotion:['none','happy','sad','angry','surprised','worried','confused','sleepy'].includes(item.emotion)?item.emotion:'none',
-      gesture:['neutral','wave','talk','point','fist','hold'].includes(item.gesture)?item.gesture:(dialogues.length?'talk':'neutral'),
-      camera:['zoom-in','zoom-out','pan-left','pan-right'].includes(item.camera)?item.camera:'zoom-in'};
-  }).filter(Boolean).slice(0,8);
-  if(!scenes.length)throw new Error('مدل متن صحنهٔ معتبر تولید نکرد؛ تقسیم‌بندی داخلی فعال می‌شود.');
-  const characters=(Array.isArray(characterSource)?characterSource:[]).map((item,index)=>typeof item==='string'?{name:item,description:''}:{name:String(item?.name||item?.character||'').trim(),description:String(item?.description||item?.visual||'').trim()}).filter(item=>item.name).slice(0,4);
-  const inferred=Array.from(new Set(scenes.flatMap(scene=>scene.dialogues.map(line=>line.speaker)).filter(Boolean))).slice(0,4);
-  for(const name of inferred)if(!characters.some(item=>item.name===name))characters.push({name,description:''});
-  if(!characters.length)characters.push({name:'شخصیت اصلی',description:'شخصیت اصلی داستان با طراحی ثابت در تمام صحنه‌ها'});
-  liveBuildLog('فیلمنامه ساختاریافته دریافت شد؛ '+scenes.length+' صحنه و '+characters.length+' شخصیت شناسایی شد.');
-  return {characters,scenes,model:generated.model||'AI Horde text'};
+async function requestAutomaticScreenplay(story,status){
+  if(status)status.textContent='کارگردان محلی ToonVerse در حال تحلیل روایت و برنامه‌ریزی نماهاست...';
+  const screenplay=buildLocalFallbackScreenplay(story);
+  return window.AIAnimatorDirector
+    ?window.AIAnimatorDirector.enrichScreenplay(screenplay,story)
+    :screenplay;
 }
 function buildLocalFallbackScreenplay(seed){
   const story=String(seed||'').trim();
@@ -3602,64 +3531,22 @@ async function refreshFreeEngineManager(status){
   return {...freeEngineManagerState};
 }
 async function loadTextModels(){
-  // The model directory must never block the episode pipeline indefinitely.
-  let models=[];
-  try{
-    models=await apiFetch('/status/models?type=text',{timeoutMs:7000});
-  }catch(error){
-    smartTextModelChoices=[];
-    liveBuildLog('فهرست مدل‌های متن در ۷ ثانیه پاسخ نداد؛ تقسیم‌بندی داخلی فوراً جایگزین می‌شود.');
-    return [];
-  }
-  const available=Array.isArray(models)?models.filter(m=>m&&m.name&&Number(m.count||m.worker_count||0)>0):[];
-  available.sort((a,b)=>modelScore(a)-modelScore(b));
-  // Keep a large live text-model pool for sequential fallback when a model fails.
-  smartTextModelChoices=[...new Set(available.map(m=>String(m.name).trim()).filter(Boolean))].slice(0,100);
-  return smartTextModelChoices;
+  smartTextModelChoices=[];
+  return [];
 }
 async function generateStoryWithFreeTextEngine(){
   const button=$('aiStoryEngineButton'),status=$('aiStoryEngineStatus');
-  const seed=$('storyToScenesInput').value.trim();
-  if(!seed){setStatus('اول ایده یا خلاصه داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
-  if(!document.body.classList.contains('authenticated')){setStatus('برای استفاده از موتور متن، ابتدا وارد حساب برنامه شو.','var(--warn)');return;}
-  button.disabled=true;status.textContent='در حال پیدا کردن مدل‌های متن رایگان و فعال...';
+  const story=$('storyToScenesInput').value.trim();
+  if(!story){setStatus('اول داستان قسمت را وارد کن.','var(--warn)');$('storyToScenesInput').focus();return;}
+  button.disabled=true;
   try{
-    const models=(await loadTextModels()).slice(0,8);
-    if(!models.length)throw new Error('فعلاً هیچ پردازشگر متن فعالی در AI Horde پیدا نشد.');
-    const prompt='You are a screenwriter for an original family-friendly science-fiction comedy cartoon. Write a concise Persian screenplay for a 60-second episode based only on this idea. Return exactly 6 paragraphs, one scene per paragraph, in Persian. Each paragraph must include a clear visual action and, if suitable, one short spoken line. Keep character names consistent. Do not add headings, markdown, numbering, explanations, or extra paragraphs. Keep each paragraph under 45 Persian words.\n\nSTORY IDEA:\n'+seed;
-    status.textContent='موتور متن رایگان در حال نوشتن ۶ صحنه است. مدل‌های فعال: '+models.length+'؛ ممکن است صف انتظار داشته باشد...';
-    const submitted=await apiFetch('/generate/text/async',{method:'POST',body:JSON.stringify({
-      prompt,
-      params:{max_length:700,temperature:0.75,top_p:0.9,top_k:40,rep_pen:1.08},
-      models,
-      trusted_workers:false,
-      slow_workers:false,
-      extra_slow_workers:false,
-      allow_downgrade:true
-    })});
-    if(!submitted.id)throw new Error('شناسه درخواست متن از سرویس دریافت نشد.');
-    const started=Date.now();let finalResult=null;
-    while(Date.now()-started<90000){
-      await new Promise(resolve=>setTimeout(resolve,5000));
-      const check=await retrySafeGet('/generate/text/status/'+encodeURIComponent(submitted.id),2);
-      if(check.faulted)throw new Error('پردازشگر متن نتوانست درخواست را کامل کند.');
-      if(check.done){finalResult=check;break;}
-      const elapsed=Math.floor((Date.now()-started)/60000);
-      status.textContent='فیلمنامه در صف موتور متن رایگان است... زمان سپری‌شده: '+elapsed+' دقیقه';
-    }
-    if(!finalResult)throw new Error('موتور متن در ۹۰ ثانیه پاسخ نداد؛ برای جلوگیری از انتظار طولانی، درخواست متوقف شد.');
-    const generation=finalResult.generations&&finalResult.generations.find(item=>item&&[item.text,item.content,item.output,item.response].some(value=>typeof value==='string'&&value.trim()));
-    if(!generation)throw new Error('موتور متن پاسخ قابل استفاده‌ای برنگرداند.');
-    const rawText=String(generation.text||generation.content||generation.output||generation.response||'').trim();
-    if(!rawText)throw new Error('پاسخ مدل خالی بود.');
-    const screenplay=rawText.replace(/^\s*\x60{3}(?:[a-z]+)?\s*/i,'').replace(/\s*\x60{3}\s*$/,'').trim();
-    $('storyToScenesInput').value=screenplay;
+    const screenplay=await requestAutomaticScreenplay(story,status,[]);
+    status.textContent='کارگردان محلی ToonVerse، '+screenplay.scenes.length+' صحنه و '+screenplay.characters.length+' شخصیت را آماده کرد.';
     $('storyToScenesButton').click();
-    status.textContent='فیلمنامه با موتور متن AI Horde ساخته شد و به صحنه‌های اولیه تبدیل شد. مدل: '+(generation.model||'AI Horde text');
-    setStatus('فیلمنامه آماده شد؛ صحنه‌های اولیه در تایم‌لاین قرار گرفتند. حالا می‌توانی متن و دیالوگ‌ها را بازبینی کنی.');
+    setStatus('تحلیل داستان محلی انجام شد؛ صحنه‌های اولیه آماده‌اند.');
   }catch(error){
-    status.textContent='موتور متن فعلاً در دسترس نیست: '+error.message;
-    setStatus('ساخت فیلمنامه با موتور متن انجام نشد: '+error.message,'var(--warn)');
+    status.textContent='تحلیل داستان انجام نشد: '+String(error?.message||error);
+    setStatus('تحلیل داستان انجام نشد: '+String(error?.message||error),'var(--warn)');
   }finally{button.disabled=false;}
 }
 $('aiStoryEngineButton').addEventListener('click',generateStoryWithFreeTextEngine);
