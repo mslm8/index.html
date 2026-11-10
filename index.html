@@ -4623,15 +4623,28 @@ function createMotionClip() {
   const stream=canvas.captureStream(24);
   let audioContext=null,audioDestination=null;
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  const dialogueAudio=exportScenes.flatMap((scene,index)=>(scene.dialogues||[]).filter(item=>item.audioBuffer).map(item=>({buffer:item.audioBuffer,when:index*(Number($('motionDuration').value)*1000/exportScenes.length)/1000+(item.startAt??0)/100*(Number($('motionDuration').value)/exportScenes.length)})));
+  const episodeSeconds=Math.max(1,Number($('motionDuration').value)||60);
+  const sceneSeconds=episodeSeconds/Math.max(1,exportScenes.length);
+  const allDialogues=exportScenes.flatMap(scene=>(scene.dialogues||[]).filter(item=>item&&String(item.text||'').trim()));
+  const dialogueAudio=exportScenes.flatMap((scene,index)=>(scene.dialogues||[]).filter(item=>item&&item.audioBuffer).map(item=>{
+    const from=Math.max(0,Math.min(99,Number(item.startAt)||0));
+    const to=Math.max(from+1,Math.min(100,Number(item.endAt)||100));
+    return {buffer:item.audioBuffer,when:index*sceneSeconds+(from/100)*sceneSeconds,windowDuration:((to-from)/100)*sceneSeconds};
+  }));
+  if(allDialogues.length&&!dialogueAudio.length){
+    setStatus('این صحنه‌ها دیالوگ دارند، اما فایل صدایی برایشان بارگذاری نشده است. «شنیدن نمونه صدا» فقط پیش‌نمایش است و وارد ویدئو نمی‌شود. برای خروجی صدادار، برای هر دیالوگ فایل صوتی اضافه کن.','var(--warn)');
+  }
   if(dialogueAudio.length&&AudioCtx){
     try{
       audioContext=new AudioCtx();audioDestination=audioContext.createMediaStreamDestination();
-      dialogueAudio.forEach(clip=>{const node=audioContext.createBufferSource();node.buffer=clip.buffer;node.connect(audioDestination);clip.node=node;});
+      dialogueAudio.forEach(clip=>{
+        const node=audioContext.createBufferSource();node.buffer=clip.buffer;node.connect(audioDestination);clip.node=node;
+        clip.playDuration=Math.min(clip.buffer.duration,clip.windowDuration);
+      });
       stream.addTrack(audioDestination.stream.getAudioTracks()[0]);
-    }catch(error){audioContext=null;audioDestination=null;setStatus('ترکیب صدا در این مرورگر ممکن نشد؛ خروجی بدون صدا ساخته می‌شود.','var(--warn)');}
+    }catch(error){audioContext=null;audioDestination=null;setStatus('ترکیب صدا در این مرورگر ممکن نشد؛ خروجی بدون صدا ساخته می‌شود: '+error.message,'var(--warn)');}
   }
-  const candidates=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const candidates=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type))||'';
   let recorder;
   try{recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);}
@@ -4669,7 +4682,7 @@ function createMotionClip() {
     renderWatchdog=setTimeout(()=>{if(recorder.state==='recording'){renderFailure='زمان‌بندی رندر از حد مجاز گذشت؛ ضبط برای جلوگیری از انتظار بی‌پایان متوقف شد.';try{recorder.stop();}catch(_){button.disabled=false;liveBuildFinish(false,renderFailure);}}},totalDuration+20000);
     if(audioContext){
       const audioStart=audioContext.currentTime+0.04;
-      dialogueAudio.forEach(clip=>{try{clip.node.start(audioStart+clip.when);}catch(_){}});
+      dialogueAudio.forEach(clip=>{try{if(clip.playDuration>0)clip.node.start(audioStart+clip.when,0,clip.playDuration);}catch(error){liveBuildLog('پخش دیالوگ در خروجی ناموفق بود: '+error.message);}});
     }
     requestAnimationFrame(draw);
   }
