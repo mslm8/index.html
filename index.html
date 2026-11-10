@@ -3522,18 +3522,18 @@ async function refreshFreeEngineManager(status){
   smartModelChoices=imageModels.slice(0,40).map(model=>model.name);
   freeEngineManagerState={
     text:smartTextModelChoices.length>0,
-    image:smartModelChoices.length>0,
+    image:!!window.AIAnimatorImageEngine,
     canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',
     voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'
   };
   freeEngineManagerCheckedAt=Date.now();
   const labels=[];
   labels.push(freeEngineManagerState.text?'موتور متن آماده':'موتور متن فعلاً غیرفعال؛ تقسیم‌بندی داخلی جایگزین می‌شود');
-  labels.push(freeEngineManagerState.image?'موتور تصویر آماده':'موتور تصویر در دسترس نیست');
+  labels.push(freeEngineManagerState.image?'موتور تصویر داخلی آماده':'موتور تصویر داخلی بارگذاری نشده است');
   labels.push(freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود');
   labels.push(freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست');
   if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ');
-  if(!freeEngineManagerState.image&&status)status.textContent+=' · پس‌زمینه‌های داخلی جایگزین می‌شوند';
+  if(!freeEngineManagerState.image&&status)status.textContent+=' · تولید خودکار پس‌زمینه غیرفعال است';
   if(!freeEngineManagerState.canvas)throw new Error('این مرورگر از ضبط ویدیوی Canvas با MediaRecorder پشتیبانی نمی‌کند.');
   return {...freeEngineManagerState};
 }
