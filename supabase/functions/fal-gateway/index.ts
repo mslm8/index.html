@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
   "Vary": "Origin"
 };
-const MODELS = { image: Deno.env.get("FAL_IMAGE_MODEL") || "google/nano-banana-2.1", video: Deno.env.get("FAL_VIDEO_MODEL") || "bytedance/seedance-2.5/us/text-to-video", "image-to-video": Deno.env.get("FAL_I2V_MODEL") || "alibaba/wan-3.0-prime/image-to-video" };
+const MODELS = { image: Deno.env.get("FAL_IMAGE_MODEL") || "google/nano-banana-2.1", video: Deno.env.get("FAL_VIDEO_MODEL") || "bytedance/seedance-2.5/us/text-to-video", "image-to-video": Deno.env.get("FAL_I2V_MODEL") || "alibaba/wan-3.0-prime/image-to-video", "reference-video": "minimax/h3-max/reference-to-video" };
 
 function json(data: unknown, status = 200, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(data), {
@@ -178,13 +178,13 @@ Deno.serve(async (req: Request) => {
 
     const task = String(body.task || "");
     const model = MODELS[task as keyof typeof MODELS];
-    if (!model) return json({ error: "Unsupported task. Use image, video or image-to-video.", code: "UNSUPPORTED_TASK", request_id: requestId }, 400);
+    if (!model) return json({ error: "Unsupported task. Use image, video, image-to-video or reference-video.", code: "UNSUPPORTED_TASK", request_id: requestId }, 400);
 
     const headers = { "Authorization": "Key " + falKey, "Content-Type": "application/json" };
     let upstream: Response;
     if (action === "submit") {
       const prompt = String(body.prompt || "").trim();
-      if (prompt.length < 4 || prompt.length > (task === "image" ? 12000 : 5000)) return json({ error: "Prompt length is outside the supported range.", code: "INVALID_PROMPT" }, 400);
+      if (prompt.length < 4 || prompt.length > (task === "image" || task === "reference-video" ? 12000 : 5000)) return json({ error: "Prompt length is outside the supported range.", code: "INVALID_PROMPT" }, 400);
       let input: Record<string, unknown>;
       if (task === "image") {
         const resolution = String(body.resolution || "2K");
@@ -203,6 +203,28 @@ Deno.serve(async (req: Request) => {
           prompt, num_images: 1, aspect_ratio: aspectRatio, output_format: "png",
           resolution, thinking_level: "high", limit_generations: true,
           safety_tolerance: "4", ...(seed === undefined ? {} : { seed })
+        };
+      } else if (task === "reference-video") {
+        const refs = Array.isArray(body.reference_image_urls) ? body.reference_image_urls : [];
+        if (refs.length < 1 || refs.length > 9 || refs.some(url => typeof url !== "string" || !/^https:\/\//i.test(url) || url.length > 4096)) {
+          return json({ error: "Reference video requires 1 to 9 valid HTTPS character images.", code: "INVALID_REFERENCE_IMAGES", request_id: requestId }, 400);
+        }
+        const duration = Number(body.duration || 5);
+        if (!Number.isFinite(duration) || duration < 2 || duration > 15) {
+          return json({ error: "Reference video duration must be between 2 and 15 seconds.", code: "INVALID_DURATION", request_id: requestId }, 400);
+        }
+        const resolution = String(body.resolution || "768P");
+        if (!["480P", "768P", "1080P"].includes(resolution)) {
+          return json({ error: "Unsupported reference video resolution.", code: "INVALID_REFERENCE_RESOLUTION", request_id: requestId }, 400);
+        }
+        const promptExpansionMode = String(body.prompt_expansion_mode || "balanced");
+        if (!["disabled", "balanced", "quality"].includes(promptExpansionMode)) {
+          return json({ error: "Unsupported prompt expansion mode.", code: "INVALID_PROMPT_EXPANSION", request_id: requestId }, 400);
+        }
+        input = {
+          prompt, reference_image_urls: refs, duration, resolution,
+          prompt_expansion_mode: promptExpansionMode, aspect_ratio: "16:9",
+          enable_safety_checker: true
         };
       } else if (task === "video") {
         const duration = String(body.duration || "5");
