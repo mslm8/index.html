@@ -3684,8 +3684,18 @@ async function autoBuildEpisodeFromStory(){
       liveBuildLog('در فیلمنامه دیالوگ مشخصی پیدا نشد؛ خروجی شامل موسیقی و افکت‌های اصلی خواهد بود.');
     }
     nextScenes.forEach((scene,sceneIndex)=>{
-      const positions=speakerNames.length===1?[50]:speakerNames.length===2?[35,65]:[25,50,75];
-      scene.layers=autoCharacterRigs.flatMap((rig,characterIndex)=>rig.map(base=>{
+      const positionsByCount={1:[50],2:[35,65],3:[25,50,75],4:[18,39,61,82]};
+      const dialogueNames=(scene.dialogues||[]).map(item=>String(item.speaker||'').trim()).filter(Boolean);
+      const focusNames=Array.isArray(scene.characterFocus)?scene.characterFocus.map(name=>String(name||'').trim()).filter(Boolean):[];
+      const sceneText=[scene.storyText,...dialogueNames].join(' ').normalize('NFKC').toLocaleLowerCase();
+      const mentionedNames=speakerNames.filter(name=>sceneText.includes(String(name).normalize('NFKC').toLocaleLowerCase()));
+      const activeCharacterNames=Array.from(new Set([...focusNames,...dialogueNames,...mentionedNames])).filter(name=>speakerNames.includes(name));
+      // If the director did not provide usable staging clues, keep the full cast rather than accidentally dropping a participant.
+      if(!activeCharacterNames.length)activeCharacterNames.push(...speakerNames);
+      scene.activeCharacterNames=activeCharacterNames;
+      const activeRigs=autoCharacterRigs.filter((rig,index)=>activeCharacterNames.includes(speakerNames[index]));
+      const positions=positionsByCount[Math.min(4,Math.max(1,activeRigs.length))]||[50];
+      scene.layers=activeRigs.flatMap((rig,characterIndex)=>rig.map(base=>{
         const characterId=base.characterId;
         const speaking=scene.dialogues.some(item=>item.speakerId===characterId);
         const action=scene.autoDirection.action;
