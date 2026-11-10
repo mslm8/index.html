@@ -40,8 +40,8 @@
     if (preset && preset !== "story") return preset;
     const s = String(prompt || "").toLowerCase();
     if (/زیر آب|اقیانوس|دریا|ماهی|مرجان|underwater|ocean|coral|sea floor/.test(s)) return "underwater";
-    if (/فضا|سیاره|ستاره|کهکشان|فضاپیما|ماه|space|planet|galaxy|spaceship|asteroid|volcano/.test(s)) return "space";
     if (/آزمایشگاه|اتاق کنترل|راهرو|داخل|اتاق|سالن|laboratory|lab|interior|corridor|control room/.test(s)) return "interior";
+    if (/فضا|سیاره|ستاره|کهکشان|فضاپیما|ماه|space|planet|galaxy|spaceship|asteroid|volcano/.test(s)) return "space";
     if (/شهر|خیابان|آسمان.?خراش|ساختمان|پل|city|street|skyscraper|urban|buildings/.test(s)) return "city";
     if (/روستا|خانه|کلبه|مزرعه|دهکده|village|cottage|farm|rural/.test(s)) return "village";
     if (/قلعه|باستان|تاریخی|قصر|castle|ancient|historical|palace/.test(s)) return "historical";
