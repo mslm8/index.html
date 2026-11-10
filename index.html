@@ -441,7 +441,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 #storyToScenesPanel #liveProduction:not([hidden]) { display:block; }
 #storyToScenesPanel #storyToScenesInput { min-height:190px; }
 #storyToScenesPanel #autoEpisodeButton { width:100%; min-height:56px; font-size:18px; }
-  .cloud-video-optin,.cloud-video-notice{display:none!important}\n</style>
+  .cloud-video-optin,.cloud-video-notice,#backgroundUseCloudAI,#backgroundImageResolution{display:none!important}\n</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -1659,72 +1659,24 @@ async function generateLocalPromptImageUnlocked(){
   const source=$('prompt').value.trim();
   if(!source){setStatus('ابتدا شرح تصویر را بنویس.','var(--warn)');$('prompt').focus();return;}
   if(generationInProgress||activeRequestId||polling){setStatus('درخواست تصویر دیگری در حال اجراست؛ پس از پایان دوباره تلاش کن.','var(--warn)');return;}
-  const engine=window.AIAnimatorImageEngine;
-  if(!engine){setStatus('موتور تصویر داخلی بارگذاری نشده است. صفحه را تازه‌سازی کن.','var(--bad)');return;}
+  if(!window.ToonVerseFreeImage){setStatus('اتصال مدل تصویر رایگان بارگذاری نشده است. صفحه را تازه‌سازی کن.','var(--bad)');return;}
   const seedText=$('seed').value.trim();
   const seed=seedText===''?Math.floor(Math.random()*4294967295):Number(seedText);
   if(!Number.isSafeInteger(seed)||seed<0||seed>4294967295){setStatus('Seed باید عدد صحیحی بین صفر تا ۴۲۹۴۹۶۷۲۹۵ باشد.','var(--warn)');return;}
-  const moodMap={natural:'day',golden:'sunset',soft:'soft',dramatic:'dramatic',neon:'night',moon:'night'};
-  const paletteMap={natural:'consistent',warm:'warm',cool:'cool',pastel:'pastel',vivid:'vivid',mono:'muted'};
-  const compositionMap={wide:'establishing',medium:'medium',full:'layered',top:'layered',close:'minimal'};
-  const historySettings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id).value]));
-  button.disabled=true;
-  generationInProgress=true;
-  $('generate').disabled=true;
-  $('editImage').disabled=true;
-  setStatus('در حال اتصال به موتور تصویر FLUX.1-dev و آماده‌سازی شرح صحنه...');
+  const settings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id)?.value||'']));
+  const styleMap={none:'original polished animated illustration',photorealistic:'photorealistic cinematic image',cinematic:'cinematic animated feature-film concept art',anime:'high-quality anime illustration','3d':'polished 3D animated cartoon render',watercolor:'watercolor illustration',oil:'painterly oil illustration',pixel:'detailed pixel art',fantasy:'whimsical fantasy illustration'};
+  const framingMap={close:'close-up composition',medium:'medium shot',full:'full shot',wide:'wide establishing shot',top:'high-angle overhead view'};
+  const lightingMap={natural:'soft natural daylight',golden:'warm golden-hour sunlight',soft:'soft diffused lighting',dramatic:'dramatic directional lighting',neon:'colorful neon lighting',moon:'cool moonlight'};
+  const paletteMap={natural:'balanced natural colors',warm:'warm amber and earthy colors',cool:'cool blue and teal colors',pastel:'soft pastel colors',vivid:'rich vivid colors',mono:'monochrome black and white'};
+  const prompt=[source,'Create a coherent, high-quality original 2D animated-series illustration. Preserve described subjects, actions, costume details, facial features and spatial relationships. Professional background art, expressive clean linework, readable silhouettes, layered foreground, midground and background, coherent perspective, nuanced textures and cinematic composition.',styleMap[$('style').value]||styleMap.none,framingMap[$('framing').value]||'clear cinematic composition',lightingMap[$('lighting').value]||'balanced lighting',paletteMap[$('palette').value]||'cohesive color palette',$('negative').value.trim()?'Avoid: '+$('negative').value.trim():''].filter(Boolean).join('. ').slice(0,2600);
+  button.disabled=true;generationInProgress=true;$('generate').disabled=true;$('editImage').disabled=true;
+  setStatus('در حال اتصال به مدل تصویر رایگان Hugging Face ZeroGPU...');
   try{
-    let translated=source;
-    try{translated=await translateToEnglish(source);}catch(_){}
-    const styleMap={
-      none:'original animated illustration, polished professional visual development',
-      photorealistic:'photorealistic cinematic image',
-      cinematic:'cinematic animated feature-film concept art',
-      anime:'high-quality anime illustration',
-      '3d':'polished 3D animated cartoon render',
-      watercolor:'watercolor illustration',
-      oil:'rich painterly oil illustration',
-      pixel:'detailed pixel art',
-      fantasy:'detailed whimsical fantasy illustration'
-    };
-    const framingMap={close:'close-up composition',medium:'medium shot',full:'full shot',wide:'wide establishing shot',top:'high-angle overhead view'};
-    const lightingMap={natural:'soft natural daylight',golden:'warm golden-hour sunlight',soft:'soft diffused lighting',dramatic:'dramatic directional lighting',neon:'colorful neon lighting',moon:'cool moonlight'};
-    const paletteMapText={natural:'balanced natural colors',warm:'warm amber and earthy colors',cool:'cool blue and teal colors',pastel:'soft pastel colors',vivid:'rich vivid colors',mono:'monochrome black and white'};
-    const negative=$('negative').value.trim();
-    const prompt=[
-      translated,
-      'Create a highly detailed, coherent 2D animated-series illustration with original characters and environments. Preserve all described subjects, actions, costume details, facial features, and spatial relationships. Professional background art, expressive clean linework, readable silhouettes, layered foreground midground and background, coherent perspective, nuanced textures, cinematic composition.',
-      styleMap[$('style').value]||styleMap.none,
-      framingMap[$('framing').value]||'clear cinematic composition',
-      lightingMap[$('lighting').value]||'balanced lighting',
-      paletteMapText[$('palette').value]||'cohesive color palette',
-      negative?'Avoid: '+negative:''
-    ].filter(Boolean).join('. ').slice(0,2950);
-    setStatus('در حال تولید تصویر با FLUX.1-dev؛ این مرحله فقط با فشردن دکمه اجرا می‌شود...');
-    const {data,error}=await client.functions.invoke('fal-gateway',{body:{action:'huggingface-image',prompt}});
-    if(error) throw error;
-    if(data?.code==='HUGGINGFACE_NOT_CONFIGURED'){
-      setStatus('توکن موتور FLUX تنظیم نشده است؛ موتور برداری داخلی به‌عنوان جایگزین اجرا می‌شود.','var(--warn)');
-    }else if(data?.code==='HUGGINGFACE_CREDITS_EXHAUSTED'){
-      throw new Error('اعتبار رایگان Hugging Face تمام شده است. هیچ مسیر پولی دیگری اجرا نشد.');
-    }else if(!data?.ok||typeof data.image_data_url!=='string'||!/^data:image\/(?:png|jpeg|webp)/i.test(data.image_data_url)){
-      throw new Error(data?.error||'موتور FLUX خروجی تصویر معتبر برنگرداند.');
-    }else{
-      displayImage(data.image_data_url,String(seed),'Hugging Face · FLUX.1-dev',historySettings);
-      setStatus('تصویر با موتور FLUX.1-dev تولید شد. تصویر آمادهٔ مشاهده و ذخیره است.');
-      return;
-    }
-    const result=await engine.generateBackground({
-      prompt:source,sceneText:source,preset:'story',
-      mood:moodMap[$('lighting').value]||'match',
-      composition:compositionMap[$('framing').value]||'layered',
-      palette:paletteMap[$('palette').value]||'consistent',seed
-    });
-    if(!result||typeof result.dataUrl!=='string'||!/^data:image\/(?:png|svg\+xml)/i.test(result.dataUrl))throw new Error('موتور داخلی خروجی معتبر تولید نکرد.');
-    displayImage(result.dataUrl,String(seed),'موتور برداری داخلی · '+result.environment,historySettings);
-    setStatus('تصویر برداری ساخته شد · محیط: '+result.environment+' · '+result.width+'×'+result.height+' · بدون API.');
+    const image=await window.ToonVerseFreeImage.generate(prompt,{seed,onStatus:message=>setStatus(message,'var(--muted)')});
+    displayImage(image,String(seed),'Hugging Face ZeroGPU · Z-Image Turbo',settings);
+    setStatus('تصویر با مدل متن‌باز Z-Image Turbo تولید شد. محدودیت سهمیهٔ رایگان سرویس ممکن است اعمال شود.');
   }catch(error){
-    setStatus('تولید تصویر انجام نشد: '+String(error?.message||error),'var(--bad)');
+    setStatus('تولید تصویر رایگان انجام نشد: '+String(error?.message||error),'var(--bad)');
   }finally{
     generationInProgress=false;
     $('generate').disabled=smartModelChoices.length===0;
@@ -3393,35 +3345,19 @@ function stableStorySceneSeed(story,worldKey='shared-world'){
 }
 
 async function generateStudioBackground(prompt,status,options={}){
-  const engine=window.AIAnimatorImageEngine;
-  if(!engine||typeof engine.generateBackground!=='function')throw new Error('موتور تصویر داخلی بارگذاری نشده است؛ فایل image-engine.js را بررسی کن.');
   const cleanPrompt=String(prompt||'').trim().slice(0,2400);
   if(cleanPrompt.length<4)throw Object.assign(new Error('توضیح صحنه برای تصویرسازی کافی نیست.'),{code:'INVALID_PROMPT',retryable:false});
-  if(status)status.textContent='موتور داخلی تصویرسازی برداری: تحلیل محیط، رنگ و عمق صحنه...';
-  let referenceColors=[];
-  if(options.referenceDataUrl){
-    try{
-      referenceColors=await engine.extractPalette(options.referenceDataUrl);
-      if(referenceColors.length)liveBuildLog('رنگ‌های غالب تصویر مرجع استخراج شد؛ خود تصویر به هیچ سرویس بیرونی ارسال نمی‌شود.');
-    }catch(error){
-      liveBuildLog('استخراج رنگ از تصویر مرجع انجام نشد؛ پالت انتخاب‌شده استفاده می‌شود: '+String(error?.message||error).slice(0,140));
-    }
-  }
-  const result=await engine.generateBackground({
-    prompt:cleanPrompt,
-    sceneText:String(options.sceneText||cleanPrompt).slice(0,1200),
-    preset:options.preset||'story',
-    mood:options.mood||'match',
-    composition:options.composition||'layered',
-    palette:options.palette||'consistent',
-    referenceColors,
+  if(!window.ToonVerseFreeImage)throw new Error('درگاه مدل تصویر رایگان بارگذاری نشده است.');
+  liveBuildLog('درخواست تصویر به فضای عمومی ZeroGPU در Hugging Face ارسال می‌شود؛ بدون API پولی.');
+  if(status)status.textContent='در صف مدل تصویر متن‌باز Hugging Face ZeroGPU...';
+  const result=await window.ToonVerseFreeImage.generate(cleanPrompt,{
     seed:Number.isSafeInteger(options.seed)?options.seed:undefined,
-    sceneIndex:Number.isInteger(options.sceneIndex)?options.sceneIndex:0
+    onStatus:message=>{if(status)status.textContent=message;liveBuildLog(message);}
   });
-  if(!result||typeof result.dataUrl!=='string'||!/^data:image\/(?:png|svg\+xml)/i.test(result.dataUrl))throw new Error('موتور داخلی خروجی تصویری معتبر تولید نکرد.');
-  liveBuildLog('پس‌زمینه با موتور داخلی ساخته شد · محیط: '+result.environment+' · بوم: '+result.width+'×'+result.height+' · بدون API خارجی.');
-  if(status)status.textContent='تصویرسازی داخلی کامل شد · '+result.environment+' · '+result.width+'×'+result.height+' · بدون اینترنت و کلید API.';
-  return result.dataUrl;
+  if(typeof result!=='string'||!(/^(?:data:image\/|https:\/\/)/i.test(result)))throw new Error('مدل رایگان خروجی تصویر معتبر برنگرداند.');
+  liveBuildLog('تصویر صحنه از Hugging Face ZeroGPU دریافت شد؛ تولید برداری داخلی استفاده نشد.');
+  if(status)status.textContent='تصویر مولد رایگان آماده شد · Hugging Face ZeroGPU';
+  return result;
 }
 
 function storyFingerprint(value){
@@ -3640,7 +3576,7 @@ async function autoBuildEpisodeFromStory(){
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');
   if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
   if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
-  const cloudVideoEnabled=$('enablePaidCloudVideo')?.checked===true;
+  const cloudVideoEnabled=false; // Free-only mode: paid video inference is hard-disabled.
   button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
   if(!freeEngineManagerState.canvas){button.disabled=false;const message='ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
@@ -3657,10 +3593,10 @@ async function autoBuildEpisodeFromStory(){
       liveBuildLog('موتور ویدیوی ابری فعال است؛ هزینه هر صحنه از اعتبار Fal کسر خواهد شد.');
     }
     // Free-first mode: no remote model queue and no paid inference are invoked.
-    freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.AIAnimatorImageEngine;
+    freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.ToonVerseFreeImage;
     if(!freeEngineManagerState.image)throw new Error('موتور تصویر داخلی بارگذاری نشده است.');
     liveBuildLog('موتور کارگردان محلی ToonVerse فعال شد؛ تحلیل داستان بدون API و بدون هزینه انجام می‌شود.');
-    liveBuildLog('موتور تصویر فعلی پس‌زمینه‌های برداری می‌سازد؛ تولید تصویر عصبی در این حالت فعال نیست.');
+    liveBuildLog('پس‌زمینه‌ها از مدل مولد تصویر رایگان Hugging Face ZeroGPU دریافت می‌شوند؛ تصویرسازی برداری داخلی حذف شده است.');
     liveBuildUpdate(0,'کارگردان محلی در حال تحلیل داستان و ساخت فیلمنامه است.',8);
     let screenplay=buildLocalFallbackScreenplay(raw);
     if(window.AIAnimatorDirector){
@@ -3900,7 +3836,7 @@ async function autoBuildEpisodeFromStory(){
         if(typeof frame.decode==='function')await frame.decode();
         else await new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
         if(!frame.naturalWidth||!frame.naturalHeight)throw new Error('تصویر تولیدشده ابعاد معتبر ندارد.');
-        scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویرسازی برداری داخلی '+scene.name;
+        scene.backgroundImage=frame;scene.backgroundUrl=generatedUrl;scene.backgroundName='تصویر AI رایگان · Hugging Face ZeroGPU '+scene.name;
       }
       writeSceneRetryQueue(readSceneRetryQueue().filter(item=>!(item.storyHash===storyFingerprint(raw)&&item.sceneIndex===index)));
       renderMotionSceneList();renderMotionPreview();
@@ -3944,18 +3880,18 @@ async function refreshFreeEngineManager(status){
   smartModelChoices=imageModels.slice(0,40).map(model=>model.name);
   freeEngineManagerState={
     text:smartTextModelChoices.length>0,
-    image:!!window.AIAnimatorImageEngine,
+    image:!!window.ToonVerseFreeImage,
     canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',
     voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'
   };
   freeEngineManagerCheckedAt=Date.now();
   const labels=[];
   labels.push(freeEngineManagerState.text?'موتور متن آماده':'موتور متن فعلاً غیرفعال؛ تقسیم‌بندی داخلی جایگزین می‌شود');
-  labels.push(freeEngineManagerState.image?'موتور تصویر داخلی آماده':'موتور تصویر داخلی بارگذاری نشده است');
+  labels.push(freeEngineManagerState.image?'مدل تصویر رایگان Hugging Face آماده':'اتصال مدل تصویر رایگان در دسترس نیست');
   labels.push(freeEngineManagerState.canvas?'رندر ویدیو آماده':'رندر ویدیو در این مرورگر پشتیبانی نمی‌شود');
   labels.push(freeEngineManagerState.voicePreview?'صدای پیش‌نمایش مرورگر موجود':'صدای پیش‌نمایش موجود نیست');
   if(status)status.textContent='مدیر هوشمند: '+labels.join(' · ');
-  if(!freeEngineManagerState.image&&status)status.textContent+=' · تولید خودکار پس‌زمینه غیرفعال است';
+  if(!freeEngineManagerState.image&&status)status.textContent+=' · تولید پس‌زمینه فعلاً غیرفعال است';
   if(!freeEngineManagerState.canvas)throw new Error('این مرورگر از ضبط ویدیوی Canvas با MediaRecorder پشتیبانی نمی‌کند.');
   return {...freeEngineManagerState};
 }
@@ -4283,15 +4219,7 @@ async function generatePreparedBackground(index){
   const useReference=$('backgroundUseReference').checked;
   if(useReference&&!backgroundReferenceDataUrl)throw new Error('گزینه تصویر مرجع فعال است اما هنوز تصویری انتخاب نشده است.');
   let prompt=makeBackgroundPrompt(scene,index,motionScenes.length),status=$('backgroundStudioStatus');
-  const useCloudAI=$('backgroundUseCloudAI')?.checked===true;
-  if(useCloudAI&&useReference){
-    try{
-      const colors=await window.AIAnimatorImageEngine.extractPalette(backgroundReferenceDataUrl);
-      if(Array.isArray(colors)&&colors.length){
-        prompt+='\\n\\nREFERENCE PALETTE (sampled locally; no reference image is uploaded): '+colors.slice(0,5).join(', ')+'. Use these colors subtly while preserving scene-specific lighting.';
-      }
-    }catch(error){liveBuildLog('استخراج پالت مرجع برای مدل ابری انجام نشد: '+String(error?.message||error).slice(0,120));}
-  }
+  const useCloudAI=false; // Free-only mode: paid image inference is hard-disabled.
   const generatedUrl=useCloudAI
     ?await generateFalBackground(prompt,status,{
       resolution:$('backgroundImageResolution')?.value||'2K',
@@ -4309,7 +4237,7 @@ async function generatePreparedBackground(index){
   const image=new Image();if(useCloudAI)image.crossOrigin='anonymous';image.src=generatedUrl;
   if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;});
   const report=inspectBackgroundImage(image);
-  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه '+(useCloudAI?'هوش مصنوعی':'داخلی')+' صحنه '+(index+1),useCloudAI?'nano-banana-2.1':'studio-image-engine');
+  const asset=addPreparedBackground(image,generatedUrl,'پس‌زمینه AI رایگان صحنه '+(index+1),'huggingface-zerogpu-z-image-turbo');
   await asset.persistPromise;
   if(!applyPreparedBackgroundToScene(asset,index))throw new Error('تصویر ساخته شد اما اختصاص آن به صحنه ناموفق بود.');
   status.textContent='پس‌زمینه صحنه '+(index+1)+' آماده شد · '+report.width+'×'+report.height+(report.issues.length?' · هشدار کیفیت: '+report.issues.join('؛ '):useCloudAI?' · Nano Banana 2.1':' · موتور داخلی');
@@ -5816,7 +5744,7 @@ $('cancel').addEventListener('click', cancelRequest);
 
 })();
 </script>
-<script src="./image-engine.js" defer></script>
+<script src="./free-image-provider.js" defer></script>
 <script src="./production-rescue.js" defer></script>
 <script src="./manager.js" defer></script>
 <script src="./production-suite.js" defer></script>
