@@ -3478,22 +3478,22 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
     }
     return image;
   };
+  const outfitDetails=[
+    '<path d="M55 16 L110 83 L165 16 L150 278 L70 278 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="7" stroke-linejoin="round"/><path d="M55 17 L110 83 L165 17" fill="none" stroke="'+p.accent+'" stroke-width="10" stroke-linejoin="round"/><path d="M110 88 L110 265" stroke="#28283b" stroke-width="5"/><path d="M96 113 L110 128 L124 113 L119 166 L101 166 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="4"/>',
+    '<path d="M55 16 L110 83 L165 16 L150 278 L70 278 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="7" stroke-linejoin="round"/><path d="M55 18 L165 18 L177 278 L43 278 Z" fill="none" stroke="'+p.accent+'" stroke-width="8"/><path d="M110 88 L110 278" stroke="#28283b" stroke-width="6"/><path d="M62 176 L92 176 L92 215 L62 215 Z M128 176 L158 176 L158 215 L128 215 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="5"/><circle cx="110" cy="130" r="6" fill="'+p.accent+'"/><circle cx="110" cy="158" r="6" fill="'+p.accent+'"/>',
+    '<path d="M55 16 L110 83 L165 16 L150 278 L70 278 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="7" stroke-linejoin="round"/><path d="M55 18 Q110 49 165 18" fill="none" stroke="'+p.accent+'" stroke-width="11"/><path d="M74 188 Q110 164 146 188 L142 232 Q110 250 78 232 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/><path d="M87 199 L133 199 M87 215 L133 215" stroke="#28283b" stroke-width="5" stroke-linecap="round"/>',
+    '<path d="M55 16 L110 83 L165 16 L150 278 L70 278 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="7" stroke-linejoin="round"/><path d="M55 18 L165 18 L177 278 L43 278 Z" fill="none" stroke="'+p.accent+'" stroke-width="7"/><path d="M76 112 L144 112 M72 130 L148 130 M68 148 L152 148" stroke="'+p.accent+'" stroke-width="8" stroke-linecap="round"/><circle cx="110" cy="195" r="24" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/><path d="M100 195 L107 204 L123 184" fill="none" stroke="#28283b" stroke-width="6" stroke-linecap="round"/>'
+  ];
   const body=await make('تنه '+characterName,220,300,
-    '<path d="M55 12 Q110 -2 165 12 L205 74 L179 278 Q110 300 41 278 L15 74 Z" fill="#f2eadb" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/><path d="M55 15 L110 83 L165 15 L151 112 L110 143 L69 112 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="7" stroke-linejoin="round"/><path d="M110 84 L110 278" stroke="#28283b" stroke-width="6"/><path d="M75 176 Q110 190 145 176" fill="none" stroke="'+p.accent+'" stroke-width="12" stroke-linecap="round"/><circle cx="110" cy="151" r="8" fill="'+p.accent+'" stroke="#28283b" stroke-width="4"/>',
+    '<path d="M55 12 Q110 -2 165 12 L205 74 L179 278 Q110 300 41 278 L15 74 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="12" stroke-linejoin="round"/>'+outfitDetails[characterIndex%outfitDetails.length]+'<path d="M42 260 Q110 284 178 260" fill="none" stroke="#28283b" stroke-width="8" stroke-linecap="round"/>',
     'body',0,0,1.05);
   body.motion='idle';
-  const leftArm=await make('دست چپ '+characterName,76,176,
-    '<path d="M39 8 Q8 18 13 60 L22 125 Q17 151 35 158 Q54 160 56 139 L50 83 Q68 44 58 17 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M35 133 Q13 151 25 169 Q43 181 57 155 L51 136" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/>',
-    'arm-left',-38,-15,.92);
-  const rightArm=await make('دست راست '+characterName,76,176,
-    '<path d="M39 8 Q8 18 13 60 L22 125 Q17 151 35 158 Q54 160 56 139 L50 83 Q68 44 58 17 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M35 133 Q13 151 25 169 Q43 181 57 155 L51 136" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/>',
-    'arm-right',38,-15,.92);
-  const leftLeg=await make('پای چپ '+characterName,82,184,
-    '<path d="M18 8 Q58 -2 66 25 L57 132 Q51 153 34 151 L13 140 Q8 132 12 116 Z" fill="'+p.pants+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M15 132 Q-7 150 7 169 Q34 186 70 165 Q79 151 54 139 L34 147" fill="#f4e5c9" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/>',
-    'leg-left',-13,35,.92);
-  const rightLeg=await make('پای راست '+characterName,82,184,
-    '<path d="M18 8 Q58 -2 66 25 L57 132 Q51 153 34 151 L13 140 Q8 132 12 116 Z" fill="'+p.pants+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M15 132 Q-7 150 7 169 Q34 186 70 165 Q79 151 54 139 L34 147" fill="#f4e5c9" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/>',
-    'leg-right',13,35,.92);
+  const armArtwork='<path d="M39 8 Q8 18 13 60 L22 125 Q17 151 35 158 Q54 160 56 139 L50 83 Q68 44 58 17 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M22 126 Q38 137 55 128 L56 145 Q40 157 25 145 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/><path d="M35 133 Q13 151 25 169 Q43 181 57 155 L51 136" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M28 158 Q19 170 29 175 M37 160 Q31 175 41 178 M47 158 Q44 171 52 171" fill="none" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
+  const leftArm=await make('دست چپ '+characterName,76,176,armArtwork,'arm-left',-38,-15,.92);
+  const rightArm=await make('دست راست '+characterName,76,176,'<g transform="translate(76 0) scale(-1 1)">'+armArtwork+'</g>','arm-right',38,-15,.92);
+  const legArtwork='<path d="M18 8 Q58 -2 66 25 L57 132 Q51 153 34 151 L13 140 Q8 132 12 116 Z" fill="'+p.pants+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M15 132 Q-7 150 7 169 Q34 186 70 165 Q79 151 54 139 L34 147" fill="#f4e5c9" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M8 157 Q37 174 73 154" fill="none" stroke="'+p.accent+'" stroke-width="6" stroke-linecap="round"/><path d="M25 169 L58 169" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
+  const leftLeg=await make('پای چپ '+characterName,82,184,legArtwork,'leg-left',-13,35,.92);
+  const rightLeg=await make('پای راست '+characterName,82,184,'<g transform="translate(82 0) scale(-1 1)">'+legArtwork+'</g>','leg-right',13,35,.92);
   const faceShapes=[
     'M28 112 Q14 25 110 14 Q207 23 192 112 L181 166 Q151 211 110 211 Q69 211 39 166 Z',
     'M24 101 Q30 18 110 18 Q190 18 196 101 L185 169 Q166 207 110 211 Q54 207 35 169 Z',
