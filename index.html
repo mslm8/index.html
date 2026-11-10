@@ -441,7 +441,7 @@ body.authenticated .viewPanel textarea{unicode-bidi:plaintext}
 #storyToScenesPanel #liveProduction:not([hidden]) { display:block; }
 #storyToScenesPanel #storyToScenesInput { min-height:190px; }
 #storyToScenesPanel #autoEpisodeButton { width:100%; min-height:56px; font-size:18px; }
-</style>
+  .cloud-video-optin,.cloud-video-notice{display:none!important}\n</style>
 </head>
 <body>
 <section id="authGate" class="card">
@@ -3654,22 +3654,18 @@ async function autoBuildEpisodeFromStory(){
       if(!gateway.ok||!gateway.configured)throw new Error('موتور ابری فعال نیست یا کلید FAL_KEY در سرور تنظیم نشده است؛ هیچ درخواست تولیدی ارسال نشد.');
       liveBuildLog('موتور ویدیوی ابری فعال است؛ هزینه هر صحنه از اعتبار Fal کسر خواهد شد.');
     }
-    // Story generation must never query the shared anonymous AI Horde image pool.
-    const textModels=await loadTextModels();
-    freeEngineManagerState.text=textModels.length>0;freeEngineManagerState.image=false;
-    freeEngineManagerState.image=!!window.AIAnimatorImageEngine;
+    // Free-first mode: no remote model queue and no paid inference are invoked.
+    if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
+    if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
+    freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.AIAnimatorImageEngine;
     if(!freeEngineManagerState.image)throw new Error('موتور تصویر داخلی بارگذاری نشده است.');
-    liveBuildLog('موتور تصویر داخلی آماده است؛ تصویرسازی برداری به سرویس ابری یا کلید API نیاز ندارد.');
-    liveBuildUpdate(0,'موتور داخلی تصویر و موتور متن آماده‌اند؛ فیلمنامه در حال تولید است.',8);
-    let screenplay;
-    try{screenplay=await requestAutomaticScreenplay(raw,status,textModels);}
-    catch(error){
-      liveBuildLog('موتورهای متن پاسخ ندادند؛ تقسیم‌بندی محلی داستان به‌عنوان مسیر پشتیبان فعال شد: '+(error.message||String(error)));
-      screenplay=buildLocalFallbackScreenplay(raw);
-    }
+    liveBuildLog('موتور کارگردان محلی ToonVerse فعال شد؛ تحلیل داستان بدون API و بدون هزینه انجام می‌شود.');
+    liveBuildLog('موتور تصویر فعلی پس‌زمینه‌های برداری می‌سازد؛ تولید تصویر عصبی در این حالت فعال نیست.');
+    liveBuildUpdate(0,'کارگردان محلی در حال تحلیل داستان و ساخت فیلمنامه است.',8);
+    let screenplay=buildLocalFallbackScreenplay(raw);
     if(window.AIAnimatorDirector){
       screenplay=window.AIAnimatorDirector.enrichScreenplay(screenplay,raw);
-      liveBuildLog('کارگردان هوشمند: تداوم شخصیت، کنش، احساس، قاب دوربین و زمان‌بندی نماها تحلیل شد.');
+      liveBuildLog('کارگردان ToonVerse: شخصیت‌ها، پیوستگی روایت، کنش، احساس، قاب دوربین و زمان‌بندی نماها آماده شد.');
     }
     const plans=screenplay.scenes;
     const speakerIdFor=name=>'auto-speaker-'+Array.from(String(name||'شخصیت اصلی').trim()).map(char=>char.codePointAt(0).toString(16)).join('-');
@@ -5862,6 +5858,92 @@ $('cancel').addEventListener('click', cancelRequest);
     if (status) status.textContent = 'داستان منتقل شد؛ خط لولهٔ تولید خودکار آغاز می‌شود. اگر ورود به حساب خواسته شد، ابتدا وارد شو.';
     start.click();
   });
+})();
+</script>
+
+<script id="toonverse-director-engine-v1">
+/* ToonVerse Free Director Engine v1
+   Deterministic, on-device story analysis. No network calls, API keys or paid inference. */
+(function(){
+  'use strict';
+  const clean=v=>String(v||'').replace(/\s+/gu,' ').trim();
+  const splitSentences=text=>String(text||'').split(/(?<=[.!؟?])\s+|\n+/u).map(clean).filter(Boolean);
+  const lineDialogue=line=>{
+    const m=String(line||'').trim().match(/^([^:：]{1,32})[:：]\s*(.{2,220})$/u);
+    if(!m||/^(?:راوی|narrator|scene|صحنه)$/iu.test(m[1].trim()))return null;
+    return {speaker:clean(m[1]),text:clean(m[2])};
+  };
+  const palette=[
+    {color:'#63c7bd',outfit:'لباس فیروزه‌ای و جزئیات سرمه‌ای'},
+    {color:'#f2b65e',outfit:'لباس زرد گرم و جزئیات قهوه‌ای'},
+    {color:'#b49be8',outfit:'لباس بنفش و جزئیات آبی تیره'},
+    {color:'#ef8f9b',outfit:'لباس مرجانی و جزئیات زرشکی'}
+  ];
+  const detectAction=text=>{
+    const t=clean(text);
+    if(/می.?دود|دوید|فرار|تعقیب|شتاب|عجله/u.test(t))return 'run';
+    if(/می.?پرد|پرید|جهش|پرواز|از جا پرید/u.test(t))return 'jump';
+    if(/راه می.?رود|قدم|نزدیک شد|وارد شد|خارج شد|حرکت کرد/u.test(t))return 'walk';
+    if(/می.?چرخد|چرخید|تکان|لرزی/u.test(t))return 'sway';
+    return 'idle';
+  };
+  const detectEmotion=text=>{
+    const t=clean(text);
+    if(/خند|شاد|خوشحال|لبخند|هیجان/u.test(t))return 'happy';
+    if(/ترس|نگران|وحشت|مضطرب/u.test(t))return 'worried';
+    if(/عصبانی|خشم|داد زد|دعوا/u.test(t))return 'angry';
+    if(/تعجب|باور نکرد|شگفت|ناگهان/u.test(t))return 'surprised';
+    if(/غمگین|گریه|اندوه|ناراحت/u.test(t))return 'sad';
+    if(/گیج|سردرگم|متوجه نشد/u.test(t))return 'confused';
+    return 'none';
+  };
+  const detectLocation=text=>{
+    const t=clean(text);
+    const choices=[
+      [/فضا|سفینه|سیاره|کهکشان|مدار/u,'فضای بیرونی و محیط علمی‌تخیلی'],
+      [/آزمایشگاه|ربات|دستگاه|آزمایش/u,'آزمایشگاه علمی'],
+      [/مدرسه|کلاس|دانش.?آموز/u,'محیط مدرسه'],
+      [/خانه|اتاق|آشپزخانه|حیاط/u,'خانه و فضای داخلی'],
+      [/جنگل|درخت|رودخانه|کوه/u,'طبیعت و فضای باز'],
+      [/شهر|خیابان|میدان|ساختمان/u,'خیابان‌های شهر']
+    ];
+    return (choices.find(([re])=>re.test(t))||[])[1]||'محیط داستان، مطابق جزئیات متن';
+  };
+  function enrichScreenplay(screenplay,raw){
+    const story=String(raw||'').trim();
+    const lines=story.split(/\n+/u).map(x=>x.trim()).filter(Boolean);
+    const dialogueLines=lines.map(lineDialogue).filter(Boolean);
+    const names=Array.from(new Set(dialogueLines.map(x=>x.speaker))).slice(0,4);
+    const characters=(names.length?names:['قهرمان']).map((name,i)=>({
+      name,
+      description:'شخصیت کارتونی دوبعدی اصیل با طراحی ثابت؛ '+palette[i%palette.length].outfit+'، رنگ شاخص '+palette[i%palette.length].color+'، فرم چهره خوانا و تناسبات یکسان در تمام صحنه‌ها.'
+    }));
+    const beats=splitSentences(story).filter(x=>!lineDialogue(x));
+    const source=beats.length?beats:[story];
+    const count=Math.max(1,Math.min(6,source.length));
+    const scenes=Array.from({length:count},(_,i)=>{
+      const start=Math.floor(i*source.length/count),end=Math.max(start+1,Math.floor((i+1)*source.length/count));
+      const chunk=source.slice(start,end).join(' ');
+      const related=dialogueLines.filter(d=>chunk.includes(d.text)||lines.some(line=>line.includes(d.text)&&chunk.includes(lineDialogue(line)?.speaker||'\u0000')));
+      const action=detectAction(chunk),emotion=detectEmotion(chunk);
+      const location=detectLocation(chunk);
+      const shotType=emotion!=='none'?'close':(action==='run'||action==='jump'?'wide':'medium');
+      const sceneDialogues=related.slice(0,3);
+      return {
+        visual:'لحظه‌ای وفادار به داستان: '+chunk+'؛ شخصیت‌های حاضر: '+(sceneDialogues.map(d=>d.speaker).join('، ')||names.join('، ')||'قهرمان')+'؛ محیط: '+location+'؛ ترکیب‌بندی خوانا و پس‌زمینهٔ دوبعدی هماهنگ.',
+        location,timeOfDay:'متناسب با فضای روایت',
+        continuityNote:'طراحی، لباس و رنگ شخصیت‌ها در تمام نماها ثابت بماند؛ ترتیب رویدادها دقیقاً مطابق متن اصلی حفظ شود.',
+        directorNotes:'کنش اصلی در مرکز قاب؛ پس‌زمینه ساده و قابل‌خواندن؛ فضای کافی برای حرکت شخصیت‌ها.',
+        shotType,durationSeconds:Math.max(5,Math.min(12,7+Math.ceil(chunk.length/95))),
+        dialogues:sceneDialogues,
+        action,emotion,gesture:sceneDialogues.length?'talk':(action==='idle'?'neutral':'wave'),
+        camera:['zoom-in','pan-right','zoom-out','pan-left','zoom-in','pan-right'][i%6],
+        characterFocus:sceneDialogues.map(d=>d.speaker)
+      };
+    });
+    return {characters,scenes};
+  }
+  window.AIAnimatorDirector={version:'1.0.0-free',mode:'local-deterministic',enrichScreenplay};
 })();
 </script>
 </body>
