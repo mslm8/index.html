@@ -1652,6 +1652,9 @@ async function editCurrentImage() {
   return runWithGenerationLock(editCurrentImageUnlocked);
 }
 async function generateLocalPromptImage(){
+  return runWithGenerationLock(generateLocalPromptImageUnlocked);
+}
+async function generateLocalPromptImageUnlocked(){
   const button=$('generateLocalImage');
   const source=$('prompt').value.trim();
   if(!source){setStatus('ابتدا شرح تصویر را بنویس.','var(--warn)');$('prompt').focus();return;}
@@ -1666,6 +1669,9 @@ async function generateLocalPromptImage(){
   const compositionMap={wide:'establishing',medium:'medium',full:'layered',top:'layered',close:'minimal'};
   const historySettings=Object.fromEntries(['prompt','negative','aspect','size','quality','style','framing','lighting','palette','depth','focusTarget','cameraAngle','cameraDistance','seed'].map(id=>[id,$(id).value]));
   button.disabled=true;
+  generationInProgress=true;
+  $('generate').disabled=true;
+  $('editImage').disabled=true;
   setStatus('موتور تصویر داخلی در حال ساخت تصویر برداری در همین مرورگر است...');
   try{
     const result=await engine.generateBackground({
