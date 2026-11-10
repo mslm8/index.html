@@ -93,32 +93,18 @@
       rows.push({ name: "Supabase Auth", ok: response.ok, detail: "HTTP " + response.status });
     } catch (error) { rows.push({ name: "Supabase Auth", ok: false, detail: redact(error.message || error) }); }
     try {
-      const response = await timeoutFetch("https://shiny-field-9b69.mslmadelt8.workers.dev/health");
-      const body = await response.json().catch(() => ({}));
-      rows.push({ name: "Cloudflare Worker", ok: response.ok && body.ok !== false, detail: "HTTP " + response.status + (body.engine ? " · " + body.engine : "") });
-    } catch (error) { rows.push({ name: "Cloudflare Worker", ok: false, detail: redact(error.message || error) }); }
+      const engine = window.AIAnimatorImageEngine;
+      if (!engine || typeof engine.generateBackground !== "function") throw new Error("فایل موتور تصویر داخلی بارگذاری نشده است.");
+      const sample = await engine.generateBackground({ prompt: "آزمایش داخلی · سیاره و ستاره", preset: "space", seed: 42 });
+      const valid = !!sample && typeof sample.dataUrl === "string" && sample.dataUrl.startsWith("data:image/svg+xml");
+      rows.push({ name: "موتور تصویر داخلی", ok: valid, detail: valid ? "موتور برداری آفلاین آماده است؛ بدون API، سرویس ابری یا کلید." : "خروجی موتور داخلی معتبر نیست." });
+    } catch (error) { rows.push({ name: "موتور تصویر داخلی", ok: false, detail: redact(error.message || error) }); }
     try {
-      if (!client || !session) throw new Error("برای بررسی درگاه، ابتدا وارد حساب شو.");
+      if (!client || !session) throw new Error("برای بررسی درگاه اختیاری fal.ai، ابتدا وارد حساب شو.");
       const result = await client.functions.invoke("fal-gateway", { body: { action: "health" } });
       if (result.error) throw result.error;
-      rows.push({ name: "Supabase fal-gateway", ok: !!result.data?.ok, detail: result.data?.cloudflareImageCredentialState || "پاسخ سلامت دریافت شد؛ دسترسی واقعی مدل با تولید آزمایشی مشخص می‌شود." });
-    } catch (error) { rows.push({ name: "Supabase fal-gateway", ok: false, detail: redact(error.message || error) }); }
-    try {
-      if (!client || !session) throw new Error("برای بررسی کاتالوگ مدل‌ها، ابتدا وارد حساب شو.");
-      const result = await client.functions.invoke("studio-manager", { body: { action: "cloudflare-model-catalog" } });
-      if (result.error) throw result.error;
-      if (!result.data?.ok) {
-        const details = result.data?.code || "خطای نامشخص";
-        rows.push({ name: "کاتالوگ مدل‌های تصویری Cloudflare", ok: false, detail: details + (result.data?.httpStatus ? " · HTTP " + result.data.httpStatus : "") });
-      } else {
-        const listed = (result.data.imageModelCandidates || []).filter(item => item.listedInAccountCatalog).map(item => item.id.split("/").slice(-1)[0]);
-        rows.push({
-          name: "کاتالوگ مدل‌های تصویری Cloudflare",
-          ok: listed.length > 0,
-          detail: listed.length ? "مدل‌های موجود در کاتالوگ حساب: " + listed.join("، ") : "هیچ‌یک از مدل‌های تصویری شناخته‌شده در کاتالوگ حساب پیدا نشد."
-        });
-      }
-    } catch (error) { rows.push({ name: "کاتالوگ مدل‌های تصویری Cloudflare", ok: false, detail: redact(error.message || error) }); }
+      rows.push({ name: "درگاه اختیاری fal.ai", ok: !!result.data?.ok, detail: result.data?.configured ? "درگاه پولی اختیاری پیکربندی شده؛ موتور داخلی به آن وابسته نیست." : "درگاه اختیاری تنظیم نشده؛ موتور داخلی مستقل کار می‌کند." });
+    } catch (error) { rows.push({ name: "درگاه اختیاری fal.ai", ok: false, detail: redact(error.message || error) }); }
     try {
       if (!client || !session) throw new Error("برای بررسی موتور مدیر، ابتدا وارد حساب شو.");
       const result = await client.functions.invoke("studio-manager", { body: { action: "health" } });
