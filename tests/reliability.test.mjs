@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const gateway = fs.readFileSync(new URL('../supabase/functions/fal-gateway/index.ts', import.meta.url), 'utf8');
 
 function extractFunction(name) {
   const marker = 'async function ' + name + '(';
@@ -134,4 +135,19 @@ test('retrySafeGet succeeds after one transient failure', async () => {
   const result = await context.retrySafeGet('/status/models', 2);
   assert.equal(result.done, true);
   assert.equal(calls, 2);
+});
+
+
+test('character model sheets lock identity and enforce natural hand proportions', () => {
+  assert.match(html, /character-model-sheet-v2/);
+  assert.match(html, /CHARACTER MODEL SHEET/);
+  assert.match(html, /hands must be compact and proportionate to the forearms and face, never oversized/i);
+  assert.match(html, /five correctly attached fingers with natural spacing/i);
+  assert.match(html, /matching front, side and back turnarounds/i);
+});
+
+test('image gateway distinguishes character sheets from scene illustrations', () => {
+  assert.match(gateway, /identify whether the request is a character model sheet or a scene\/background illustration/i);
+  assert.match(gateway, /never exaggerate hand size unless explicitly requested/i);
+  assert.match(gateway, /Respect the requested cartoon, anime, 2D, 3D or painterly style consistently/i);
 });
