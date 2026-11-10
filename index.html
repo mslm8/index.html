@@ -3492,11 +3492,20 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
     'body',0,0,1.05);
   body.motion='idle';
   const upperArmArtwork='<path d="M39 6 Q9 15 13 48 L22 91 Q25 108 39 108 Q55 106 55 91 L50 48 Q66 20 57 9 Z" fill="'+p.shirt+'" stroke="#28283b" stroke-width="10" stroke-linejoin="round"/><path d="M22 88 Q38 99 55 88 L55 103 Q39 114 24 102 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="6"/>';
-  const forearmArtwork='<path d="M23 8 Q38 0 53 9 L55 65 Q57 82 45 89 L27 89 Q15 82 17 65 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M19 69 Q37 80 54 68 L56 84 Q39 98 21 84 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="5"/><path d="M23 83 Q8 99 22 108 Q39 119 56 96 L49 83" fill="'+p.skin+'" stroke="#28283b" stroke-width="8" stroke-linejoin="round"/><path d="M19 101 Q12 112 23 116 M31 104 Q25 117 37 119 M44 102 Q41 114 51 112" fill="none" stroke="#28283b" stroke-width="4" stroke-linecap="round"/>';
+  const forearmArtwork='<path d="M23 8 Q38 0 53 9 L55 65 Q57 82 45 89 L27 89 Q15 82 17 65 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="9" stroke-linejoin="round"/><path d="M19 69 Q37 80 54 68 L56 84 Q39 98 21 84 Z" fill="'+p.accent+'" stroke="#28283b" stroke-width="5"/><path d="M22 86 Q37 94 54 85" fill="none" stroke="#28283b" stroke-width="5" stroke-linecap="round"/>';
   const leftArm=await make('بازوی بالایی چپ '+characterName,76,116,upperArmArtwork,'arm-left',-39,-18,.94);
   const rightArm=await make('بازوی بالایی راست '+characterName,76,116,'<g transform="translate(76 0) scale(-1 1)">'+upperArmArtwork+'</g>','arm-right',39,-18,.94);
   const leftForearm=await make('ساعد و دست چپ '+characterName,70,124,forearmArtwork,'forearm-left',0,0,.94);
   const rightForearm=await make('ساعد و دست راست '+characterName,70,124,'<g transform="translate(70 0) scale(-1 1)">'+forearmArtwork+'</g>','forearm-right',0,0,.94);
+  const handArtwork='<path d="M17 70 Q10 66 12 56 L15 31 Q16 24 22 26 Q27 27 26 34 L26 48 L28 13 Q29 5 35 6 Q41 6 40 14 L39 44 L43 18 Q44 10 50 12 Q56 14 53 22 L49 47 L56 31 Q60 25 65 30 Q70 34 65 43 L55 67 Q51 77 39 78 L27 78 Q20 77 17 70 Z" fill="'+p.skin+'" stroke="#28283b" stroke-width="6" stroke-linejoin="round"/><path d="M25 54 Q38 60 54 52" fill="none" stroke="#b97861" stroke-width="3" stroke-linecap="round"/><path d="M18 72 Q38 84 57 70" fill="none" stroke="'+p.accent+'" stroke-width="5" stroke-linecap="round"/>';
+  const leftHand=await make('مچ و دست چپ '+characterName,76,86,handArtwork,'hand-left',0,0,.94);
+  const rightHand=await make('مچ و دست راست '+characterName,76,86,'<g transform="translate(76 0) scale(-1 1)">'+handArtwork+'</g>','hand-right',0,0,.94);
+  for(const [hand,forearm,side] of [[leftHand,leftForearm,'left'],[rightHand,rightForearm,'right']]){
+    hand.parentLayerId=forearm.rigId;
+    hand.jointX=50;hand.jointY=70;
+    hand.jointOffsetX=0;hand.jointOffsetY=26;
+    hand.rigRole='hand-'+side;
+  }
   for(const [forearm,upper,side] of [[leftForearm,leftArm,'left'],[rightForearm,rightArm,'right']]){
     forearm.parentLayerId=upper.rigId;
     forearm.jointX=50;forearm.jointY=78;
@@ -3531,7 +3540,7 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   head.mouthMode='talk';head.mouthX=50;head.mouthY=73;
   head.eyeAnimation=true;head.blinkRate=2+characterIndex;head.eyeY=57;head.leftEyeX=35;head.rightEyeX=66;
   head.characterStyleIndex=characterIndex%4;
-  return [leftArm,rightArm,leftForearm,rightForearm,leftLeg,rightLeg,body,head];
+  return [leftArm,rightArm,leftForearm,rightForearm,leftHand,rightHand,leftLeg,rightLeg,body,head];
 }
 
 async function autoBuildEpisodeFromStory(){
@@ -3645,6 +3654,7 @@ async function autoBuildEpisodeFromStory(){
         const head=base.rigRole==='head';
         const role=String(base.rigRole||'');
         const arm=role.startsWith('arm-')||role.startsWith('forearm-');
+        const hand=role.startsWith('hand-');
         const leg=String(base.rigRole||'').startsWith('leg-');
         const motion=root?(action==='run'?'run':action==='jump'?'jump':action==='walk'?'walk':action==='sway'?'sway':'idle'):'still';
         const x=positions[characterIndex];
@@ -3673,6 +3683,18 @@ async function autoBuildEpisodeFromStory(){
             {at:28,x,y:65+lift,rotation:swing},
             {at:54,x,y:65+lift*.7,rotation:gesture==='wave'?-swing*.72:swing*.42},
             {at:78,x,y:65+lift*.3,rotation:gesture==='wave'?swing*.55:-swing*.18},
+            {at:100,x,y:65,rotation:0}
+          ];
+        }
+        if(hand){
+          const sign=role.endsWith('left')?-1:1;
+          const gesture=scene.autoDirection.gesture;
+          const wristSwing=gesture==='wave'?sign*24:gesture==='talk'?sign*12:sign*3;
+          layer.motionKeys=[
+            {at:0,x,y:65,rotation:0},
+            {at:25,x,y:65+(gesture==='wave'?-2:0),rotation:wristSwing},
+            {at:50,x,y:65,rotation:gesture==='wave'?-wristSwing*.8:wristSwing*.45},
+            {at:75,x,y:65,rotation:gesture==='wave'?wristSwing*.65:0},
             {at:100,x,y:65,rotation:0}
           ];
         }
