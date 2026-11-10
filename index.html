@@ -2889,7 +2889,9 @@ function inferSceneDirection(scene,index){
     has(/\b(reveal|کشف|آشکار|نگاه\s*کن)\b/u)?'zoom-in':
     has(/\b(دور\s*می\s*شود|خروج|خداحافظ|تمام)\b/u)?'zoom-out':
     ['zoom-in','pan-right','zoom-out','pan-left'][index%4];
-  return {action,emotion,camera,gesture:has(/\b(wave|سلام|دست\s*تکان|اشاره|point|اشاره\s*می)\b/u)?'wave':
+  return {action,emotion,camera,gesture:has(/\b(سلام|دست\s*تکان|wave)\b/u)?'wave':
+    has(/\b(اشاره|point|نشان\s*می\s*دهد)\b/u)?'point':
+    has(/\b(مشت|fist)\b/u)?'fist':
     has(/\b(نه|اعتراض|بحث|توضیح|می\s*گوید|گفت)\b/u)?'talk':'neutral'};
 }
 $('autoSceneMotionButton').addEventListener('click',()=>{
