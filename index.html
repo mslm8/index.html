@@ -3172,9 +3172,9 @@ async function generateFalVideoScene(prompt,status){
       const video=document.createElement('video');
       video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;video.preload='auto';video.src=url;
       await new Promise((resolve,reject)=>{
-        if(video.readyState>=1&&video.videoWidth){resolve();return;}
+        if(video.readyState>=2&&video.videoWidth){resolve();return;}
         const timer=setTimeout(()=>reject(new Error('بارگذاری کلیپ ویدیویی بیش از حد طول کشید.')),45000);
-        video.addEventListener('loadedmetadata',()=>{clearTimeout(timer);resolve();},{once:true});
+        video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true});
         video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('مرورگر نتوانست کلیپ ویدیویی را از CDN دریافت کند.'));},{once:true});
       });
       if(!video.videoWidth||!video.videoHeight)throw new Error('ابعاد ویدیوی دریافتی معتبر نیست.');
@@ -4384,15 +4384,20 @@ function drawAnimatedMouth(ctx,layer,width,height,progress,dialogues){
 function renderMotionPreview() {
   const canvas=$('motionPreviewCanvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');if(!ctx)return;
-  const source=$('result'),scene=motionScenes[activeMotionScene],background=scene?.backgroundImage,baseImage=background&&background.naturalWidth?background:source,progress=Number($('motionPlayhead').value)/100;
+  const source=$('result'),scene=motionScenes[activeMotionScene],background=scene?.backgroundImage,backgroundReady=hasVisualFrame(background),baseImage=backgroundReady?background:source,progress=Number($('motionPlayhead').value)/100;
   ctx.fillStyle='#101323';ctx.fillRect(0,0,canvas.width,canvas.height);
-  if(baseImage&&baseImage.complete&&baseImage.naturalWidth){
+  if(baseImage&&hasVisualFrame(baseImage)){
     const source=baseImage;
+    const dimensions=visualFrameSize(source);
     const baseMotion=$('motion').value;
     const baseIsSprite=['move-right','move-left','bounce','rotate','fade'].includes(baseMotion);
-    const scale=Math.max(canvas.width/source.naturalWidth,canvas.height/source.naturalHeight);
-    const fit=Math.min((canvas.width*.62)/source.naturalWidth,(canvas.height*.62)/source.naturalHeight);
-    if(background&&background.naturalWidth){
+    const scale=Math.max(canvas.width/dimensions.width,canvas.height/dimensions.height);
+    const fit=Math.min((canvas.width*.62)/dimensions.width,(canvas.height*.62)/dimensions.height);
+    if(backgroundReady){
+      if(background instanceof HTMLVideoElement&&background.readyState>=2){
+        if(background.duration&&Number.isFinite(background.duration)){try{background.currentTime=Math.min(background.duration-.05,progress*background.duration);}catch(_){}}
+        const previewPlay=background.play();if(previewPlay?.catch)previewPlay.catch(()=>{});
+      }
       drawSceneBackground(ctx,background,progress,scene?.cameraMotion||'zoom-in');
     }else if(baseIsSprite){
       const w=source.naturalWidth*fit,h=source.naturalHeight*fit;
