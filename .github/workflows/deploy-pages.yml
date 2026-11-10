@@ -39,7 +39,7 @@ jobs:
           if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + [...new Set(duplicates)].join(', '));
           const required = ['requestAutomaticScreenplay', 'extractScreenplayObject', 'generateStudioBackground', 'renderMotionPreview', 'pollRequest'];
           for (const name of required) if (!html.includes(name)) throw new Error('Required animation pipeline component missing: ' + name);
-          if (!html.includes('./image-engine.js')) throw new Error('Built-in image engine script is not loaded by the app.');
+          if (!html.includes('./free-image-provider.js')) throw new Error('Free Hugging Face image provider is not loaded by the app.');
           const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
           let checked = 0;
           for (const [, attrs, source] of scripts) {
