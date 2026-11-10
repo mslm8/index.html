@@ -1672,22 +1672,59 @@ async function generateLocalPromptImageUnlocked(){
   generationInProgress=true;
   $('generate').disabled=true;
   $('editImage').disabled=true;
-  setStatus('موتور تصویر داخلی در حال ساخت تصویر برداری در همین مرورگر است...');
+  setStatus('در حال اتصال به موتور تصویر FLUX.1-dev و آماده‌سازی شرح صحنه...');
   try{
+    let translated=source;
+    try{translated=await translateToEnglish(source);}catch(_){}
+    const styleMap={
+      none:'original animated illustration, polished professional visual development',
+      photorealistic:'photorealistic cinematic image',
+      cinematic:'cinematic animated feature-film concept art',
+      anime:'high-quality anime illustration',
+      '3d':'polished 3D animated cartoon render',
+      watercolor:'watercolor illustration',
+      oil:'rich painterly oil illustration',
+      pixel:'detailed pixel art',
+      fantasy:'detailed whimsical fantasy illustration'
+    };
+    const framingMap={close:'close-up composition',medium:'medium shot',full:'full shot',wide:'wide establishing shot',top:'high-angle overhead view'};
+    const lightingMap={natural:'soft natural daylight',golden:'warm golden-hour sunlight',soft:'soft diffused lighting',dramatic:'dramatic directional lighting',neon:'colorful neon lighting',moon:'cool moonlight'};
+    const paletteMapText={natural:'balanced natural colors',warm:'warm amber and earthy colors',cool:'cool blue and teal colors',pastel:'soft pastel colors',vivid:'rich vivid colors',mono:'monochrome black and white'};
+    const negative=$('negative').value.trim();
+    const prompt=[
+      translated,
+      'Create a highly detailed, coherent 2D animated-series illustration with original characters and environments. Preserve all described subjects, actions, costume details, facial features, and spatial relationships. Professional background art, expressive clean linework, readable silhouettes, layered foreground midground and background, coherent perspective, nuanced textures, cinematic composition.',
+      styleMap[$('style').value]||styleMap.none,
+      framingMap[$('framing').value]||'clear cinematic composition',
+      lightingMap[$('lighting').value]||'balanced lighting',
+      paletteMapText[$('palette').value]||'cohesive color palette',
+      negative?'Avoid: '+negative:''
+    ].filter(Boolean).join('. ').slice(0,2950);
+    setStatus('در حال تولید تصویر با FLUX.1-dev؛ این مرحله فقط با فشردن دکمه اجرا می‌شود...');
+    const {data,error}=await client.functions.invoke('fal-gateway',{body:{action:'huggingface-image',prompt}});
+    if(error) throw error;
+    if(data?.code==='HUGGINGFACE_NOT_CONFIGURED'){
+      setStatus('توکن موتور FLUX تنظیم نشده است؛ موتور برداری داخلی به‌عنوان جایگزین اجرا می‌شود.','var(--warn)');
+    }else if(data?.code==='HUGGINGFACE_CREDITS_EXHAUSTED'){
+      throw new Error('اعتبار رایگان Hugging Face تمام شده است. هیچ مسیر پولی دیگری اجرا نشد.');
+    }else if(!data?.ok||typeof data.image_data_url!=='string'||!/^data:image\/(?:png|jpeg|webp)/i.test(data.image_data_url)){
+      throw new Error(data?.error||'موتور FLUX خروجی تصویر معتبر برنگرداند.');
+    }else{
+      displayImage(data.image_data_url,String(seed),'Hugging Face · FLUX.1-dev',historySettings);
+      setStatus('تصویر با موتور FLUX.1-dev تولید شد. تصویر آمادهٔ مشاهده و ذخیره است.');
+      return;
+    }
     const result=await engine.generateBackground({
-      prompt:source,
-      sceneText:source,
-      preset:'story',
+      prompt:source,sceneText:source,preset:'story',
       mood:moodMap[$('lighting').value]||'match',
       composition:compositionMap[$('framing').value]||'layered',
-      palette:paletteMap[$('palette').value]||'consistent',
-      seed
+      palette:paletteMap[$('palette').value]||'consistent',seed
     });
     if(!result||typeof result.dataUrl!=='string'||!/^data:image\/(?:png|svg\+xml)/i.test(result.dataUrl))throw new Error('موتور داخلی خروجی معتبر تولید نکرد.');
     displayImage(result.dataUrl,String(seed),'موتور برداری داخلی · '+result.environment,historySettings);
-    setStatus('تصویر برداری ساخته شد · محیط: '+result.environment+' · '+result.width+'×'+result.height+' · بدون API و بدون ارسال داده به سرور.');
+    setStatus('تصویر برداری ساخته شد · محیط: '+result.environment+' · '+result.width+'×'+result.height+' · بدون API.');
   }catch(error){
-    setStatus('ساخت تصویر داخلی ناموفق بود: '+String(error?.message||error),'var(--bad)');
+    setStatus('تولید تصویر انجام نشد: '+String(error?.message||error),'var(--bad)');
   }finally{
     generationInProgress=false;
     $('generate').disabled=smartModelChoices.length===0;
