@@ -3638,7 +3638,9 @@ async function autoBuildEpisodeFromStory(){
   if(!document.body.classList.contains('authenticated')){setStatus('برای ساخت خودکار، ابتدا از بخش حساب با گوگل وارد برنامه شو.','var(--warn)');return;}
   if(generationInProgress||activeRequestId||polling){setStatus('یک تولید تصویر دیگر در حال اجراست؛ بعد از پایان آن دوباره تلاش کن.','var(--warn)');return;}
   const button=$('autoEpisodeButton'),status=$('aiStoryEngineStatus');
-  const cloudVideoEnabled=false; // Free-only build: paid video inference is hard-disabled.
+  if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
+  if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
+  const cloudVideoEnabled=$('enablePaidCloudVideo')?.checked===true;
   button.disabled=true;liveBuildStart();
   freeEngineManagerState={text:false,image:false,canvas:typeof document!=='undefined'&&!!document.createElement('canvas').getContext&&typeof MediaRecorder!=='undefined',voicePreview:typeof window!=='undefined'&&!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=='undefined'};
   if(!freeEngineManagerState.canvas){button.disabled=false;const message='ضبط ویدیو در این مرورگر پشتیبانی نمی‌شود.';setStatus(message,'var(--warn)');liveBuildFinish(false,message);return;}
@@ -3655,8 +3657,6 @@ async function autoBuildEpisodeFromStory(){
       liveBuildLog('موتور ویدیوی ابری فعال است؛ هزینه هر صحنه از اعتبار Fal کسر خواهد شد.');
     }
     // Free-first mode: no remote model queue and no paid inference are invoked.
-    if($('enablePaidCloudVideo'))$('enablePaidCloudVideo').checked=false;
-    if($('enablePaidCharacterReferences'))$('enablePaidCharacterReferences').checked=false;
     freeEngineManagerState.text=true;freeEngineManagerState.image=!!window.AIAnimatorImageEngine;
     if(!freeEngineManagerState.image)throw new Error('موتور تصویر داخلی بارگذاری نشده است.');
     liveBuildLog('موتور کارگردان محلی ToonVerse فعال شد؛ تحلیل داستان بدون API و بدون هزینه انجام می‌شود.');
