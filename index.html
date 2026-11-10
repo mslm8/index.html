@@ -3520,7 +3520,7 @@ async function createAutomaticCharacterRig(characterName,characterIndex){
   for(const [pose,artwork] of [['open',handArtwork],['fist',fistArtwork],['point',pointArtwork]]){
     for(const [forearm,side,mirror] of [[leftForearm,'left',false],[rightForearm,'right',true]]){
       const svg=mirror?'<g transform="translate(76 0) scale(-1 1)">'+artwork+'</g>':artwork;
-      const hand=await make('دست '+pose+' '+side+' '+characterName,76,86,svg,'hand-'+pose+'-'+side,0,0,.68);
+      const hand=await make('دست '+pose+' '+side+' '+characterName,76,86,svg,'hand-'+pose+'-'+side,0,0,.48);
       hand.parentLayerId=forearm.rigId;hand.jointX=50;hand.jointY=70;
       hand.jointOffsetX=0;hand.jointOffsetY=26;hand.rigRole='hand-'+pose+'-'+side;
       hand.handPose=pose;handLayers.push(hand);
