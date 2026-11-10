@@ -95,6 +95,15 @@ test('story-only episode build creates automatic six-part character rigs', () =>
   assert.ok(build.includes('scene.autoDirection.gesture'), 'Story gesture analysis must drive automatic arm animation');
 });
 
+test('story video defaults to widescreen and renderer supports mobile aspect ratios', () => {
+  const buildStart = html.indexOf('async function autoBuildEpisodeFromStory');
+  const buildEnd = html.indexOf("$('autoEpisodeButton').addEventListener", buildStart);
+  const build = html.slice(buildStart, buildEnd);
+  assert.match(build, /\$\('aspect'\)\.value='wide'/);
+  assert.match(html, /square:\[960,960\],landscape:\[960,720\],portrait:\[720,960\],wide:\[960,540\],tall:\[540,960\]/);
+  assert.match(html, /canvas\.width=videoDimensions\[0\];canvas\.height=videoDimensions\[1\]/);
+});
+
 test('automatic episode render keeps generated character layers attached to scene one', () => {
   const start = html.indexOf('async function autoBuildEpisodeFromStory');
   const end = html.indexOf("$('autoEpisodeButton').addEventListener", start);
