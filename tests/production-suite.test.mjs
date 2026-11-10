@@ -260,3 +260,22 @@ test('scene gestures select one visible hand pose and render opacity in preview 
   assert.match(build, /layer\.opacity=base\.handPose===desiredPose\?1:0/);
   assert.match(html, /alpha=Math\.max\(0,Math\.min\(1,Number\(layer\.opacity\?\?1\)\)\)/);
 });
+
+
+test('automatic rigs attach reusable story props to the grasping hand', () => {
+  const start = html.indexOf('async function createAutomaticCharacterRig');
+  const end = html.indexOf('async function autoBuildEpisodeFromStory', start);
+  const rig = html.slice(start, end);
+  assert.match(rig, /const propArtworks=/);
+  assert.match(rig, /prop\.parentLayerId=rightFist\.rigId/);
+  assert.match(rig, /\['cup','book','phone','orb'\]/);
+  assert.match(rig, /\.\.\.propLayers/);
+});
+
+test('screenplay detects object-specific holding and renders only the matching prop', () => {
+  const infer = html.slice(html.indexOf('function inferSceneDirection'), html.indexOf("$('autoSceneMotionButton')", html.indexOf('function inferSceneDirection')));
+  assert.match(infer, /holding&&propType!=='none'\?'hold'/);
+  const build = html.slice(html.indexOf('async function autoBuildEpisodeFromStory'), html.indexOf("$('autoEpisodeButton').addEventListener"));
+  assert.match(build, /gesture==='fist'\|\|gesture==='hold'\?'fist'/);
+  assert.match(build, /scene\.autoDirection\.gesture==='hold'&&base\.propType===requested\?1:0/);
+});
