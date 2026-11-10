@@ -45,6 +45,25 @@
     if(type==='dropdown'||type==='radio')return Array.isArray(props.choices)?(props.choices[0]?.[0]??props.choices[0]??null):null;
     return null;
   }
+  function valueForInput(component,prompt,options,isPrompt){
+    if(isPrompt)return prompt;
+    const type=componentType(component),props=propsOf(component);
+    const label=String(props.label||'').toLowerCase();
+    if(type==='checkbox'&&/random seed|تصادفی/u.test(label))return options.seed==null;
+    if((type==='slider'||type==='number')&&/height/u.test(label))return clampDimension(options.height,props);
+    if((type==='slider'||type==='number')&&/width/u.test(label))return clampDimension(options.width,props);
+    if((type==='slider'||type==='number')&&/inference steps|steps/u.test(label))return 9;
+    if(type==='number'&&/seed/u.test(label))return Number.isSafeInteger(options.seed)?options.seed:(Number.isFinite(props.value)?props.value:42);
+    return defaultInput(component);
+  }
+  function clampDimension(value,props){
+    const fallback=Number.isFinite(props.value)?props.value:1024;
+    const number=Number.isFinite(value)?value:fallback;
+    const min=Number.isFinite(props.minimum)?props.minimum:512;
+    const max=Number.isFinite(props.maximum)?props.maximum:2048;
+    const step=Number.isFinite(props.step)?props.step:64;
+    return Math.max(min,Math.min(max,Math.round(number/step)*step));
+  }
   function parseSse(body){
     const blocks=String(body||'').split(/\r?\n\r?\n/);
     for(const block of blocks){
@@ -97,7 +116,7 @@
     setStatus(status,'در حال بررسی فضای عمومی مدل تصویر Z-Image Turbo...');
     const config=await getConfig();
     const {dependency,components,promptInput}=chooseEndpoint(config);
-    const data=dependency.inputs.map(id=>id===promptInput?clean:defaultInput(components.get(id)));
+    const data=dependency.inputs.map(id=>valueForInput(components.get(id),clean,options,id===promptInput));
     const apiName=String(dependency.api_name).replace(/^\/+/, '');
     setStatus(status,'درخواست به صف رایگان Hugging Face ZeroGPU ارسال شد...');
     const submitted=await fetchTimed(SPACE_HOST+'/gradio_api/call/'+apiName,{
